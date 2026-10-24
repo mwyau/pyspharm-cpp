@@ -282,6 +282,7 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
     lmax = 8
     latitude_storage = np.array([-90, -65, -20, 0, 35, 71, 90], dtype=np.float64)
     latitudes = latitude_storage[::2]
+    latitudes.flags.writeable = False
     pnm = spharm.legendre_many(latitudes, lmax, dtype=dtype)
     assert pnm.shape == (4, (lmax + 1) * (lmax + 2) // 2)
     assert pnm.dtype == np.dtype(dtype)
@@ -354,6 +355,15 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
             atol=2e-6 if dtype is np.float32 else 5e-14,
         )
 
+    empty_latitudes = np.empty(0, dtype=np.float64)
+    empty_pbar = spharm.legendre_many(empty_latitudes, 16, dtype=dtype)
+    empty_values = spharm.specintrp_many(
+        np.empty(0, dtype=np.float64), spec, empty_pbar
+    )
+    assert empty_pbar.shape == (0, pbar.shape[1])
+    assert empty_values.shape == (0,)
+    assert empty_values.dtype == np.dtype(dtype)
+
 
 def test_batched_interpolation_rejects_mismatched_precision():
     longitudes = np.array([0.0, 45.0])
@@ -404,6 +414,8 @@ def test_batched_interpolation_strided_inputs(dtype, cdtype):
 
     negative_spec_storage = spec[::-1].copy()
     negative_pbar_storage = pbar[:, ::-1].copy()
+    for values in (longitudes, spec_view, coefficient_view, point_view):
+        values.flags.writeable = False
     reversed_coefficients = spharm.specintrp_many(
         longitudes, negative_spec_storage[::-1], negative_pbar_storage[:, ::-1]
     )

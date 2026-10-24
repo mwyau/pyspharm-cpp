@@ -27,9 +27,32 @@ precision and truncation. Disassembly of the `x86-64-v3` object contains YMM
 float32 and float64 arithmetic; this confirms vector instructions are present,
 but does not measure their contribution to runtime.
 
-The auxiliary timing pass used the default single-thread setting. It measures
-the SIMD changes, not scaling from the kernel-level parallel loops added later;
-thread-count equivalence for those loops is covered by
+The coefficient-lane interpolation variant was discarded after its medians
+were about 4.7× slower for float32 and 6.4× slower for float64. Point-lane SIMD is
+used for interpolation. A four-lane Legendre tail also slowed small batches;
+the final kernel uses native-width SIMD batches and a scalar tail.
+
+The kernel thread-scaling pass measured the current implementation at 1, 2,
+and 4 threads with [`benchmark_auxiliary.py`](benchmark_auxiliary.py). It used
+four bounded cases: 8 points at `lmax=16`, 64 at `lmax=64`, 128 at `lmax=256`,
+and 16 at `lmax=1024`. Each timing is the median of 7 repetitions after 2
+warmups. Inputs were preallocated, and the estimated working set was below
+256 MiB. The runs used the same processor and affinity, with CPython 3.12.13,
+NumPy 1.26.4, and the `x86-64-v3` profile.
+
+The table reports the median speedup across the four cases per operation and
+precision. Speedup is the one-thread time divided by the 2- or 4-thread time.
+
+| Operation | Precision | 2 threads: median (range) | 4 threads: median (range) |
+| --- | --- | ---: | ---: |
+| `legendre_many` | float32 | 1.25× (1.04–2.04) | 1.24× (1.08–2.66) |
+| `legendre_many` | float64 | 1.56× (1.02–1.76) | 2.58× (1.07–2.86) |
+| `specintrp_many` | float32 | 1.05× (1.01–2.02) | 1.18× (1.00–2.73) |
+| `specintrp_many` | float64 | 1.49× (1.03–1.97) | 1.93× (1.04–3.39) |
+
+The small-low case remained near one-thread latency because it has fewer than
+four SIMD batches and bypasses DUCC scheduling. Larger cases showed speedups of
+up to 3.39×. Thread-count equivalence for these kernels is covered by
 [`test_threading.py`](../tests/test_threading.py).
 
 The batched transform comparison used baseline commit `2e40674`. It covered
@@ -50,6 +73,9 @@ across 8 cases per operation was:
 
 The speedup is baseline time divided by candidate time. Single-thread medians
 were close to the baseline; wind analysis ranged from 5% slower to 10% faster.
-The candidate assigned independent fields to DUCC workers while each field
-transform used one inner thread. Wind synthesis uses DUCC's transform-level
-threading and is not assigned an outer field schedule.
+The candidate assigned fields to DUCC workers for batches of at least four
+fields on grids of at least 32,768 pixels, with one DUCC thread per field
+transform. Wind synthesis uses DUCC's transform-level threading and is not
+assigned an outer field schedule. Its field-batched workspace variant was
+reverted after 16-field float64 single-thread timings rose from 5.86 to 9.30 ms
+on the medium grid and from 38.5 to 53.3 ms on the large grid.

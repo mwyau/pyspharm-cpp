@@ -32,6 +32,12 @@ std::size_t truncation_from_count(std::size_t);
 std::size_t coefficient_count(std::size_t);
 std::vector<double> real_vector(const CNpArr&, const char*);
 
+inline std::size_t packed_coefficient_index(std::size_t lmax, std::size_t m,
+                                            std::size_t l)
+{
+  return m * (2 * lmax - m + 3) / 2 + (l - m);
+}
+
 inline std::size_t configured_nthreads()
 {
   static const std::size_t requested = []

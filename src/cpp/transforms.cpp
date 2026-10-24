@@ -67,7 +67,7 @@ FieldExecutionPlan field_execution_plan(std::size_t nfield, std::size_t nlat,
                                         std::size_t nlon)
 {
   const auto capacity = configured_nthreads();
-  constexpr std::size_t min_pixels = 8192;
+  constexpr std::size_t min_pixels = 32768;  // Medium Gaussian benchmark grid.
   const bool enough_pixels =
       nlon != 0 && nlat >= min_pixels / nlon + (min_pixels % nlon != 0);
   if (nfield >= 4 && capacity > 1 && enough_pixels)
@@ -150,7 +150,7 @@ void convert_ducc_to_py(DUCC0_NAMESPACE::vmav<std::complex<T>, 2>& alms,
   for (std::size_t m = 0; m <= lmax; ++m)
     for (std::size_t l = m; l <= lmax; ++l)
     {
-      const std::size_t idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+      const auto idx = packed_coefficient_index(lmax, m, l);
       const T nyquist_factor = (nlon % 2 == 0 && m == nlon / 2) ? T(0.5) : T(1);
       alms(0, idx) *= static_cast<T>(coefficient_sign(m) * nyquist_factor / sqrt_2pi);
     }
@@ -233,7 +233,7 @@ NpArr spectral_to_grid(const CNpArr& spec, std::size_t nlat, std::size_t nlon,
             for (std::size_t m = 0; m <= lmax; ++m)
               for (std::size_t l = m; l <= lmax; ++l)
               {
-                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                const auto idx = packed_coefficient_index(lmax, m, l);
                 storage[idx] =
                     sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
               }
@@ -299,7 +299,7 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
             for (std::size_t m = 0; m <= lmax; ++m)
               for (std::size_t l = m; l <= lmax; ++l)
               {
-                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                const auto idx = packed_coefficient_index(lmax, m, l);
                 scratch.alms[idx] =
                     sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
               }
@@ -394,7 +394,7 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
             for (std::size_t m = 0; m <= lmax; ++m)
               for (std::size_t l = m; l <= lmax; ++l)
               {
-                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                const auto idx = packed_coefficient_index(lmax, m, l);
                 const double degree = static_cast<double>(l);
                 const double lambda = degree * (degree + 1.0);
                 const double coefficient_scale =
@@ -441,7 +441,7 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
     for (std::size_t m = 0; m <= lmax; ++m)
       for (std::size_t l = m; l <= lmax; ++l)
       {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+        const auto idx = packed_coefficient_index(lmax, m, l);
         if (l == 0)
           continue;
         const double degree = static_cast<double>(l);
@@ -486,7 +486,7 @@ NpArr apply_inverse_laplacian(const CNpArr& spec, double rsphere)
     for (std::size_t m = 0; m <= lmax; ++m)
       for (std::size_t l = m; l <= lmax; ++l)
       {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+        const auto idx = packed_coefficient_index(lmax, m, l);
         const auto from = spec.ndim() == 1
                               ? static_cast<std::ptrdiff_t>(idx)
                               : static_cast<std::ptrdiff_t>(idx) * input.stride(0) +
@@ -523,7 +523,7 @@ NpArr apply_smoothing(const CNpArr& spec, const CNpArr& smooth)
     for (std::size_t m = 0; m <= lmax; ++m)
       for (std::size_t l = m; l <= lmax; ++l)
       {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+        const auto idx = packed_coefficient_index(lmax, m, l);
         const auto from = batched ? static_cast<std::ptrdiff_t>(idx) * input.stride(0) +
                                         static_cast<std::ptrdiff_t>(f) * input.stride(1)
                                   : static_cast<std::ptrdiff_t>(idx);

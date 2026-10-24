@@ -106,6 +106,17 @@ quota; use an explicit thread count for controlled runs.
 Measurements for `legendre_many`, `specintrp_many`, and batched transform
 threading are summarized in [SIMD and batched transform measurements](simd-batch-threading.md).
 
+To measure the auxiliary kernels at 1, 2, and 4 threads, run one process per
+thread count because the setting is read on the first numerical call:
+
+```sh
+for threads in 1 2 4; do
+  uv run --locked python benchmarks/benchmark_auxiliary.py \
+    --threads "$threads" --warmups 2 --repeats 7 \
+    --output "/tmp/auxiliary-${threads}.csv"
+done
+```
+
 The plotting script also accepts the committed combined CSV:
 
 ```sh

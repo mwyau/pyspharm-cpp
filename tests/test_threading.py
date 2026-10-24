@@ -161,7 +161,9 @@ def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
         ntrunc = 128
         npoints = 65
         latitudes = np.linspace(-89.0, 89.0, npoints)
-        longitudes = np.linspace(-1440.0, 1440.0, npoints)
+        latitudes[0] = -90.0
+        latitudes[7] = 90.0
+        longitudes = np.linspace(-1440.0, 1440.0, latitudes.size)
         output = {}
         for suffix, dtype, cdtype in (
             ("32", np.float32, np.complex64),
@@ -177,24 +179,42 @@ def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
                 longitudes, spectrum, legendre
             )
 
-        lmax = 60
-        for suffix, dtype in (("32", np.float32), ("64", np.float64)):
-            transform = spharm.Spharmt(128, 64, gridtype="gaussian", dtype=dtype)
-            grid = rng.standard_normal((64, 128, 4)).astype(dtype)
-            east = rng.standard_normal((64, 128, 4)).astype(dtype)
-            north = rng.standard_normal((64, 128, 4)).astype(dtype)
-            spectrum = transform.grdtospec(grid, lmax)
-            vort, div = transform.getvrtdivspec(east, north, lmax)
-            output[f"sht_analysis_{suffix}"] = spectrum
-            output[f"sht_synthesis_{suffix}"] = transform.spectogrd(spectrum)
-            output[f"sht_vorticity_{suffix}"] = vort
-            output[f"sht_divergence_{suffix}"] = div
-            output[f"sht_winds_{suffix}"] = np.stack(transform.getuv(vort, div))
+        lmax = 120
+        for gridtype in ("regular", "gaussian"):
+            for suffix, dtype in (("32", np.float32), ("64", np.float64)):
+                transform = spharm.Spharmt(
+                    256, 128, gridtype=gridtype, dtype=dtype
+                )
+                grid = rng.standard_normal((128, 256, 4)).astype(dtype)
+                east = rng.standard_normal((128, 256, 4)).astype(dtype)
+                north = rng.standard_normal((128, 256, 4)).astype(dtype)
+                grid.flags.writeable = False
+                east.flags.writeable = False
+                north.flags.writeable = False
+                spectrum = transform.grdtospec(grid, lmax)
+                vort, div = transform.getvrtdivspec(east, north, lmax)
+                spectrum.flags.writeable = False
+                vort.flags.writeable = False
+                div.flags.writeable = False
+                output[f"sht_analysis_{gridtype}_{suffix}"] = spectrum
+                output[f"sht_synthesis_{gridtype}_{suffix}"] = transform.spectogrd(
+                    spectrum
+                )
+                eastward, northward = transform.getgrad(spectrum)
+                output[f"sht_gradient_{gridtype}_{suffix}"] = np.stack(
+                    (eastward, northward)
+                )
+                output[f"sht_vorticity_{gridtype}_{suffix}"] = vort
+                output[f"sht_divergence_{gridtype}_{suffix}"] = div
+                output[f"sht_winds_{gridtype}_{suffix}"] = np.stack(
+                    transform.getuv(vort, div)
+                )
         np.savez(sys.argv[1], **output)
         """
     )
     configurations = (
         ("default", None, None),
+        ("ducc-two", "2", "1"),
         ("ducc-four", "4", "1"),
         ("omp-four", None, "4"),
         ("all-threads", "0", "1"),
@@ -225,7 +245,7 @@ def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
         output_paths[name] = output_path
 
     with np.load(output_paths["default"]) as reference:
-        for name in ("ducc-four", "omp-four", "all-threads"):
+        for name in ("ducc-two", "ducc-four", "omp-four", "all-threads"):
             with np.load(output_paths[name]) as actual:
                 for key in reference.files:
                     if key.startswith("sht_"):

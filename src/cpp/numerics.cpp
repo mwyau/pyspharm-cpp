@@ -164,6 +164,50 @@ void normalize_legendre_scale(Tv& previous, Tv& current,
   current *= factor;
 }
 
+std::pair<double, double> legendre_recurrence_coefficients(std::size_t l, std::size_t m)
+{
+  const double ld = static_cast<double>(l), md = static_cast<double>(m);
+  const double lp = ld + md, lm = ld - md;
+  const double a = std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm));
+  const double b =
+      std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) / ((2 * ld - 3) * lp * lm));
+  return {a, b};
+}
+
+template <typename T, typename Store>
+void legendre_scalar_kernel(T x, T s, std::size_t lmax, Store&& store)
+{
+  T diagonal = static_cast<T>(1.0 / std::sqrt(2.0));
+  int diagonal_exponent = 0;
+  for (std::size_t m = 0; m <= lmax; ++m)
+  {
+    const auto base = packed_coefficient_index(lmax, m, m);
+    store(base, restore_legendre_scale(diagonal, diagonal_exponent));
+    if (m < lmax)
+    {
+      T previous = diagonal;
+      T current =
+          x * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * diagonal;
+      int exponent = diagonal_exponent;
+      normalize_legendre_scale(previous, current, exponent);
+      store(base + 1, restore_legendre_scale(current, exponent));
+      for (std::size_t l = m + 2; l <= lmax; ++l)
+      {
+        const auto [a, b] = legendre_recurrence_coefficients(l, m);
+        const T next = static_cast<T>(a) * x * current - static_cast<T>(b) * previous;
+        previous = current;
+        current = next;
+        normalize_legendre_scale(previous, current, exponent);
+        store(base + (l - m), restore_legendre_scale(current, exponent));
+      }
+      const double md = static_cast<double>(m + 1);
+      diagonal =
+          s * static_cast<T>(std::sqrt((2.0 * md + 1.0) / (2.0 * md))) * diagonal;
+      normalize_legendre_scale(diagonal, diagonal_exponent);
+    }
+  }
+}
+
 template <typename T>
 NpArr legendre_values(double latitude, std::size_t lmax)
 {
@@ -182,42 +226,9 @@ NpArr legendre_values(double latitude, std::size_t lmax)
     return result;
   }
   const double phi = latitude * pi / 180.0;
-  const double x = std::sin(phi);
-  const double s = std::cos(phi);
-  double diagonal = 1.0 / std::sqrt(2.0);
-  int diagonal_exponent = 0;
-  for (std::size_t m = 0; m <= lmax; ++m)
-  {
-    const auto base = m * (2 * lmax - m + 3) / 2;
-    values.data()[base] =
-        static_cast<T>(restore_legendre_scale(diagonal, diagonal_exponent));
-    if (m < lmax)
-    {
-      double previous = diagonal;
-      double current = x * std::sqrt(2.0 * static_cast<double>(m) + 3) * diagonal;
-      int exponent = diagonal_exponent;
-      normalize_legendre_scale(previous, current, exponent);
-      values.data()[base + 1] =
-          static_cast<T>(restore_legendre_scale(current, exponent));
-      for (std::size_t l = m + 2; l <= lmax; ++l)
-      {
-        const double ld = static_cast<double>(l), md = static_cast<double>(m);
-        const double lp = ld + md, lm = ld - md;
-        const double a = std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm));
-        const double b =
-            std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) / ((2 * ld - 3) * lp * lm));
-        const double next = a * x * current - b * previous;
-        previous = current;
-        current = next;
-        normalize_legendre_scale(previous, current, exponent);
-        values.data()[base + (l - m)] =
-            static_cast<T>(restore_legendre_scale(current, exponent));
-      }
-      const double md = static_cast<double>(m + 1);
-      diagonal *= s * std::sqrt((2.0 * md + 1) / (2.0 * md));
-      normalize_legendre_scale(diagonal, diagonal_exponent);
-    }
-  }
+  const auto store = [&](std::size_t coeff, double value)
+  { values.data()[coeff] = static_cast<T>(value); };
+  legendre_scalar_kernel(std::sin(phi), std::cos(phi), lmax, store);
   return result;
 }
 
@@ -225,46 +236,13 @@ template <typename T, typename Output>
 void legendre_many_scalar_row(T x, T s, std::size_t lmax, std::size_t row,
                               Output& output)
 {
-  T diagonal = static_cast<T>(1.0 / std::sqrt(2.0));
-  int diagonal_exponent = 0;
   const auto row_offset = static_cast<std::ptrdiff_t>(row) * output.stride(0);
-  const auto store = [&](std::size_t coeff, T value, int exponent)
+  const auto store = [&](std::size_t coeff, T value)
   {
     output.data()[row_offset + static_cast<std::ptrdiff_t>(coeff) * output.stride(1)] =
-        restore_legendre_scale(value, exponent);
+        value;
   };
-
-  for (std::size_t m = 0; m <= lmax; ++m)
-  {
-    const auto base = m * (2 * lmax - m + 3) / 2;
-    store(base, diagonal, diagonal_exponent);
-    if (m < lmax)
-    {
-      T previous = diagonal;
-      T current =
-          x * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * diagonal;
-      int exponent = diagonal_exponent;
-      normalize_legendre_scale(previous, current, exponent);
-      store(base + 1, current, exponent);
-      for (std::size_t l = m + 2; l <= lmax; ++l)
-      {
-        const double ld = static_cast<double>(l), md = static_cast<double>(m);
-        const double lp = ld + md, lm = ld - md;
-        const T a =
-            static_cast<T>(std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm)));
-        const T b = static_cast<T>(
-            std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) / ((2 * ld - 3) * lp * lm)));
-        const T next = a * x * current - b * previous;
-        previous = current;
-        current = next;
-        normalize_legendre_scale(previous, current, exponent);
-        store(base + (l - m), current, exponent);
-      }
-      const double md = static_cast<double>(m + 1);
-      diagonal = s * static_cast<T>(std::sqrt((2.0 * md + 1) / (2.0 * md))) * diagonal;
-      normalize_legendre_scale(diagonal, diagonal_exponent);
-    }
-  }
+  legendre_scalar_kernel(x, s, lmax, store);
 }
 
 template <typename T, typename Tv, typename Output>
@@ -279,7 +257,7 @@ void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s
   std::array<int, vlen> diagonal_exponent{};
   for (std::size_t m = 0; m <= lmax; ++m)
   {
-    const auto base = m * (2 * lmax - m + 3) / 2;
+    const auto base = packed_coefficient_index(lmax, m, m);
     const auto store =
         [&](std::size_t coeff, Tv value, const std::array<int, vlen>& exponent)
     {
@@ -301,13 +279,8 @@ void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s
       store(base + 1, pm1, exponent);
       for (std::size_t l = m + 2; l <= lmax; ++l)
       {
-        const double ld = static_cast<double>(l), md = static_cast<double>(m);
-        const double lp = ld + md, lm = ld - md;
-        const T a =
-            static_cast<T>(std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm)));
-        const T b = static_cast<T>(
-            std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) / ((2 * ld - 3) * lp * lm)));
-        const Tv pl = a * xv * pm1 - b * pm2;
+        const auto [a, b] = legendre_recurrence_coefficients(l, m);
+        const Tv pl = static_cast<T>(a) * xv * pm1 - static_cast<T>(b) * pm2;
         pm2 = pm1;
         pm1 = pl;
         normalize_legendre_scale(pm2, pm1, exponent);
@@ -542,7 +515,7 @@ double spectral_interpolate(double longitude, const CNpArr& spec,
     const double s = std::sin(static_cast<double>(m) * lon);
     for (std::size_t l = m; l <= ntrunc; ++l)
     {
-      const auto idx = m * (2 * ntrunc - m + 3) / 2 + (l - m);
+      const auto idx = packed_coefficient_index(ntrunc, m, l);
       const auto co = coeff[static_cast<std::ptrdiff_t>(idx) * ss[0]];
       const double pl = pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]];
       result += pl * (m == 0 ? static_cast<double>(co.real())
@@ -600,7 +573,7 @@ void interpolate_spectral_block(const std::vector<double>& longitudes,
     Tv sum_re(T(0)), sum_im(T(0));
     for (std::size_t l = m; l <= ntrunc; ++l)
     {
-      const auto idx = m * (2 * ntrunc - m + 3) / 2 + (l - m);
+      const auto idx = packed_coefficient_index(ntrunc, m, l);
       const auto coeff = coefficients(idx);
       std::array<T, vlen> pvalues{};
       for (std::size_t lane = 0; lane < vlen; ++lane)
@@ -685,7 +658,7 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
         T sum_re = T(0), sum_im = T(0);
         for (std::size_t l = m; l <= ntrunc; ++l)
         {
-          const auto idx = m * (2 * ntrunc - m + 3) / 2 + (l - m);
+          const auto idx = packed_coefficient_index(ntrunc, m, l);
           const auto coeff = coefficients(idx);
           const T p = legendre(point, idx);
           sum_re += p * coeff.real();
