@@ -50,7 +50,8 @@ jobs:
             dist/coverage/*.whl "pytest>=8"
           cd /tmp
           "$wheel_venv/bin/python" -m pytest -q \
-            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
+            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results.xml"
       - name: Generate C++ coverage reports
         run: >-
           uv run --locked --no-sync gcovr --root "$GITHUB_WORKSPACE"
@@ -72,3 +73,12 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results.xml
+          flags: cpp-coverage-tests
+          fail_ci_if_error: false

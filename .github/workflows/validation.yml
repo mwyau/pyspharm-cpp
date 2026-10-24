@@ -42,6 +42,15 @@ jobs:
             -o addopts=-ra \
             --junitxml="$PYSPHARM_VALIDATION_DIR/pytest-cases.xml" \
             tests/parity
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: ${{ runner.temp }}/pyspharm-validation/pytest-cases.xml
+          flags: pyspharm-parity
+          fail_ci_if_error: false
       - name: Upload parity reports
         uses: actions/upload-artifact@v7.0.2
         if: always()

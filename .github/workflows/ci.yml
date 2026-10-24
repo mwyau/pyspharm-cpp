@@ -41,7 +41,18 @@ jobs:
       - name: Report CPU build profile
         run: uv run --locked python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
       - name: Run API and numerical tests
-        run: uv run --locked python -m pytest -q
+        run: >-
+          uv run --locked python -m pytest -q
+          -o junit_family=legacy --junitxml=test-results.xml
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results.xml
+          flags: python-${{ matrix.python-version }}
+          fail_ci_if_error: false
 
   build-profiles:
     name: Test ${{ matrix.profile }} Python ${{ matrix.python-version }} wheel
@@ -83,7 +94,7 @@ jobs:
         run: |
           uv pip install --python .venv/bin/python --no-deps --reinstall dist/${{ matrix.profile }}/*.whl
           .venv/bin/python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
-          .venv/bin/python -m pytest -q
+          .venv/bin/python -m pytest -q -o junit_family=legacy --junitxml=test-results.xml
           if [ "${{ matrix.profile }}" = "multiarch" ]; then
             for cap in 1 3 4; do
               echo "Testing interpolation phase regression with DUCC0_MAX_PSABI_LEVEL=$cap"
@@ -98,6 +109,15 @@ jobs:
                 tests/test_numerics.py::test_batched_interpolation_complex_coefficient_all_eight_lanes
             done
           fi
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results.xml
+          flags: wheel-${{ matrix.profile }}-python-${{ matrix.python-version }}
+          fail_ci_if_error: false
       - name: Prepare profile-specific wheel filename
         run: >-
           uv run --locked --no-sync python .github/prepare_wheel_artifacts.py
@@ -187,7 +207,8 @@ jobs:
           "$wheel_venv/bin/python" -c \
             "import spharm_cpp._spharm_cpp as ext; print(ext.__file__); assert ext.__file__.endswith('_spharm_cpp.abi3.so')"
           "$wheel_venv/bin/python" -m pytest -q \
-            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
+            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results.xml"
           if [ "${{ matrix.python-version }}" = "3.12" ]; then
             for cap in 1 3 4; do
               DUCC0_MAX_PSABI_LEVEL=$cap "$wheel_venv/bin/python" -m pytest -q \
@@ -195,6 +216,15 @@ jobs:
                 "$GITHUB_WORKSPACE/tests/test_numerics.py::test_batched_interpolation_complex_coefficient_all_eight_lanes"
             done
           fi
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results.xml
+          flags: abi3-python-${{ matrix.python-version }}
+          fail_ci_if_error: false
 
   pip-sdist:
     name: Build and install source distribution
@@ -227,7 +257,17 @@ jobs:
           cd /tmp
           /tmp/pyspharm-cpp-pip-env/bin/python -c "import spharm_cpp; print(spharm_cpp.__version__, spharm_cpp.cpu_info())"
           /tmp/pyspharm-cpp-pip-env/bin/python -m pytest -q \
-            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
+            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results.xml"
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results.xml
+          flags: source-distribution
+          fail_ci_if_error: false
       - name: Upload tested source distribution
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -369,7 +409,8 @@ jobs:
         run: |
           uv run --locked --python ${{ matrix.python-version }} python -c \
             "import sys; assert not sys._is_gil_enabled()"
-          uv run --locked --python ${{ matrix.python-version }} python -m pytest -q
+          uv run --locked --python ${{ matrix.python-version }} python -m pytest -q \
+            -o junit_family=legacy --junitxml=test-results-editable.xml
       - name: Build portable free-threaded wheel
         run: >-
           uv run --locked --no-sync --python ${{ matrix.python-version }}
@@ -386,7 +427,17 @@ jobs:
           "$wheel_venv/bin/python" -c \
             "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); print(spharm_cpp.cpu_info())"
           "$wheel_venv/bin/python" -m pytest -q \
-            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
+            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results-wheel.xml"
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: test-results-editable.xml,test-results-wheel.xml
+          flags: free-threaded-${{ matrix.python-version }}
+          fail_ci_if_error: false
       - name: Upload tested free-threaded wheel
         uses: actions/upload-artifact@v7.0.2
         with:
