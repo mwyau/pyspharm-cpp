@@ -3,10 +3,6 @@ name: Measure SHT benchmarks
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "benchmarks/measure_grids.py"
-      - ".github/workflows/measure-benchmarks.yml"
 
 permissions:
   contents: read
@@ -36,7 +32,7 @@ jobs:
       - name: Measure the four grid configurations
         run: |
           mkdir -p "$RUNNER_TEMP/sht-bench"
-          uv run --locked --no-sync python benchmarks/measure_grids.py \
+          uv run --locked --no-sync python benchmarks/benchmark.py \
             --threads 0 --warmups 2 --repeats 7 \
             --output "$RUNNER_TEMP/sht-bench/measurements.csv"
       - uses: actions/upload-artifact@v7.0.2

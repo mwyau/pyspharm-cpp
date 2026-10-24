@@ -18,7 +18,7 @@ Install from PyPI when a distribution is available for your platform:
 python -m pip install pyspharm-cpp
 ```
 
-Python 3.11 or newer is required. Source builds need a C++17 compiler. The Python import is `spharm_cpp`, not `spharm`.
+Python 3.11 or newer is required. Source builds need a C++17 compiler. Import the Python module as `spharm_cpp`.
 
 ## Example
 
@@ -47,6 +47,23 @@ np.testing.assert_allclose(reconstructed, field, atol=2e-12, rtol=2e-12)
 - **Other changes:** `getgeodesicpts` calculates in float64 (with optional float32 output), `getspecindx` returns NumPy `intp`, and `regrid` supports precision conversion. Batched Legendre/interpolation and stricter input checks are additional features.
 
 For even longitude counts, the imaginary scalar Nyquist coefficient is unobservable. See [numerical conventions](docs/conventions.md) and the [PySpharm comparison](docs/pyspharm-compatibility.md) for details, or the [quickstart](docs/quickstart.md) and [API reference](docs/api.md) for usage.
+
+## Performance
+
+![Measured SHT latencies on a Gaussian 1280 × 640 grid](benchmarks/timings-gl-640.svg)
+
+Float32 timings for a Gaussian 1280 × 640 grid on a four-CPU GitHub Actions
+runner with AVX-512 (`x86-64-v4`) active. Two warmups and seven timed
+repetitions were used.
+
+| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: |
+| Scalar analysis | 184.648 ms | 3.450 ms | 3.199 ms | 53.5× |
+| Scalar synthesis | 47.849 ms | 3.065 ms | 2.964 ms | 15.6× |
+| Wind analysis | 612.969 ms | 7.590 ms | 6.405 ms | 80.8× |
+
+Small-grid results differ: PySpharm was faster on the 2.5° regular grid.
+See [all four measured grids and reproduction instructions](benchmarks/README.md).
 
 ## License
 
