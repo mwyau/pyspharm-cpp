@@ -15,8 +15,6 @@ jobs:
   parity:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    env:
-      PYSPHARM_VALIDATION_DIR: /tmp/pyspharm-validation
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -29,7 +27,9 @@ jobs:
       - name: Install CPython 3.12
         run: uv python install 3.12
       - name: Prepare validation report directory
-        run: mkdir -p "$PYSPHARM_VALIDATION_DIR"
+        run: |
+          echo "PYSPHARM_VALIDATION_DIR=$RUNNER_TEMP/pyspharm-validation" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pyspharm-validation"
       - name: Sync locked validation environment and require binary reference wheels
         run: >-
           uv sync --locked --python 3.12 --group build --group test
@@ -44,5 +44,5 @@ jobs:
         if: always()
         with:
           name: pyspharm-validation-${{ github.sha }}
-          path: /tmp/pyspharm-validation/
+          path: ${{ runner.temp }}/pyspharm-validation/
           if-no-files-found: warn
