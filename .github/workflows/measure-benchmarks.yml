@@ -44,7 +44,7 @@ jobs:
       - name: Install CPython and SPHEREPACK reference
         run: |
           uv python install 3.12
-          uv sync --locked --python 3.12 --group build --group test --group validation --no-build-package pyspharm-syl
+          uv sync --locked --python 3.12 --group validation --no-build-package pyspharm-syl
           uv pip install --python .venv/bin/python "ducc0==0.42.0"
       - name: Inspect CPU and SIMD features
         run: |

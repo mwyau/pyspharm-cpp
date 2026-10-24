@@ -10,7 +10,7 @@ Initialize DUCC, install the locked environment, and run the tests:
 
 ```sh
 git submodule update --init --recursive
-uv sync --locked --python 3.14 --all-groups
+uv sync --locked --python 3.14
 uv run --locked python -m pytest -q
 ```
 

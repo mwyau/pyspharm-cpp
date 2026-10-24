@@ -35,8 +35,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pyspharm-validation"
       - name: Install validation dependencies and verify reference wheels
         run: >-
-          uv sync --locked --python 3.12 --group build --group test
-          --group validation --no-build-package pyspharm-syl
+          uv sync --locked --python 3.12 --group validation --no-build-package pyspharm-syl
       - name: Run API and numerical parity tests
         run: |
           uv run --locked --no-sync python -m pytest -v -s \

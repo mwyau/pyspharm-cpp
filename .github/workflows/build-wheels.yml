@@ -77,7 +77,7 @@ jobs:
           uv run --python 3.14 --no-project python -c
           "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
       - name: Install wheel build dependencies
-        run: uv sync --locked --python 3.14 --group release --no-install-project
+        run: uv sync --locked --python 3.14 --no-default-groups --group release --no-install-project
       - name: Build and test CPython 3.11 wheel
         env:
           CIBW_BUILD: cp311-*

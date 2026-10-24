@@ -1472,7 +1472,7 @@ wheels = [
 name = "pyspharm-cpp"
 version = "0.1.0.dev0"
 source = { editable = "." }
-default-groups = ["build", "test"]
+default-groups = ["dev"]
 dependencies = [
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1480,29 +1480,22 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-build = [
+dev = [
     { name = "build" },
-    { name = "cmake" },
-    { name = "nanobind" },
-    { name = "ninja" },
-    { name = "scikit-build-core" },
-]
-coverage = [
-    { name = "gcovr" },
-]
-docs = [
-    { name = "myst-parser" },
-    { name = "pydata-sphinx-theme" },
-    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*'" },
-    { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
-]
-quality = [
     { name = "clang-format" },
+    { name = "cmake" },
+    { name = "gcovr" },
     { name = "mdformat" },
     { name = "mdformat-myst" },
+    { name = "myst-parser" },
+    { name = "nanobind" },
+    { name = "ninja" },
     { name = "prek" },
+    { name = "pydata-sphinx-theme" },
+    { name = "pytest" },
     { name = "ruff" },
+    { name = "scikit-build-core" },
+    { name = "sphinx" },
     { name = "ty" },
     { name = "zizmor" },
 ]
@@ -1510,50 +1503,41 @@ release = [
     { name = "cibuildwheel" },
     { name = "twine" },
 ]
-test = [
-    { name = "pytest" },
-]
 validation = [
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*' and sys_platform == 'linux'" },
     { name = "pyspharm-syl", marker = "python_full_version == '3.12.*' and sys_platform == 'linux'" },
-    { name = "pytest", marker = "python_full_version == '3.12.*' and sys_platform == 'linux'" },
 ]
 
 [package.metadata]
 requires-dist = [{ name = "numpy", specifier = ">=1.26" }]
 
 [package.metadata.requires-dev]
-build = [
-    { name = "build", specifier = ">=1.2" },
-    { name = "cmake", specifier = ">=3.30.3" },
-    { name = "nanobind", specifier = ">=2.12" },
-    { name = "ninja", specifier = ">=1.11" },
-    { name = "scikit-build-core", specifier = ">=1.1.1" },
-]
-coverage = [{ name = "gcovr", specifier = ">=8" }]
-docs = [
-    { name = "myst-parser", specifier = ">=4" },
-    { name = "pydata-sphinx-theme", specifier = ">=0.16" },
-    { name = "sphinx", specifier = ">=8.2" },
-]
-quality = [
-    { name = "clang-format", specifier = ">=20" },
-    { name = "mdformat", specifier = ">=0.7" },
-    { name = "mdformat-myst", specifier = ">=0.2" },
-    { name = "prek", specifier = ">=0.2" },
-    { name = "ruff", specifier = ">=0.14" },
-    { name = "ty", specifier = ">=0.0.1" },
-    { name = "zizmor", specifier = ">=1.31" },
+dev = [
+    { name = "build" },
+    { name = "clang-format" },
+    { name = "cmake" },
+    { name = "gcovr" },
+    { name = "mdformat" },
+    { name = "mdformat-myst" },
+    { name = "myst-parser" },
+    { name = "nanobind" },
+    { name = "ninja" },
+    { name = "prek" },
+    { name = "pydata-sphinx-theme" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "scikit-build-core" },
+    { name = "sphinx" },
+    { name = "ty" },
+    { name = "zizmor" },
 ]
 release = [
-    { name = "cibuildwheel", specifier = ">=3.0" },
-    { name = "twine", specifier = ">=6" },
+    { name = "cibuildwheel" },
+    { name = "twine" },
 ]
-test = [{ name = "pytest", specifier = ">=8" }]
 validation = [
     { name = "numpy", marker = "python_full_version == '3.12.*' and sys_platform == 'linux'", specifier = "==1.26.4" },
     { name = "pyspharm-syl", marker = "python_full_version == '3.12.*' and sys_platform == 'linux'", specifier = "==1.2.1" },
-    { name = "pytest", marker = "python_full_version == '3.12.*' and sys_platform == 'linux'", specifier = ">=8" },
 ]
 
 [[package]]

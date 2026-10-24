@@ -33,7 +33,7 @@ jobs:
       - name: Install coverage dependencies
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group build --group test --group coverage --no-install-project
+          uv sync --locked --python 3.14 --no-install-project
       - name: Build instrumented C++ wheel
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build

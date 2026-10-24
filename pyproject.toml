@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 name = "pyspharm-cpp"
 version = "0.1.0.dev0"
 description = "C++17 spherical harmonic transforms with a PySpharm-compatible API"
-authors = [{ name = "Albert Yau", email = "albert@mwyau.com" }]
+authors = [{ name = "Albert M. W. Yau", email = "albert@mwyau.com" }]
 readme = "README.md"
 license = "GPL-2.0-or-later"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "third_party/ducc/LICENSE"]
@@ -35,30 +35,32 @@ Repository = "https://github.com/mwyau/pyspharm-cpp"
 Documentation = "https://pyspharm-cpp.readthedocs.io/"
 
 [dependency-groups]
-test = ["pytest>=8"]
-build = [
-  "build>=1.2",
-  "cmake>=3.30.3",
-  "ninja>=1.11",
-  "nanobind>=2.12",
-  "scikit-build-core>=1.1.1",
+dev = [
+  "build",
+  "clang-format",
+  "cmake",
+  "gcovr",
+  "mdformat",
+  "mdformat-myst",
+  "myst-parser",
+  "nanobind",
+  "ninja",
+  "prek",
+  "pydata-sphinx-theme",
+  "pytest",
+  "ruff",
+  "scikit-build-core",
+  "Sphinx",
+  "ty",
+  "zizmor",
 ]
-release = ["cibuildwheel>=3.0", "twine>=6"]
-quality = [
-  "clang-format>=20",
-  "mdformat>=0.7",
-  "mdformat-myst>=0.2",
-  "prek>=0.2",
-  "ruff>=0.14",
-  "ty>=0.0.1",
-  "zizmor>=1.31",
+release = [
+  "cibuildwheel",
+  "twine",
 ]
-docs = ["Sphinx>=8.2", "myst-parser>=4", "pydata-sphinx-theme>=0.16"]
-coverage = ["gcovr>=8"]
 validation = [
   "numpy==1.26.4; python_version == '3.12' and sys_platform == 'linux'",
   "pyspharm-syl==1.2.1; python_version == '3.12' and sys_platform == 'linux'",
-  "pytest>=8; python_version == '3.12' and sys_platform == 'linux'",
 ]
 
 [tool.scikit-build]
@@ -105,7 +107,7 @@ sdist.include = [
 SPHARM_CPP_BUILD_PROFILE = "auto"
 
 [tool.uv]
-default-groups = ["test", "build"]
+default-groups = ["dev"]
 
 [tool.ruff]
 line-length = 88

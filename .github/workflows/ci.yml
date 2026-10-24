@@ -39,7 +39,7 @@ jobs:
       - name: Install editable package and test dependencies
         run: >-
           uv sync --locked --python ${{ matrix.python-version }}
-          --group build --group test
+          
       - name: Report CPU build profile
         run: uv run --locked python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
       - name: Run API and numerical tests
@@ -67,8 +67,8 @@ jobs:
         run: uv python install 3.14
       - name: Sync locked build and test tools
         run: >-
-          uv sync --locked --python 3.14 --group build --group test
-          --no-install-project
+          uv sync --locked --python 3.14 
+         --no-install-project
       - name: Build wheel
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
@@ -112,7 +112,7 @@ jobs:
       - name: Install CPython 3.12 and locked build tools
         run: |
           uv python install 3.12
-          uv sync --locked --python 3.12 --group build --group test --no-install-project
+          uv sync --locked --python 3.12 --no-install-project
       - name: Build Linux multiarch abi3 wheel
         run: >-
           uv run --locked --no-sync --python 3.12 python -m build
@@ -197,7 +197,7 @@ jobs:
       - name: Install Python and locked build tools
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group build --group test --no-install-project
+          uv sync --locked --python 3.14 --no-install-project
       - name: Build source distribution
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
@@ -230,7 +230,7 @@ jobs:
       - name: Install Python and locked quality tools
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --all-groups
+          uv sync --locked --python 3.14 
       - name: Check lint, types, and formatting
         run: |
           uv run --locked --no-sync ruff check src tests typing docs .github/check_spdx.py
@@ -275,7 +275,7 @@ jobs:
       - name: Install Python and locked build and documentation tools
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group build --group docs
+          uv sync --locked --python 3.14 
       - name: Build documentation with warnings as errors
         run: >-
           uv run --locked --no-sync python -m sphinx -n -W --keep-going
@@ -302,7 +302,7 @@ jobs:
       - name: Install Python and locked native build dependencies
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group build --no-install-project
+          uv sync --locked --python 3.14 --no-install-project
       - name: Generate Clang compilation database
         run: |
           nanobind_dir="$(uv run --locked --no-sync python -m nanobind --cmake_dir)"
@@ -340,7 +340,7 @@ jobs:
       - name: Install free-threaded Python and locked build and test tools
         run: |
           uv python install ${{ matrix.python-version }}
-          uv sync --locked --python ${{ matrix.python-version }} --group build --group test
+          uv sync --locked --python ${{ matrix.python-version }} 
       - name: Test free-threaded editable install
         run: |
           uv run --locked --python ${{ matrix.python-version }} python -c \

@@ -196,7 +196,7 @@ jobs:
           uv run --python 3.14 --no-project python -c
           "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
       - name: Install release build dependencies
-        run: uv sync --locked --python 3.14 --group release --no-install-project
+        run: uv sync --locked --python 3.14 --no-default-groups --group release --no-install-project
       - name: Build and test CPython 3.11 wheel
         env:
           CIBW_BUILD: cp311-*
@@ -320,7 +320,7 @@ jobs:
       - name: Install Python and locked build tools
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group build --group test --no-install-project
+          uv sync --locked --python 3.14 --no-install-project
       - name: Build source distribution
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
@@ -383,7 +383,7 @@ jobs:
       - name: Install Python and locked release tools
         run: |
           uv python install 3.14
-          uv sync --locked --python 3.14 --group release --no-install-project
+          uv sync --locked --python 3.14 --no-default-groups --group release --no-install-project
       - name: Download release distributions
         uses: actions/download-artifact@v8.0.2
         with:
