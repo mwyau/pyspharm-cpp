@@ -33,114 +33,11 @@ jobs:
         run: python3 .github/check_release.py --evidence
 
   wheels:
-    name: Release wheels (${{ matrix.target }})
+    name: Release wheels
     needs: release-policy
-    timeout-minutes: 180
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: linux-x86_64
-            runner: ubuntu-24.04
-            runner_arch: x86_64
-            wheel_platform_arch: x86_64
-            cibw_arch: x86_64
-            profile: multiarch
-          - target: linux-aarch64
-            runner: ubuntu-24.04-arm
-            runner_arch: arm64
-            wheel_platform_arch: aarch64
-            cibw_arch: aarch64
-            profile: portable
-          - target: macos-x86_64
-            runner: macos-15-intel
-            runner_arch: x86_64
-            wheel_platform_arch: x86_64
-            cibw_arch: x86_64
-            macos_deployment_target: "11.0"
-            profile: portable
-          - target: macos-arm64
-            runner: macos-15
-            runner_arch: arm64
-            wheel_platform_arch: arm64
-            cibw_arch: arm64
-            macos_deployment_target: "11.0"
-            profile: portable
-          - target: windows-x86_64
-            runner: windows-2025
-            runner_arch: x86_64
-            wheel_platform_arch: amd64
-            cibw_arch: AMD64
-            profile: portable
-    runs-on: ${{ matrix.runner }}
-    env:
-      CIBW_ARCHS: ${{ matrix.cibw_arch }}
-      CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=11.0
-      CIBW_TEST_REQUIRES: "pytest>=8"
-      CIBW_TEST_COMMAND: >-
-        python -m pytest --ignore="{project}/tests/parity" "{project}/tests"
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          submodules: recursive
-          persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
-        with:
-          version: 0.13.5
-      - name: Install build Python
-        run: uv python install 3.14
-      - name: Verify runner architecture
-        env:
-          EXPECTED_RUNNER_ARCH: ${{ matrix.runner_arch }}
-        run: >-
-          uv run --python 3.14 --no-project python -c
-          "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
-      - name: Install release build dependencies
-        run: uv sync --locked --python 3.14 --no-default-groups --group release --no-install-project
-      - name: Build and test CPython 3.11 wheel
-        env:
-          CIBW_BUILD: cp311-*
-          CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
-        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/cp311
-      - name: Build and test CPython 3.12+ abi3 wheel
-        env:
-          CIBW_BUILD: cp312-*
-          CIBW_CONFIG_SETTINGS: >-
-            cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
-            cmake.define.SPHARM_CPP_STABLE_ABI=ON
-            wheel.py-api=cp312
-        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/abi3
-      - name: Build and test free-threaded wheels
-        env:
-          CIBW_BUILD: cp314t-* cp315t-*
-          CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
-        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/free-threaded
-      - name: Verify wheel platform tags
-        shell: bash
-        env:
-          TARGET: ${{ matrix.target }}
-          EXPECTED_WHEEL_ARCH: ${{ matrix.wheel_platform_arch }}
-          MACOS_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
-        run: uv run --locked --no-sync python .github/verify_wheel_tags.py
-      - name: Collect verified wheels
-        shell: bash
-        run: |
-          mkdir -p wheelhouse-artifact
-          find wheelhouse -type f -name '*.whl' -exec cp {} wheelhouse-artifact/ \;
-          expected=4
-          case "${{ matrix.target }}" in
-            linux-*) expected=8 ;;
-          esac
-          test "$(find wheelhouse-artifact -maxdepth 1 -name '*.whl' | wc -l)" -eq "$expected"
-      - name: Upload wheel artifacts
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: release-wheels-${{ matrix.target }}
-          path: wheelhouse-artifact/*.whl
-          if-no-files-found: error
+    uses: ./.github/workflows/wheels.yml
+    with:
+      release: true
 
   sdist:
     name: Release sdist

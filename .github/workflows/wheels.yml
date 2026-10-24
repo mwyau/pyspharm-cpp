@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Build wheels
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    name: ${{ matrix.target }} / ${{ matrix.abi }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - linux-x86_64-manylinux
+          - linux-x86_64-musllinux
+          - linux-aarch64-manylinux
+          - linux-aarch64-musllinux
+          - macos-x86_64
+          - macos-arm64
+          - windows-x86_64
+        abi: [cp311, cp312, cp314t, cp315t]
+        include:
+          - target: linux-x86_64-manylinux
+            runner: ubuntu-24.04
+            runner_arch: x86_64
+            wheel_platform_arch: x86_64
+            cibw_arch: x86_64
+            cibw_target: manylinux*
+            family: manylinux
+            profile: multiarch
+          - target: linux-x86_64-musllinux
+            runner: ubuntu-24.04
+            runner_arch: x86_64
+            wheel_platform_arch: x86_64
+            cibw_arch: x86_64
+            cibw_target: musllinux*
+            family: musllinux
+            profile: multiarch
+          - target: linux-aarch64-manylinux
+            runner: ubuntu-24.04-arm
+            runner_arch: arm64
+            wheel_platform_arch: aarch64
+            cibw_arch: aarch64
+            cibw_target: manylinux*
+            family: manylinux
+            profile: portable
+          - target: linux-aarch64-musllinux
+            runner: ubuntu-24.04-arm
+            runner_arch: arm64
+            wheel_platform_arch: aarch64
+            cibw_arch: aarch64
+            cibw_target: musllinux*
+            family: musllinux
+            profile: portable
+          - target: macos-x86_64
+            runner: macos-15-intel
+            runner_arch: x86_64
+            wheel_platform_arch: x86_64
+            cibw_arch: x86_64
+            cibw_target: "*"
+            family: macos
+            profile: portable
+          - target: macos-arm64
+            runner: macos-15
+            runner_arch: arm64
+            wheel_platform_arch: arm64
+            cibw_arch: arm64
+            cibw_target: "*"
+            family: macos
+            profile: portable
+          - target: windows-x86_64
+            runner: windows-2025
+            runner_arch: x86_64
+            wheel_platform_arch: amd64
+            cibw_arch: AMD64
+            cibw_target: "*"
+            family: windows
+            profile: portable
+    env:
+      CIBW_ARCHS: ${{ matrix.cibw_arch }}
+      CIBW_BUILD: ${{ matrix.abi }}-${{ matrix.cibw_target }}
+      CIBW_CONFIG_SETTINGS: >-
+        cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
+        ${{ matrix.abi == 'cp312' && 'cmake.define.SPHARM_CPP_STABLE_ABI=ON wheel.py-api=cp312' || '' }}
+      CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=11.0
+      CIBW_TEST_REQUIRES: "pytest>=8"
+      CIBW_TEST_COMMAND: >-
+        python -m pytest --ignore="{project}/tests/parity" "{project}/tests"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
+      - name: Install build Python
+        run: uv python install 3.14
+      - name: Verify runner architecture
+        env:
+          EXPECTED_RUNNER_ARCH: ${{ matrix.runner_arch }}
+        run: >-
+          uv run --python 3.14 --no-project python -c
+          "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
+      - name: Install wheel build dependencies
+        run: uv sync --locked --python 3.14 --no-default-groups --group release --no-install-project
+      - name: Build and test wheel
+        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse
+      - name: Verify wheel tags
+        shell: bash
+        env:
+          WHEEL_FAMILY: ${{ matrix.family }}
+          EXPECTED_WHEEL_ARCH: ${{ matrix.wheel_platform_arch }}
+          MACOS_DEPLOYMENT_TARGET: ${{ matrix.family == 'macos' && '11.0' || '' }}
+        run: uv run --locked --no-sync python .github/verify_wheel_tags.py
+      - name: Prepare direct CI artifact
+        if: ${{ !inputs.release }}
+        run: >-
+          uv run --locked --no-sync python .github/prepare_wheel_artifacts.py
+          wheelhouse wheelhouse-direct ${{ matrix.profile }} --expected 1
+      - name: Upload tested CI wheel
+        if: ${{ !inputs.release }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload release wheel
+        if: ${{ inputs.release }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-wheels-${{ matrix.target }}-${{ matrix.abi }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
