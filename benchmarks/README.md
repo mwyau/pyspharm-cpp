@@ -19,41 +19,41 @@ threads as DUCC. Results are specific to this runner and workload.
 
 ![Timings for Clenshaw–Curtis · 2.5° · 144 × 73](timings-cc-2p5.svg)
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.069 ms | 0.209 ms | 0.222 ms | 0.33× |
-| Scalar synthesis | 0.029 ms | 0.067 ms | 0.063 ms | 0.44× |
-| Wind analysis | 0.178 ms | 0.385 ms | 0.381 ms | 0.46× |
+| Operation        | PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
+| ---------------- | -------: | -----------: | -------: | ------------------: |
+| Scalar analysis  | 0.069 ms |     0.209 ms | 0.222 ms |               0.33× |
+| Scalar synthesis | 0.029 ms |     0.067 ms | 0.063 ms |               0.44× |
+| Wind analysis    | 0.178 ms |     0.385 ms | 0.381 ms |               0.46× |
 
 ## Clenshaw–Curtis · 0.25° · 1440 × 721
 
 ![Timings for Clenshaw–Curtis · 0.25° · 1440 × 721](timings-cc-0p25.svg)
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 95.027 ms | 12.638 ms | 14.260 ms | 7.52× |
-| Scalar synthesis | 76.561 ms | 4.047 ms | 3.875 ms | 18.92× |
-| Wind analysis | 244.674 ms | 27.712 ms | 29.122 ms | 8.83× |
+| Operation        |   PySpharm | pyspharm-cpp |      DUCC | Speedup vs PySpharm |
+| ---------------- | ---------: | -----------: | --------: | ------------------: |
+| Scalar analysis  |  95.027 ms |    12.638 ms | 14.260 ms |               7.52× |
+| Scalar synthesis |  76.561 ms |     4.047 ms |  3.875 ms |              18.92× |
+| Wind analysis    | 244.674 ms |    27.712 ms | 29.122 ms |               8.83× |
 
 ## Gaussian · 128 latitude rings · 256 × 128
 
 ![Timings for Gaussian · 128 latitude rings · 256 × 128](timings-gl-128.svg)
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.634 ms | 0.131 ms | 0.128 ms | 4.82× |
-| Scalar synthesis | 0.109 ms | 0.128 ms | 0.118 ms | 0.85× |
-| Wind analysis | 1.161 ms | 0.265 ms | 0.227 ms | 4.38× |
+| Operation        | PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
+| ---------------- | -------: | -----------: | -------: | ------------------: |
+| Scalar analysis  | 0.634 ms |     0.131 ms | 0.128 ms |               4.82× |
+| Scalar synthesis | 0.109 ms |     0.128 ms | 0.118 ms |               0.85× |
+| Wind analysis    | 1.161 ms |     0.265 ms | 0.227 ms |               4.38× |
 
 ## Gaussian · 640 latitude rings · 1280 × 640
 
 ![Timings for Gaussian · 640 latitude rings · 1280 × 640](timings-gl-640.svg)
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 184.648 ms | 3.450 ms | 3.199 ms | 53.53× |
-| Scalar synthesis | 47.849 ms | 3.065 ms | 2.964 ms | 15.61× |
-| Wind analysis | 612.969 ms | 7.590 ms | 6.405 ms | 80.76× |
+| Operation        |   PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
+| ---------------- | ---------: | -----------: | -------: | ------------------: |
+| Scalar analysis  | 184.648 ms |     3.450 ms | 3.199 ms |              53.53× |
+| Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |              15.61× |
+| Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |              80.76× |
 
 ## Reproduce
 

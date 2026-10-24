@@ -56,11 +56,11 @@ Float32 timings for a Gaussian 1280 × 640 grid on a four-CPU GitHub Actions
 runner with AVX-512 (`x86-64-v4`) active. Two warmups and seven timed
 repetitions were used.
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 184.648 ms | 3.450 ms | 3.199 ms | 53.5× |
-| Scalar synthesis | 47.849 ms | 3.065 ms | 2.964 ms | 15.6× |
-| Wind analysis | 612.969 ms | 7.590 ms | 6.405 ms | 80.8× |
+| Operation        |   PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
+| ---------------- | ---------: | -----------: | -------: | ------------------: |
+| Scalar analysis  | 184.648 ms |     3.450 ms | 3.199 ms |               53.5× |
+| Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |               15.6× |
+| Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |               80.8× |
 
 Small-grid results differ: PySpharm was faster on the 2.5° regular grid.
 See [all four measured grids and reproduction instructions](benchmarks/README.md).

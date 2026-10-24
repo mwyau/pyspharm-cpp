@@ -10,34 +10,34 @@ The reference tests use `pyspharm-syl==1.2.1` (module version 1.0.9 and a compil
 
 The independent tests exercise the following interfaces, including scalar and batched shapes where applicable.
 
-| Operation | Comparison |
-| --- | --- |
-| `Spharmt`, attributes, `dtype`, representation | Constructor, defaults, configuration, and output precision |
-| `grdtospec`, `spectogrd` | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
-| `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi` | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials |
-| `specsmooth`, `regrid` | Smoothing and regridding at an explicit shared truncation |
-| `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates |
-| `legendre`, `specintrp` | Normalization, phase, polar behavior, and longitude |
-| `legendre_many`, `specintrp_many` | Results against repeated scalar operations |
-| `cpu_info` | DUCC CPU metadata keys and types |
+| Operation                                            | Comparison                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `Spharmt`, attributes, `dtype`, representation       | Constructor, defaults, configuration, and output precision                                   |
+| `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
+| `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
+| `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
+| `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
+| `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
+| `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
+| `cpu_info`                                           | DUCC CPU metadata keys and types                                                             |
 
 The full public contract inventory is enforced by `tests/parity/manifest.py`. It contains 20 public API items and 11 accepted differences. Each item requires a marked test; missing tests fail validation.
 
 ## Supported differences
 
-| Behavior | `spharm_cpp` |
-| --- | --- |
-| Module and backend | `spharm_cpp` provides a DUCC-based implementation. |
-| Legendre evaluation | `legfunc="computed"` is the default and only supported mode; `"stored"` raises `ValueError`. |
-| Precision | float64/complex128 by default, float32/complex64 when requested. |
-| Regular-grid analysis | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`. |
-| Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars. |
-| Geodesic coordinates | Calculated in float64; `dtype=np.float32` casts the output coordinates. |
-| Regridding | Supports conversion between the two native precision modes. |
-| Representation | `Spharmt.__repr__` includes grid and precision information. |
-| Input validation | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
-| Regular maximum-degree synthesis | Evaluates odd-order harmonics at degree `nlat-1` that the tested SPHEREPACK synthesis omits. |
-| `getpsichi` at `ntrunc=0` | Returns two zero maps; the reference raises `IndexError`. |
+| Behavior                          | `spharm_cpp`                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| Module and backend                | `spharm_cpp` provides a DUCC-based implementation.                                           |
+| Legendre evaluation               | `legfunc="computed"` is the default and only supported mode; `"stored"` raises `ValueError`. |
+| Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
+| Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
+| Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
+| Geodesic coordinates              | Calculated in float64; `dtype=np.float32` casts the output coordinates.                      |
+| Regridding                        | Supports conversion between the two native precision modes.                                  |
+| Representation                    | `Spharmt.__repr__` includes grid and precision information.                                  |
+| Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
+| Regular maximum-degree synthesis  | Evaluates odd-order harmonics at degree `nlat-1` that the tested SPHEREPACK synthesis omits. |
+| `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
 
 These exceptions are tested rather than skipped. See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
 

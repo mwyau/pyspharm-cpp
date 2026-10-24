@@ -39,10 +39,10 @@ For real fields, positive orders contribute twice the real part of the complex h
 
 ## Truncation and recoverability
 
-| Grid | Maximum scalar analysis truncation |
-| --- | --- |
-| Regular Clenshaw–Curtis | `min(nlat-2, nlon//2)` |
-| Gaussian | `min(nlat-1, nlon//2)` |
+| Grid                    | Maximum scalar analysis truncation |
+| ----------------------- | ---------------------------------- |
+| Regular Clenshaw–Curtis | `min(nlat-2, nlon//2)`             |
+| Gaussian                | `min(nlat-1, nlon//2)`             |
 
 The default analysis uses the applicable maximum. Larger explicit requests raise `ValueError`. Vector analysis (`getvrtdivspec` and `getpsichi`) also requires `ntrunc <= (nlon-1)//2` because DUCC's spin-1 analysis excludes the even-longitude Nyquist order.
 
