@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }} (editable)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -69,18 +69,14 @@ jobs:
           flags: python-${{ matrix.python-version }}
           fail_ci_if_error: false
 
-  build-profiles:
-    name: Wheel ${{ matrix.profile }} (Python ${{ matrix.python-version }})
+  free-threaded-wheels:
+    name: Python ${{ matrix.python-version }} (free-threaded, editable + wheel)
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - profile: portable
-            python-version: "3.14"
-          - profile: native
-            python-version: "3.14"
+        python-version: ["3.14t", "3.15t"]
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
@@ -91,39 +87,47 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
-      - name: Install Python
-        run: uv python install ${{ matrix.python-version }}
-      - name: Sync locked build and test tools
-        run: uv sync --locked --python ${{ matrix.python-version }} --no-install-project
-      - name: Build wheel
-        run: >-
-          uv run --locked --no-sync --python ${{ matrix.python-version }} python -m build
-          --wheel --no-isolation
-          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
-          --outdir dist/${{ matrix.profile }} .
-      - name: Install and test wheel
+      - name: Install free-threaded Python and locked build and test tools
         run: |
-          uv pip install --python .venv/bin/python --no-deps --reinstall dist/${{ matrix.profile }}/*.whl
-          .venv/bin/python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
-          .venv/bin/python -m pytest -q -o junit_family=legacy --junitxml=test-results.xml
+          uv python install ${{ matrix.python-version }}
+          uv sync --locked --python ${{ matrix.python-version }}
+      - name: Test free-threaded editable install
+        run: |
+          uv run --locked --python ${{ matrix.python-version }} python -c \
+            "import sys; assert not sys._is_gil_enabled()"
+          uv run --locked --python ${{ matrix.python-version }} python -m pytest -q \
+            -o junit_family=legacy --junitxml=test-results-editable.xml
+      - name: Build portable free-threaded wheel
+        run: >-
+          uv run --locked --no-sync --python ${{ matrix.python-version }}
+          python -m build --wheel --no-isolation
+          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
+          --outdir dist/free-threaded .
+      - name: Install and test free-threaded wheel
+        run: |
+          wheel_venv="/tmp/pyspharm-${{ matrix.python-version }}-wheel-env"
+          uv venv --python ${{ matrix.python-version }} "$wheel_venv"
+          uv pip install --python "$wheel_venv/bin/python" \
+            dist/free-threaded/*.whl "pytest>=8"
+          cd /tmp
+          "$wheel_venv/bin/python" -c \
+            "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); print(spharm_cpp.cpu_info())"
+          "$wheel_venv/bin/python" -m pytest -q \
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
+            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results-wheel.xml"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-          files: test-results.xml
-          flags: wheel-${{ matrix.profile }}-python-${{ matrix.python-version }}
+          files: test-results-editable.xml,test-results-wheel.xml
+          flags: free-threaded-${{ matrix.python-version }}
           fail_ci_if_error: false
-      - name: Prepare profile-specific wheel filename
-        run: >-
-          uv run --locked --no-sync python .github/prepare_wheel_artifacts.py
-          dist/${{ matrix.profile }} dist/artifact ${{ matrix.profile }}
-          --expected 1
-      - name: Upload tested ${{ matrix.profile }} wheel
+      - name: Upload tested free-threaded wheel
         uses: actions/upload-artifact@v7.0.2
         with:
-          path: dist/artifact/*.whl
+          path: dist/free-threaded/*.whl
           if-no-files-found: error
           archive: false
 
@@ -379,68 +383,6 @@ jobs:
           clang-tidy -p build/clang-tidy \
             src/cpp/module.cpp src/cpp/bindings.cpp \
             src/cpp/transforms.cpp src/cpp/numerics.cpp
-
-  free-threaded-wheels:
-    name: Free-threaded (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.14t", "3.15t"]
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7.0.1
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
-        with:
-          version: 0.13.5
-      - name: Install free-threaded Python and locked build and test tools
-        run: |
-          uv python install ${{ matrix.python-version }}
-          uv sync --locked --python ${{ matrix.python-version }}
-      - name: Test free-threaded editable install
-        run: |
-          uv run --locked --python ${{ matrix.python-version }} python -c \
-            "import sys; assert not sys._is_gil_enabled()"
-          uv run --locked --python ${{ matrix.python-version }} python -m pytest -q \
-            -o junit_family=legacy --junitxml=test-results-editable.xml
-      - name: Build portable free-threaded wheel
-        run: >-
-          uv run --locked --no-sync --python ${{ matrix.python-version }}
-          python -m build --wheel --no-isolation
-          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
-          --outdir dist/free-threaded .
-      - name: Install and test free-threaded wheel
-        run: |
-          wheel_venv="/tmp/pyspharm-${{ matrix.python-version }}-wheel-env"
-          uv venv --python ${{ matrix.python-version }} "$wheel_venv"
-          uv pip install --python "$wheel_venv/bin/python" \
-            dist/free-threaded/*.whl "pytest>=8"
-          cd /tmp
-          "$wheel_venv/bin/python" -c \
-            "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); print(spharm_cpp.cpu_info())"
-          "$wheel_venv/bin/python" -m pytest -q \
-            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
-            -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results-wheel.xml"
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v7.1.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          files: test-results-editable.xml,test-results-wheel.xml
-          flags: free-threaded-${{ matrix.python-version }}
-          fail_ci_if_error: false
-      - name: Upload tested free-threaded wheel
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          path: dist/free-threaded/*.whl
-          if-no-files-found: error
-          archive: false
 
   wheels:
     name: Distribution wheels
