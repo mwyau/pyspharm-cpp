@@ -3,7 +3,7 @@
 <desc id="d">Three operations, each comparing PySpharm, pyspharm-cpp and DUCC on a zero-based linear millisecond scale. Each operation uses a different labeled axis extent.</desc>
 <rect width="920" height="702" fill="white"/>
 <text x="27" y="40" font-size="21" font-family="sans-serif" font-weight="600" fill="#1f3546">Spherical harmonic transform latency</text>
-<text x="27" y="66" font-size="14" font-family="sans-serif" fill="#526478">Clenshaw–Curtis · 2.5° · 144 × 73 · float32 · 4 threads · AVX-512 v4 · lower is better</text>
+<text x="27" y="66" font-size="14" font-family="sans-serif" fill="#526478">Clenshaw–Curtis · 2.5° · 144 × 73 · float32 · PySpharm serial · DUCC 4 threads</text>
 <text x="27" y="98" font-size="16" font-family="sans-serif" font-weight="600" fill="#1f3546">Scalar analysis</text>
 <text x="27" y="138" font-family="sans-serif" font-size="14" fill="#233646">PySpharm</text>
 <rect x="227" y="121" width="112.09" height="23" fill="#a25561" rx="2"/>

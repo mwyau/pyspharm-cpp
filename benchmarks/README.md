@@ -7,13 +7,14 @@ Each operation has its own zero-based linear time scale; compare bar lengths
 within an operation, and use the printed values across operations. Smaller is
 better. The speedup column is PySpharm time divided by pyspharm-cpp time.
 
-Measurements: [GitHub Actions run 40101800670](https://github.com/mwyau/pyspharm-cpp/actions/runs/40101800670),
-AMD EPYC 9V45 runner with **4 CPUs**, CPython 3.12.15, NumPy 1.26.4,
-PySpharm 1.0.9, DUCC 0.42.0, and pyspharm-cpp 0.1.0.dev0.
-DUCC **x86-64-v4 (AVX-512)** was actively selected. Two warmups and
-seven measured repetitions were used without CPU pinning.
-The compiled PySpharm backend may not use the same internal number of
-threads as DUCC. Results are specific to this runner and workload.
+Measured on a four-CPU AMD EPYC Linux runner (CPython 3.12, NumPy 1.26.4):
+serial PySpharm 1.0.9 versus four-thread DUCC 0.42.0 and pyspharm-cpp
+0.1.0.dev0, with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
+repetitions after two warmups, without CPU pinning.
+
+On the smallest grid (144 × 73), serial PySpharm is faster. Fixed transform
+and thread-dispatch costs are plausible explanations; a controlled
+single-thread comparison is needed to distinguish them.
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73
 

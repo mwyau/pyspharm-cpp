@@ -105,7 +105,7 @@ def render(case, label, results):
         '<text x="27" y="40" font-size="21" font-family="sans-serif" '
         'font-weight="600" fill="#1f3546">Spherical harmonic transform latency</text>',
         f'<text x="27" y="66" font-size="14" font-family="sans-serif" '
-        f'fill="#526478">{escape(label)} · float32 · 4 threads · AVX-512 v4 · lower is better</text>',
+        f'fill="#526478">{escape(label)} · float32 · PySpharm serial · DUCC 4 threads</text>',
     ]
     for i, (operation, title) in enumerate(OPERATIONS):
         y0 = 98 + 190 * i
