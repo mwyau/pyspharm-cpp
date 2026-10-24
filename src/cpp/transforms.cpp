@@ -21,6 +21,13 @@ double coefficient_sign(std::size_t m)
   return (m % 2 != 0) ? -1.0 : 1.0;
 }
 
+template <typename T>
+std::complex<T> scale_coefficient(const std::complex<T>& value, double factor)
+{
+  return {static_cast<T>(static_cast<double>(value.real()) * factor),
+          static_cast<T>(static_cast<double>(value.imag()) * factor)};
+}
+
 std::vector<std::size_t> ducc_mstart(std::size_t lmax)
 {
   std::vector<std::size_t> result(lmax + 1);
@@ -62,7 +69,7 @@ DUCC0_NAMESPACE::cmav<T, 3> as_ducc_map(const CNpArr& input, std::size_t nlat,
   std::array<std::ptrdiff_t, 3> stride{0, st[0], st[1]};
   const auto* ptr = reinterpret_cast<const T*>(input.data());
   if (input.ndim() == 3)
-    ptr += field * st[2];
+    ptr += static_cast<std::ptrdiff_t>(field) * st[2];
   return DUCC0_NAMESPACE::cmav<T, 3>(ptr, shape, stride);
 }
 
@@ -91,7 +98,7 @@ DUCC0_NAMESPACE::cmav<std::complex<T>, 2> as_ducc_alms(const CNpArr& input,
   std::array<std::ptrdiff_t, 2> stride{0, st[0]};
   auto* ptr = reinterpret_cast<const std::complex<T>*>(input.data());
   if (input.ndim() == 2)
-    ptr += field * st[1];
+    ptr += static_cast<std::ptrdiff_t>(field) * st[1];
   return DUCC0_NAMESPACE::cmav<std::complex<T>, 2>(ptr, shape, stride);
 }
 
@@ -252,8 +259,10 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
       {
         const auto pyidx = batched ? j * nlon * nfield + i * nfield + f : j * nlon + i;
         const auto pix = j * nlon + i;
-        eout.data()[pyidx] = map_storage[npix + pix] / static_cast<T>(rsphere);
-        nout.data()[pyidx] = -map_storage[pix] / static_cast<T>(rsphere);
+        eout.data()[pyidx] =
+            static_cast<T>(static_cast<double>(map_storage[npix + pix]) / rsphere);
+        nout.data()[pyidx] =
+            static_cast<T>(-static_cast<double>(map_storage[pix]) / rsphere);
       }
   }
   return {east, north};
@@ -320,13 +329,13 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
         const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
         const double degree = static_cast<double>(l);
         const double lambda = degree * (degree + 1.0);
-        const T scale = l == 0
-                            ? T(0)
-                            : static_cast<T>(-std::sqrt(lambda) / (rsphere * sqrt_2pi) *
-                                             coefficient_sign<T>(m));
+        const double scale = l == 0
+                                 ? 0.0
+                                 : -std::sqrt(lambda) / (rsphere * sqrt_2pi) *
+                                       coefficient_sign<T>(m);
         const auto outidx = batched ? idx * nfield + f : idx;
-        vout.data()[outidx] = scale * alm_storage[nalm + idx];
-        dout.data()[outidx] = scale * alm_storage[idx];
+        vout.data()[outidx] = scale_coefficient(alm_storage[nalm + idx], scale);
+        dout.data()[outidx] = scale_coefficient(alm_storage[idx], scale);
       }
   }
   return {vort, div};
@@ -370,10 +379,10 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
         if (l == 0)
           continue;
         const double degree = static_cast<double>(l);
-        const T scale = static_cast<T>(-rsphere * sqrt_2pi * coefficient_sign<T>(m) /
-                                       std::sqrt(degree * (degree + 1.0)));
-        alm_storage[idx] = scale * div(0, idx);
-        alm_storage[nalm + idx] = scale * vort(0, idx);
+        const double scale = -rsphere * sqrt_2pi * coefficient_sign<T>(m) /
+                             std::sqrt(degree * (degree + 1.0));
+        alm_storage[idx] = scale_coefficient(div(0, idx), scale);
+        alm_storage[nalm + idx] = scale_coefficient(vort(0, idx), scale);
       }
     std::fill(map_storage.begin(), map_storage.end(), T(0));
     if (lmax > 0)
@@ -421,10 +430,9 @@ NpArr apply_inverse_laplacian(const CNpArr& spec, double rsphere)
                             : static_cast<std::ptrdiff_t>(idx) * output.stride(0) +
                                   static_cast<std::ptrdiff_t>(f) * output.stride(1);
         const double degree = static_cast<double>(l);
-        const T factor =
-            l == 0 ? T(0)
-                   : static_cast<T>(-rsphere * rsphere / (degree * (degree + 1.0)));
-        output.data()[to] = factor * input.data()[from];
+        const double factor =
+            l == 0 ? 0.0 : -rsphere * rsphere / (degree * (degree + 1.0));
+        output.data()[to] = scale_coefficient(input.data()[from], factor);
       }
   return result;
 }

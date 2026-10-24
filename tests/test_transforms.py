@@ -242,7 +242,7 @@ def test_batched_noncontiguous_scalar_and_wind_transforms(dtype, cdtype, atol):
     t = spharm.Spharmt(16, 9, 3.0, "gaussian", dtype=dtype)
     rng = np.random.default_rng(2)
     raw = rng.normal(size=(9, 16, 4)).astype(dtype)
-    maps = raw[:, :, ::2]
+    maps = raw[:, :, ::-2]
     assert not maps.flags.c_contiguous
     specs = t.grdtospec(maps, 5)
     assert specs.shape == (21, 2)
@@ -366,3 +366,52 @@ def test_strided_readonly_smoothing_factors(dtype):
     np.testing.assert_allclose(
         actual_regrid, expected_regrid, rtol=tolerance, atol=tolerance
     )
+
+
+@pytest.mark.parametrize("gridtype", ["regular", "gaussian"])
+def test_float32_radius_scaling_without_premature_casts(gridtype):
+    baseline = spharm.Spharmt(16, 9, 1.0, gridtype, dtype=np.float32)
+    large = spharm.Spharmt(16, 9, 1e40, gridtype, dtype=np.float32)
+    spec = np.zeros(3, dtype=np.complex64)
+    spec[1] = 1
+    zero = np.zeros_like(spec)
+
+    reference_grad = baseline.getgrad(spec)
+    large_grad = large.getgrad(spec)
+    for actual, reference in zip(large_grad, reference_grad):
+        np.testing.assert_allclose(
+            actual.astype(np.float64),
+            reference.astype(np.float64) / large.rsphere,
+            rtol=5e-5,
+            atol=1.5e-45,
+        )
+    assert np.any(large_grad[1] != 0)
+
+    small_spec = spec * np.float32(1e-40)
+    amplitude = float(small_spec[1].real) * large.rsphere
+    for actual, reference in zip(large.getuv(small_spec, zero), baseline.getuv(spec, zero)):
+        np.testing.assert_allclose(
+            actual, reference.astype(np.float64) * amplitude, rtol=5e-5, atol=2e-6
+        )
+
+    _, divergence = large.getvrtdivspec(*reference_grad, 1)
+    _, reference_divergence = baseline.getvrtdivspec(*reference_grad, 1)
+    np.testing.assert_allclose(
+        divergence.astype(np.float64),
+        reference_divergence.astype(np.float64) / large.rsphere,
+        rtol=5e-5,
+        atol=1.5e-45,
+    )
+    assert np.any(divergence != 0)
+
+    medium = spharm.Spharmt(16, 9, 1e23, gridtype, dtype=np.float32)
+    winds = tuple(component * np.float32(1e-9) for component in reference_grad)
+    reference_potentials = baseline.getpsichi(*winds, 1)
+    medium_potentials = medium.getpsichi(*winds, 1)
+    for actual, reference in zip(medium_potentials, reference_potentials):
+        np.testing.assert_allclose(
+            actual.astype(np.float64),
+            reference.astype(np.float64) * medium.rsphere,
+            rtol=5e-5,
+            atol=1e7,
+        )
