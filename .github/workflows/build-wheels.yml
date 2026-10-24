@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Release candidate wheels
+name: Build and test wheels
 
 on:
   workflow_dispatch:
@@ -8,11 +8,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-candidate-${{ github.ref }}-${{ github.sha }}
+  group: build-wheels-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   build:
+    name: Build and test wheels (${{ matrix.target }})
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -58,11 +59,13 @@ jobs:
       CIBW_TEST_COMMAND: >-
         python -m pytest --ignore="{project}/tests/parity" "{project}/tests"
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install build Python
@@ -73,14 +76,14 @@ jobs:
         run: >-
           uv run --python 3.14 --no-project python -c
           "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
-      - name: Sync locked release builder
+      - name: Install wheel build dependencies
         run: uv sync --locked --python 3.14 --group release --no-install-project
-      - name: Build the CPython 3.11 wheel and test its installed wheel
+      - name: Build and test CPython 3.11 wheel
         env:
           CIBW_BUILD: cp311-*
           CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/cp311
-      - name: Build the CPython 3.12+ abi3 wheel and test its installed wheel
+      - name: Build and test CPython 3.12+ abi3 wheel
         env:
           CIBW_BUILD: cp312-*
           CIBW_CONFIG_SETTINGS: >-
@@ -88,12 +91,12 @@ jobs:
             cmake.define.SPHARM_CPP_STABLE_ABI=ON
             wheel.py-api=cp312
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/abi3
-      - name: Build free-threaded wheels and test their installed wheels
+      - name: Build and test free-threaded wheels
         env:
           CIBW_BUILD: cp314t-* cp315t-*
           CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/free-threaded
-      - name: Verify wheel matrix, target architecture, and macOS deployment target
+      - name: Verify wheel platform tags
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -163,7 +166,7 @@ jobs:
           )
           print(f"Validated {len(wheels)} wheel tags for {target}")
           PY
-      - name: Collect verified wheels for upload
+      - name: Collect verified wheels
         shell: bash
         run: |
           mkdir -p wheelhouse-artifact
@@ -173,7 +176,8 @@ jobs:
             linux-*) expected=8 ;;
           esac
           test "$(find wheelhouse-artifact -maxdepth 1 -name '*.whl' | wc -l)" -eq "$expected"
-      - uses: actions/upload-artifact@v7.0.2
+      - name: Upload tested wheels
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: wheels-${{ matrix.target }}
           path: wheelhouse-artifact/*.whl

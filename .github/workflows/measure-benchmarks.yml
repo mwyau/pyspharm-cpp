@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Measure SHT benchmarks
+name: Benchmark SHT performance
 
 on:
   workflow_dispatch:
@@ -12,17 +12,20 @@ permissions:
 
 jobs:
   measure:
+    name: Benchmark SHT performance
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
-      - name: Require AVX-512 hardware before building
+      - name: Check AVX-512 hardware support
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -41,12 +44,12 @@ jobs:
           uv python install 3.12
           uv sync --locked --python 3.12 --group build --group test --group validation --no-build-package pyspharm-syl
           uv pip install --python .venv/bin/python "ducc0==0.42.0"
-      - name: Inspect CPU and SIMD
+      - name: Inspect CPU and SIMD features
         run: |
           nproc
           lscpu | grep -E "Model name|CPU\(s\):|Flags:"
           cat /sys/fs/cgroup/cpu.max || true
-      - name: Require AVX-512 dispatch
+      - name: Verify AVX-512 dispatch
         run: |
           uv run --locked --no-sync python - <<'PY'
           import spharm_cpp
@@ -66,7 +69,7 @@ jobs:
           uv run --locked --no-sync python benchmarks/benchmark.py \
             --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
             --output "$RUNNER_TEMP/sht-bench/one-thread.csv"
-      - name: Verify all five cases and the measured thread counts
+      - name: Verify benchmark cases and thread counts
         run: |
           python3 - <<'PY'
           import csv
@@ -86,14 +89,15 @@ jobs:
               assert {int(row["threads"]) for row in rows} == {threads}, filename
               print(f"{filename}: {len(rows)} measurements, {threads} thread(s)")
           PY
-      - name: Plot four precision/backend bars across all five cases
+      - name: Plot benchmark comparisons
         run: |
           uv run --locked --no-sync python benchmarks/plot.py \
             --csv "$RUNNER_TEMP/sht-bench/four-thread.csv" \
                   "$RUNNER_TEMP/sht-bench/one-thread.csv" \
             --output-dir "$RUNNER_TEMP/sht-bench/figures"
           test "$(find "$RUNNER_TEMP/sht-bench/figures" -name 'timings-*.svg' | wc -l)" -eq 5
-      - uses: actions/upload-artifact@v7.0.2
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: five-grid-sht-bench-${{ github.sha }}

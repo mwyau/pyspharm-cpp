@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: CI
+name: Build and test package
 
 on:
   push:
@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   test:
+    name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -24,25 +25,28 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
-      - name: Sync locked environment and install editable package
+      - name: Install editable package and test dependencies
         run: >-
           uv sync --locked --python ${{ matrix.python-version }}
           --group build --group test
-      - name: Report selected CPU profile
+      - name: Report CPU build profile
         run: uv run --locked python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
-      - name: Run numerical and API tests
+      - name: Run API and numerical tests
         run: uv run --locked python -m pytest -q
 
   build-profiles:
+    name: Test ${{ matrix.profile }} build
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
@@ -50,11 +54,13 @@ jobs:
       matrix:
         profile: [portable, native, multiarch]
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python
@@ -90,28 +96,31 @@ jobs:
           fi
 
   stable-abi-build:
+    name: Build abi3 wheel
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install CPython 3.12 and locked build tools
         run: |
           uv python install 3.12
           uv sync --locked --python 3.12 --group build --group test --no-install-project
-      - name: Build one Linux multiarch cp312-abi3 wheel
+      - name: Build Linux multiarch abi3 wheel
         run: >-
           uv run --locked --no-sync --python 3.12 python -m build
           --wheel --no-isolation
           --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=multiarch
           --config-setting cmake.define.SPHARM_CPP_STABLE_ABI=ON
           --config-setting wheel.py-api=cp312 --outdir dist/abi3 .
-      - name: Verify the stable ABI wheel tag
+      - name: Verify abi3 wheel tag
         run: |
           wheel="$(find dist/abi3 -maxdepth 1 -name '*.whl' -print -quit)"
           test -n "$wheel"
@@ -119,13 +128,15 @@ jobs:
             *-cp312-abi3-*) ;;
             *) echo "Expected a cp312-abi3 wheel, found $wheel"; exit 1 ;;
           esac
-      - uses: actions/upload-artifact@v7.0.2
+      - name: Upload abi3 wheel
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: cp312-abi3-linux-x86_64
           path: dist/abi3/*.whl
           if-no-files-found: error
 
   stable-abi-tests:
+    name: Test abi3 wheel on Python ${{ matrix.python-version }}
     needs: [stable-abi-build]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -134,19 +145,22 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13", "3.14", "3.15"]
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install test Python
         run: uv python install ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v8.0.2
+      - name: Download abi3 wheel
+        uses: actions/download-artifact@v8.0.2
         with:
           name: cp312-abi3-linux-x86_64
           path: dist/abi3
-      - name: Install the same abi3 wheel and test it outside the checkout
+      - name: Install and test abi3 wheel
         run: |
           wheel="$(find dist/abi3 -maxdepth 1 -name '*.whl' -print -quit)"
           test -n "$wheel"
@@ -167,14 +181,17 @@ jobs:
           fi
 
   pip-sdist:
+    name: Build and install source distribution
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked build tools
@@ -185,7 +202,7 @@ jobs:
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
           --sdist --no-isolation --outdir dist/sdist .
-      - name: Install source distribution with ordinary pip
+      - name: Install source distribution with pip
         run: |
           uv run --python 3.14 --no-project python -m venv /tmp/pyspharm-cpp-pip-env
           /tmp/pyspharm-cpp-pip-env/bin/python -m pip install dist/sdist/*.tar.gz
@@ -197,21 +214,24 @@ jobs:
             --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
 
   quality:
+    name: Check code quality
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked quality tools
         run: |
           uv python install 3.14
           uv sync --locked --python 3.14 --all-groups
-      - name: Check Python lint, formatting, types, and C++ formatting
+      - name: Check lint, types, and formatting
         run: |
           uv run --locked --no-sync ruff check src tests typing docs .github/check_spdx.py
           uv run --locked --no-sync ruff format --check src tests typing docs .github/check_spdx.py
@@ -233,20 +253,23 @@ jobs:
         run: |
           uv run --locked --no-sync python .github/check_spdx.py
           uv lock --check
-      - name: Run pre-commit-compatible hooks
+      - name: Run pre-commit checks
         run: uv run --locked --no-sync prek run --all-files --show-diff-on-failure
-      - name: Audit workflows
+      - name: Audit GitHub Actions workflows
         run: uv run --locked --no-sync zizmor .github/workflows
 
   docs:
+    name: Build documentation
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked build and documentation tools
@@ -259,10 +282,12 @@ jobs:
           -b html docs docs/_build/html
 
   clang-tidy:
+    name: Analyze C++ sources
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
@@ -270,14 +295,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang clang-tidy
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked native build dependencies
         run: |
           uv python install 3.14
           uv sync --locked --python 3.14 --group build --no-install-project
-      - name: Generate portable Clang compilation database
+      - name: Generate Clang compilation database
         run: |
           nanobind_dir="$(uv run --locked --no-sync python -m nanobind --cmake_dir)"
           python_executable="$(uv run --locked --no-sync python -c 'import sys; print(sys.executable)')"
@@ -287,13 +313,14 @@ jobs:
             -Dnanobind_DIR="$nanobind_dir" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DSPHARM_CPP_BUILD_PROFILE=portable
-      - name: Analyze first-party C++ translation units
+      - name: Analyze C++ sources with clang-tidy
         run: |
           clang-tidy -p build/clang-tidy \
             src/cpp/module.cpp src/cpp/bindings.cpp \
             src/cpp/transforms.cpp src/cpp/numerics.cpp
 
   free-threaded-wheels:
+    name: Test free-threaded Python ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
@@ -301,29 +328,31 @@ jobs:
       matrix:
         python-version: ["3.14t", "3.15t"]
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install free-threaded Python and locked build and test tools
         run: |
           uv python install ${{ matrix.python-version }}
           uv sync --locked --python ${{ matrix.python-version }} --group build --group test
-      - name: Verify editable install and run full free-threaded tests
+      - name: Test free-threaded editable install
         run: |
           uv run --locked --python ${{ matrix.python-version }} python -c \
             "import sys; assert not sys._is_gil_enabled()"
           uv run --locked --python ${{ matrix.python-version }} python -m pytest -q
-      - name: Build a portable free-threaded wheel
+      - name: Build portable free-threaded wheel
         run: >-
           uv run --locked --no-sync --python ${{ matrix.python-version }}
           python -m build --wheel --no-isolation
           --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
           --outdir dist/free-threaded .
-      - name: Install and test the free-threaded wheel outside the checkout
+      - name: Install and test free-threaded wheel
         run: |
           wheel_venv="/tmp/pyspharm-${{ matrix.python-version }}-wheel-env"
           uv venv --python ${{ matrix.python-version }} "$wheel_venv"

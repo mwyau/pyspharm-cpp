@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Build and publish distribution
+name: Build and publish distributions
 
 on:
   workflow_dispatch:
@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   release-policy:
+    name: Validate release policy
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -29,11 +30,12 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify tag, project version, and package-index route
+      - name: Verify release tag and package index
         env:
           TAG_NAME: ${{ github.ref_name }}
           REPOSITORY: ${{ inputs.repository }}
@@ -60,7 +62,7 @@ jobs:
               raise SystemExit(f"tag {tag!r} must publish to {expected}, not {repository!r}")
           print(f"Validated {'development' if expected == 'testpypi' else 'stable'} release {tag} for {repository}")
           PY
-      - name: Require successful CI and PySpharm parity evidence for this commit
+      - name: Verify CI and PySpharm parity results
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
@@ -129,6 +131,7 @@ jobs:
           require_latest_success validation.yml workflow_dispatch
 
   wheels:
+    name: Build wheels (${{ matrix.target }})
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -174,12 +177,14 @@ jobs:
       CIBW_TEST_COMMAND: >-
         python -m pytest --ignore="{project}/tests/parity" "{project}/tests"
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install build Python
@@ -190,14 +195,14 @@ jobs:
         run: >-
           uv run --python 3.14 --no-project python -c
           "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
-      - name: Sync locked release builder
+      - name: Install release build dependencies
         run: uv sync --locked --python 3.14 --group release --no-install-project
-      - name: Build the CPython 3.11 wheel and test its installed wheel
+      - name: Build and test CPython 3.11 wheel
         env:
           CIBW_BUILD: cp311-*
           CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/cp311
-      - name: Build the CPython 3.12+ abi3 wheel and test its installed wheel
+      - name: Build and test CPython 3.12+ abi3 wheel
         env:
           CIBW_BUILD: cp312-*
           CIBW_CONFIG_SETTINGS: >-
@@ -205,12 +210,12 @@ jobs:
             cmake.define.SPHARM_CPP_STABLE_ABI=ON
             wheel.py-api=cp312
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/abi3
-      - name: Build free-threaded wheels and test their installed wheels
+      - name: Build and test free-threaded wheels
         env:
           CIBW_BUILD: cp314t-* cp315t-*
           CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
         run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/free-threaded
-      - name: Verify wheel tags, architecture, and macOS deployment target
+      - name: Verify wheel platform tags
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -280,7 +285,7 @@ jobs:
           )
           print(f"Validated {len(wheels)} wheels for {target}")
           PY
-      - name: Collect verified wheels for upload
+      - name: Collect verified wheels
         shell: bash
         run: |
           mkdir -p wheelhouse-artifact
@@ -290,22 +295,26 @@ jobs:
             linux-*) expected=8 ;;
           esac
           test "$(find wheelhouse-artifact -maxdepth 1 -name '*.whl' | wc -l)" -eq "$expected"
-      - uses: actions/upload-artifact@v7.0.2
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-wheels-${{ matrix.target }}
           path: wheelhouse-artifact/*.whl
           if-no-files-found: error
 
   sdist:
+    name: Build source distribution
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           submodules: recursive
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked build tools
@@ -316,13 +325,15 @@ jobs:
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
           --sdist --no-isolation --outdir dist/sdist .
-      - uses: actions/upload-artifact@v7.0.2
+      - name: Upload source distribution
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: release-sdist
           path: dist/sdist/*.tar.gz
           if-no-files-found: error
 
   publish:
+    name: Publish distributions
     if: github.ref_type == 'tag'
     needs: [release-policy, wheels, sdist]
     runs-on: ubuntu-24.04
@@ -335,11 +346,12 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Confirm the release tag still points to the tested commit
+      - name: Verify release tag points to tested commit
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
@@ -364,26 +376,28 @@ jobs:
             echo "tag ${TAG_NAME} no longer resolves to tested commit ${GITHUB_SHA}" >&2
             exit 1
           }
-      - uses: astral-sh/setup-uv@v10.3.2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
       - name: Install Python and locked release tools
         run: |
           uv python install 3.14
           uv sync --locked --python 3.14 --group release --no-install-project
-      - uses: actions/download-artifact@v8.0.2
+      - name: Download release distributions
+        uses: actions/download-artifact@v8.0.2
         with:
           pattern: release-*
           path: dist
           merge-multiple: true
-      - name: Validate distribution metadata with Twine
+      - name: Validate distribution metadata
         run: uv run --locked --no-sync twine check dist/*
       - name: Attest release files
         uses: actions/attest@v4.2.2
         with:
           subject-path: dist/*
           subject-name: pyspharm-cpp
-      - name: Recheck the release tag before package upload
+      - name: Recheck release tag before upload
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
@@ -408,13 +422,14 @@ jobs:
             echo "tag ${TAG_NAME} no longer resolves to tested commit ${GITHUB_SHA}" >&2
             exit 1
           }
-      - name: Publish to the selected package index
+      - name: Publish to selected package index
         uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           packages-dir: dist/
           repository-url: ${{ inputs.repository == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
 
   github-release:
+    name: Create GitHub release
     if: github.ref_type == 'tag' && !contains(github.ref_name, '.dev')
     needs: [publish]
     runs-on: ubuntu-24.04
@@ -422,7 +437,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Create the GitHub Release after successful PyPI publication
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
