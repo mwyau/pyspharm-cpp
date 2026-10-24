@@ -30,6 +30,8 @@ First-party C++ code is in `src/cpp/`. ducc0 is an unmodified Git submodule. The
 
 ## Releases
 
-Package releases are manually triggered through GitHub Actions and require approval. See [the publishing workflow](.github/workflows/python-publish.yml) for checks and [PyPI's trusted-publisher instructions](https://docs.pypi.org/trusted-publishers/adding-a-publisher/) for initial setup. Do not add credentials to the repository.
+After the main-branch CI and PySpharm parity checks pass for a commit, push a version tag. The [publishing workflow](.github/workflows/python-publish.yml) builds the distributions automatically; `vX.Y.Z.devN` tags publish to TestPyPI and `vX.Y.Z` tags publish to PyPI. Publication waits for approval in the corresponding GitHub environment.
+
+Configure required reviewers for both `pypi` and `testpypi` environments, enable release immutability in the repository settings, and protect `v*` tags against updates or deletion. Register `python-publish.yml` as a [Trusted Publisher](https://docs.pypi.org/trusted-publishers/adding-a-publisher/) on each package index with its matching environment name. After publishing, the workflow creates a GitHub Release containing the wheels and source distribution. Do not add publishing credentials to the repository.
 
 Changes to the public API should update the generated typing stub, [API documentation](docs/api.md), and [PySpharm comparison](docs/pyspharm-compatibility.md) when appropriate.

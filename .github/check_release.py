@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Verify a manually selected release tag and its prerequisite CI runs."""
+"""Verify a version-tag release and its prerequisite CI runs."""
 
 import argparse
 import json
@@ -37,7 +37,9 @@ def check_latest_run(workflow: str, event: str, sha: str) -> None:
     runs = [
         run
         for run in data["workflow_runs"]
-        if run["head_sha"] == sha and run["event"] == event
+        if run["head_sha"] == sha
+        and run["event"] == event
+        and (workflow != "ci.yml" or run["head_branch"] == "main")
     ]
     if not runs:
         raise SystemExit(f"No {workflow} {event} run for {sha}")
@@ -56,7 +58,7 @@ def main() -> None:
 
     tag = os.environ["GITHUB_REF_NAME"]
     if os.environ["GITHUB_REF_TYPE"] != "tag":
-        raise SystemExit("Release must be dispatched from a version tag")
+        raise SystemExit("Release workflow must run on a version tag")
     if not re.fullmatch(
         r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
         r"(?:\.dev(?:0|[1-9]\d*))?",
