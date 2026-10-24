@@ -3,15 +3,6 @@ name: Build and publish distributions
 
 on:
   workflow_dispatch:
-    inputs:
-      repository:
-        description: Package index to publish to after the build and environment approval
-        type: choice
-        required: true
-        default: testpypi
-        options:
-          - testpypi
-          - pypi
 
 permissions:
   contents: read
@@ -35,103 +26,14 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify release tag and package index
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-          REPOSITORY: ${{ inputs.repository }}
-        run: |
-          python3 - <<'PY'
-          import os
-          import re
-          import tomllib
-          from pathlib import Path
-
-          tag = os.environ["TAG_NAME"]
-          repository = os.environ["REPOSITORY"]
-          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
-          match = re.fullmatch(
-              r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:\.dev(?:0|[1-9][0-9]*))?",
-              tag,
-          )
-          if match is None:
-              raise SystemExit("release tags must have the form vX.Y.Z or vX.Y.Z.devN")
-          if tag != f"v{version}":
-              raise SystemExit(f"tag {tag!r} does not match project version {version!r}")
-          expected = "testpypi" if ".dev" in tag else "pypi"
-          if repository != expected:
-              raise SystemExit(f"tag {tag!r} must publish to {expected}, not {repository!r}")
-          print(f"Validated {'development' if expected == 'testpypi' else 'stable'} release {tag} for {repository}")
-          PY
-      - name: Verify CI and PySpharm parity results
+      - name: Verify release tag and prerequisite tests
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          resolve_and_check_tag() {
-            local object_type object_sha tag_json
-            local -A seen=()
-            tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-            object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-            object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-            for _ in {1..16}; do
-              [[ "$object_sha" =~ ^[0-9a-f]{40}$ ]] || {
-                echo "tag ${TAG_NAME} resolves to an invalid Git object" >&2
-                return 1
-              }
-              [[ "$object_type" == "commit" ]] && break
-              [[ "$object_type" == "tag" ]] || {
-                echo "tag ${TAG_NAME} resolves to ${object_type}, not a commit" >&2
-                return 1
-              }
-              [[ -z "${seen[$object_sha]:-}" ]] || {
-                echo "tag ${TAG_NAME} contains a tag-object cycle" >&2
-                return 1
-              }
-              seen["$object_sha"]=1
-              tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${object_sha}")"
-              object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-              object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-            done
-            [[ "$object_type" == "commit" ]] || {
-              echo "tag ${TAG_NAME} has too many nested tag objects" >&2
-              return 1
-            }
-            [[ "$object_sha" == "$GITHUB_SHA" ]] || {
-              echo "tag ${TAG_NAME} resolves to ${object_sha}, expected ${GITHUB_SHA}" >&2
-              return 1
-            }
-            printf 'Verified tag %s at commit %s\n' "$TAG_NAME" "$GITHUB_SHA"
-          }
-
-          require_latest_success() {
-            local workflow="$1" event="$2" payload latest
-            payload="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&event=${event}&per_page=100")"
-            latest="$(jq -c --arg sha "$GITHUB_SHA" --arg event "$event" '
-              [.workflow_runs[]? | select(.head_sha == $sha and .event == $event)]
-              | sort_by(.run_started_at // .created_at)
-              | last // empty
-            ' <<<"$payload")"
-            [[ -n "$latest" ]] || {
-              echo "no ${workflow} run for commit ${GITHUB_SHA} with event ${event}" >&2
-              return 1
-            }
-            jq -e '.status == "completed" and .conclusion == "success"' \
-              <<<"$latest" >/dev/null || {
-                echo "latest ${workflow} run for ${GITHUB_SHA} is $(jq -r '.status + "/" + (.conclusion // "null")' <<<"$latest")" >&2
-                return 1
-              }
-            printf '%s evidence: %s\n' "$workflow" "$(jq -r '.html_url' <<<"$latest")"
-          }
-
-          resolve_and_check_tag
-          require_latest_success ci.yml push
-          require_latest_success validation.yml workflow_dispatch
+        run: python3 .github/check_release.py --evidence
 
   wheels:
     name: Build wheels (${{ matrix.target }})
+    needs: release-policy
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -221,70 +123,7 @@ jobs:
           TARGET: ${{ matrix.target }}
           EXPECTED_WHEEL_ARCH: ${{ matrix.wheel_platform_arch }}
           MACOS_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
-        run: |
-          uv run --locked --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-
-          wheels = sorted(Path("wheelhouse").rglob("*.whl"))
-          assert wheels, "cibuildwheel produced no wheels"
-          expected_pairs = {
-              ("cp311", "cp311"),
-              ("cp312", "abi3"),
-              ("cp314", "cp314t"),
-              ("cp315", "cp315t"),
-          }
-          target = os.environ["TARGET"]
-          arch = os.environ["EXPECTED_WHEEL_ARCH"]
-          deployment = os.environ.get("MACOS_DEPLOYMENT_TARGET", "")
-          if target.startswith("linux-"):
-              expected_families = {"manylinux", "musllinux"}
-          elif target.startswith("macos-"):
-              expected_families = {"macos"}
-          else:
-              expected_families = {"windows"}
-          expected = {
-              (python_tag, abi_tag, family)
-              for python_tag, abi_tag in expected_pairs
-              for family in expected_families
-          }
-          actual = set()
-          for wheel in wheels:
-              _, python_tag, abi_tag, platform_tag = wheel.stem.rsplit("-", 3)
-              platform_tags = platform_tag.split(".")
-              wheel_families = set()
-              if target.startswith("macos-"):
-                  prefix = f"macosx_{deployment.replace('.', '_')}_"
-                  assert any(
-                      tag.startswith(prefix) and tag.endswith(f"_{arch}")
-                      for tag in platform_tags
-                  ), f"unexpected macOS target or architecture: {wheel.name}"
-                  wheel_families.add("macos")
-              elif target.startswith("linux-"):
-                  for tag in platform_tags:
-                      assert tag.endswith(f"_{arch}"), wheel.name
-                      if tag.startswith("manylinux"):
-                          wheel_families.add("manylinux")
-                      elif tag.startswith("musllinux"):
-                          wheel_families.add("musllinux")
-                      else:
-                          raise AssertionError(f"unexpected Linux wheel tag: {wheel.name}")
-              else:
-                  assert any(tag == f"win_{arch}" for tag in platform_tags), wheel.name
-                  wheel_families.add("windows")
-              assert len(wheel_families) == 1, (
-                  f"mixed platform families in {wheel.name}: {wheel_families}"
-              )
-              actual.add((python_tag, abi_tag, next(iter(wheel_families))))
-          assert len(wheels) == len(expected), (
-              f"expected {len(expected)} wheels, found {len(wheels)}"
-          )
-          assert actual == expected, (
-              f"wheel ABI matrix mismatch: missing={sorted(expected - actual)}, "
-              f"unexpected={sorted(actual - expected)}"
-          )
-          print(f"Validated {len(wheels)} wheels for {target}")
-          PY
+        run: uv run --locked --no-sync python .github/verify_wheel_tags.py
       - name: Collect verified wheels
         shell: bash
         run: |
@@ -304,6 +143,7 @@ jobs:
 
   sdist:
     name: Build source distribution
+    needs: release-policy
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -339,8 +179,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment:
-      name: ${{ inputs.repository }}
-      url: ${{ inputs.repository == 'testpypi' && 'https://test.pypi.org/p/pyspharm-cpp' || 'https://pypi.org/p/pyspharm-cpp' }}
+      name: ${{ contains(github.ref_name, '.dev') && 'testpypi' || 'pypi' }}
+      url: ${{ contains(github.ref_name, '.dev') && 'https://test.pypi.org/p/pyspharm-cpp' || 'https://pypi.org/p/pyspharm-cpp' }}
     permissions:
       contents: read
       id-token: write
@@ -354,28 +194,7 @@ jobs:
       - name: Verify release tag points to tested commit
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-          object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-          object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-          declare -A seen=()
-          for _ in {1..16}; do
-            [[ "$object_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid Git object for ${TAG_NAME}" >&2; exit 1; }
-            [[ "$object_type" == "commit" ]] && break
-            [[ "$object_type" == "tag" ]] || { echo "${TAG_NAME} resolves to ${object_type}, not a commit" >&2; exit 1; }
-            [[ -z "${seen[$object_sha]:-}" ]] || { echo "tag-object cycle for ${TAG_NAME}" >&2; exit 1; }
-            seen["$object_sha"]=1
-            tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${object_sha}")"
-            object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-            object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-          done
-          [[ "$object_type" == "commit" && "$object_sha" == "$GITHUB_SHA" ]] || {
-            echo "tag ${TAG_NAME} no longer resolves to tested commit ${GITHUB_SHA}" >&2
-            exit 1
-          }
+        run: python3 .github/check_release.py
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
         with:
@@ -400,33 +219,12 @@ jobs:
       - name: Recheck release tag before upload
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}")"
-          object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-          object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-          declare -A seen=()
-          for _ in {1..16}; do
-            [[ "$object_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid Git object for ${TAG_NAME}" >&2; exit 1; }
-            [[ "$object_type" == "commit" ]] && break
-            [[ "$object_type" == "tag" ]] || { echo "${TAG_NAME} resolves to ${object_type}, not a commit" >&2; exit 1; }
-            [[ -z "${seen[$object_sha]:-}" ]] || { echo "tag-object cycle for ${TAG_NAME}" >&2; exit 1; }
-            seen["$object_sha"]=1
-            tag_json="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${object_sha}")"
-            object_type="$(jq -r '.object.type // empty' <<<"$tag_json")"
-            object_sha="$(jq -r '.object.sha // empty' <<<"$tag_json")"
-          done
-          [[ "$object_type" == "commit" && "$object_sha" == "$GITHUB_SHA" ]] || {
-            echo "tag ${TAG_NAME} no longer resolves to tested commit ${GITHUB_SHA}" >&2
-            exit 1
-          }
+        run: python3 .github/check_release.py
       - name: Publish to selected package index
         uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           packages-dir: dist/
-          repository-url: ${{ inputs.repository == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+          repository-url: ${{ contains(github.ref_name, '.dev') && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
 
   github-release:
     name: Create GitHub release

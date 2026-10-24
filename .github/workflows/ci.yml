@@ -99,25 +99,10 @@ jobs:
             done
           fi
       - name: Prepare profile-specific wheel filename
-        env:
-          PROFILE: ${{ matrix.profile }}
-        run: |
-          uv run --locked --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-          from shutil import copy2
-
-          profile = os.environ["PROFILE"]
-          wheels = list(Path(f"dist/{profile}").glob("*.whl"))
-          assert len(wheels) == 1, f"Expected one {profile} wheel"
-          dist_version, python, abi, platform = wheels[0].stem.rsplit("-", 3)
-          output = Path("dist/artifact")
-          output.mkdir(exist_ok=True)
-          copy2(
-              wheels[0],
-              output / f"{dist_version}-0_{profile}-{python}-{abi}-{platform}.whl",
-          )
-          PY
+        run: >-
+          uv run --locked --no-sync python .github/prepare_wheel_artifacts.py
+          dist/${{ matrix.profile }} dist/artifact ${{ matrix.profile }}
+          --expected 1
       - name: Upload tested ${{ matrix.profile }} wheel
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -318,40 +303,7 @@ jobs:
           uv run --locked --no-sync python -m sphinx -n -W --keep-going
           -b html docs docs/_build/html
       - name: Check documentation navigation and math
-        run: |
-          uv run --locked --no-sync python - <<'PY'
-          from pathlib import Path
-
-          from bs4 import BeautifulSoup
-
-          pages = (
-              "index", "quickstart", "api", "conventions",
-              "pyspharm-compatibility", "benchmarks", "references",
-          )
-          expected_links = {f"{page}.html" for page in pages[1:]}
-          for page in pages:
-              html = Path(f"docs/_build/html/{page}.html").read_text()
-              soup = BeautifulSoup(html, "html.parser")
-              nav = soup.select_one("nav.bd-docs-nav")
-              assert nav is not None, f"{page}: missing section navigation"
-              links = {
-                  link.get("href", "").split("#")[0].rsplit("/", 1)[-1]
-                  for link in nav.select("a[href]")
-              }
-              required_links = expected_links - {f"{page}.html"}
-              assert required_links <= links, (
-                  f"{page}: missing section links {required_links - links}"
-              )
-          for page, formula in (
-              ("conventions", r"\bar P_{00}"),
-              ("conventions", r"\theta=\pi/2-\phi"),
-              ("pyspharm-compatibility", r"e^{im\lambda_j}"),
-          ):
-              html = Path(f"docs/_build/html/{page}.html").read_text()
-              soup = BeautifulSoup(html, "html.parser")
-              math = " ".join(node.get_text() for node in soup.select("span.math"))
-              assert formula in math, f"{page}: missing rendered math {formula}"
-          PY
+        run: uv run --locked --no-sync python .github/check_docs.py
 
   clang-tidy:
     name: Analyze C++ sources

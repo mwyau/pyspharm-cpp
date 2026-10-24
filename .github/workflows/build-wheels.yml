@@ -102,95 +102,11 @@ jobs:
           TARGET: ${{ matrix.target }}
           EXPECTED_WHEEL_ARCH: ${{ matrix.wheel_platform_arch }}
           MACOS_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
-        run: |
-          uv run --locked --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-
-          wheels = sorted(Path("wheelhouse").rglob("*.whl"))
-          assert wheels, "cibuildwheel produced no wheels"
-          expected_pairs = {
-              ("cp311", "cp311"),
-              ("cp312", "abi3"),
-              ("cp314", "cp314t"),
-              ("cp315", "cp315t"),
-          }
-          target = os.environ["TARGET"]
-          arch = os.environ["EXPECTED_WHEEL_ARCH"]
-          deployment = os.environ.get("MACOS_DEPLOYMENT_TARGET", "")
-          if target.startswith("linux-"):
-              expected_families = {"manylinux", "musllinux"}
-          elif target.startswith("macos-"):
-              expected_families = {"macos"}
-          else:
-              expected_families = {"windows"}
-          expected = {
-              (python_tag, abi_tag, family)
-              for python_tag, abi_tag in expected_pairs
-              for family in expected_families
-          }
-          actual = set()
-          for wheel in wheels:
-              _, python_tag, abi_tag, platform_tag = wheel.stem.rsplit("-", 3)
-              platform_tags = platform_tag.split(".")
-              wheel_families = set()
-              if target.startswith("macos-"):
-                  prefix = f"macosx_{deployment.replace('.', '_')}_"
-                  assert any(
-                      tag.startswith(prefix) and tag.endswith(f"_{arch}")
-                      for tag in platform_tags
-                  ), f"unexpected macOS deployment target or architecture: {wheel.name}"
-                  wheel_families.add("macos")
-              elif target.startswith("linux-"):
-                  for tag in platform_tags:
-                      assert tag.endswith(f"_{arch}"), wheel.name
-                      if tag.startswith("manylinux"):
-                          wheel_families.add("manylinux")
-                      elif tag.startswith("musllinux"):
-                          wheel_families.add("musllinux")
-                      else:
-                          raise AssertionError(f"unexpected Linux wheel tag: {wheel.name}")
-              else:
-                  assert any(tag == f"win_{arch}" for tag in platform_tags), wheel.name
-                  wheel_families.add("windows")
-              assert len(wheel_families) == 1, (
-                  f"mixed platform families in {wheel.name}: {wheel_families}"
-              )
-              actual.add((python_tag, abi_tag, next(iter(wheel_families))))
-          assert len(wheels) == len(expected), (
-              f"expected {len(expected)} wheels, found {len(wheels)}"
-          )
-          assert actual == expected, (
-              f"wheel ABI matrix mismatch: missing={sorted(expected - actual)}, "
-              f"unexpected={sorted(actual - expected)}"
-          )
-          print(f"Validated {len(wheels)} wheel tags for {target}")
-          PY
+        run: uv run --locked --no-sync python .github/verify_wheel_tags.py
       - name: Prepare wheel artifact filenames
-        shell: bash
-        env:
-          TARGET: ${{ matrix.target }}
-          PROFILE: ${{ matrix.profile }}
-        run: |
-          uv run --locked --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-          from shutil import copy2
-
-          wheels = sorted(Path("wheelhouse").rglob("*.whl"))
-          expected = 8 if os.environ["TARGET"].startswith("linux-") else 4
-          assert len(wheels) == expected, f"Expected {expected} wheels"
-          output = Path("wheelhouse-direct")
-          output.mkdir(exist_ok=True)
-          profile = os.environ["PROFILE"]
-          for wheel in wheels:
-              distribution, python, abi, platform = wheel.stem.rsplit("-", 3)
-              copy2(
-                  wheel,
-                  output / f"{distribution}-0_{profile}-{python}-{abi}-{platform}.whl",
-              )
-          assert len(list(output.glob("*.whl"))) == expected
-          PY
+        run: >-
+          uv run --locked --no-sync python .github/prepare_wheel_artifacts.py
+          wheelhouse wheelhouse-direct ${{ matrix.profile }}
       - name: Upload tested CPython 3.11 wheel
         uses: actions/upload-artifact@v7.0.2
         with:

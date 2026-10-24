@@ -3,11 +3,6 @@ name: Benchmark SHT performance
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/measure-benchmarks.yml"
-      - "benchmarks/benchmark.py"
-      - "benchmarks/plot.py"
 
 permissions:
   contents: read
