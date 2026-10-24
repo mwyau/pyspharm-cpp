@@ -44,13 +44,21 @@ jobs:
         run: uv run --locked python -m pytest -q
 
   build-profiles:
-    name: Test ${{ matrix.profile }} build
+    name: Test ${{ matrix.profile }} Python ${{ matrix.python-version }} wheel
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        profile: [portable, native, multiarch]
+        include:
+          - profile: portable
+            python-version: "3.11"
+          - profile: portable
+            python-version: "3.14"
+          - profile: native
+            python-version: "3.14"
+          - profile: multiarch
+            python-version: "3.14"
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
@@ -62,12 +70,12 @@ jobs:
         with:
           version: 0.13.5
       - name: Install Python
-        run: uv python install 3.14
+        run: uv python install ${{ matrix.python-version }}
       - name: Sync locked build and test tools
-        run: uv sync --locked --python 3.14 --no-install-project
+        run: uv sync --locked --python ${{ matrix.python-version }} --no-install-project
       - name: Build wheel
         run: >-
-          uv run --locked --no-sync --python 3.14 python -m build
+          uv run --locked --no-sync --python ${{ matrix.python-version }} python -m build
           --wheel --no-isolation
           --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
           --outdir dist/${{ matrix.profile }} .
@@ -107,7 +115,7 @@ jobs:
           output.mkdir(exist_ok=True)
           copy2(
               wheels[0],
-              output / f"{dist_version}-0{profile}-{python}-{abi}-{platform}.whl",
+              output / f"{dist_version}-0_{profile}-{python}-{abi}-{platform}.whl",
           )
           PY
       - name: Upload tested ${{ matrix.profile }} wheel

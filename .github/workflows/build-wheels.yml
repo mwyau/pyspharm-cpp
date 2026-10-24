@@ -166,19 +166,79 @@ jobs:
           )
           print(f"Validated {len(wheels)} wheel tags for {target}")
           PY
-      - name: Collect verified wheels
-        shell: bash
+      - name: Prepare wheel artifact filenames
+        env:
+          TARGET: ${{ matrix.target }}
+          PROFILE: ${{ matrix.profile }}
         run: |
-          mkdir -p wheelhouse-artifact
-          find wheelhouse -type f -name '*.whl' -exec cp {} wheelhouse-artifact/ \;
-          expected=4
-          case "${{ matrix.target }}" in
-            linux-*) expected=8 ;;
-          esac
-          test "$(find wheelhouse-artifact -maxdepth 1 -name '*.whl' | wc -l)" -eq "$expected"
-      - name: Upload tested wheels
+          uv run --locked --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+          from shutil import copy2
+
+          wheels = sorted(Path("wheelhouse").rglob("*.whl"))
+          expected = 8 if os.environ["TARGET"].startswith("linux-") else 4
+          assert len(wheels) == expected, f"Expected {expected} wheels"
+          output = Path("wheelhouse-direct")
+          output.mkdir(exist_ok=True)
+          profile = os.environ["PROFILE"]
+          for wheel in wheels:
+              distribution, python, abi, platform = wheel.stem.rsplit("-", 3)
+              copy2(
+                  wheel,
+                  output / f"{distribution}-0_{profile}-{python}-{abi}-{platform}.whl",
+              )
+          assert len(list(output.glob("*.whl"))) == expected
+          PY
+      - name: Upload tested CPython 3.11 wheel
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: wheels-${{ matrix.target }}
-          path: wheelhouse-artifact/*.whl
+          path: wheelhouse-direct/*-cp311-cp311-${{ startsWith(matrix.target, 'linux-') && 'manylinux*' || '*' }}.whl
           if-no-files-found: error
+          archive: false
+      - name: Upload tested CPython 3.12+ abi3 wheel
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp312-abi3-${{ startsWith(matrix.target, 'linux-') && 'manylinux*' || '*' }}.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested Free-threaded Python 3.14 wheel
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp314-cp314t-${{ startsWith(matrix.target, 'linux-') && 'manylinux*' || '*' }}.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested Free-threaded Python 3.15 wheel
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp315-cp315t-${{ startsWith(matrix.target, 'linux-') && 'manylinux*' || '*' }}.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested musllinux CPython 3.11 wheel
+        if: startsWith(matrix.target, 'linux-')
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp311-cp311-musllinux*.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested musllinux CPython 3.12+ abi3 wheel
+        if: startsWith(matrix.target, 'linux-')
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp312-abi3-musllinux*.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested musllinux Free-threaded Python 3.14 wheel
+        if: startsWith(matrix.target, 'linux-')
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp314-cp314t-musllinux*.whl
+          if-no-files-found: error
+          archive: false
+      - name: Upload tested musllinux Free-threaded Python 3.15 wheel
+        if: startsWith(matrix.target, 'linux-')
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: wheelhouse-direct/*-cp315-cp315t-musllinux*.whl
+          if-no-files-found: error
+          archive: false
