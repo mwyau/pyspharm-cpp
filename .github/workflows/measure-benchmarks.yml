@@ -22,6 +22,20 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
+      - name: Require AVX-512 hardware before building
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          cpuinfo = Path("/proc/cpuinfo").read_text().lower()
+          flags = set(next(line.split(":", 1)[1].split()
+                           for line in cpuinfo.splitlines()
+                           if line.startswith("flags")))
+          needed = {"avx512f", "avx512dq", "avx512bw", "avx512vl"}
+          if not needed.issubset(flags):
+              raise SystemExit("Runner is not AVX-512 x86-64-v4 capable; rerun")
+          print("Runner advertises AVX-512F/DQ/BW/VL")
+          PY
       - name: Install CPython and SPHEREPACK reference
         run: |
           uv python install 3.12
