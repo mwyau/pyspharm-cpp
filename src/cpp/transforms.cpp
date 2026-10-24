@@ -329,10 +329,9 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
         const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
         const double degree = static_cast<double>(l);
         const double lambda = degree * (degree + 1.0);
-        const double scale = l == 0
-                                 ? 0.0
-                                 : -std::sqrt(lambda) / (rsphere * sqrt_2pi) *
-                                       coefficient_sign<T>(m);
+        const double coefficient_scale =
+            -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign<T>(m);
+        const double scale = l == 0 ? 0.0 : coefficient_scale;
         const auto outidx = batched ? idx * nfield + f : idx;
         vout.data()[outidx] = scale_coefficient(alm_storage[nalm + idx], scale);
         dout.data()[outidx] = scale_coefficient(alm_storage[idx], scale);
