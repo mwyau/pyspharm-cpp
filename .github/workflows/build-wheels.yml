@@ -167,6 +167,7 @@ jobs:
           print(f"Validated {len(wheels)} wheel tags for {target}")
           PY
       - name: Prepare wheel artifact filenames
+        shell: bash
         env:
           TARGET: ${{ matrix.target }}
           PROFILE: ${{ matrix.profile }}
