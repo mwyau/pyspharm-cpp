@@ -1,3 +1,4 @@
+<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 
 # Third-party source and license notices

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 spharm_cpp\._spharm_cpp\.__prefix__:
+    # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
     # SPDX-License-Identifier: GPL-2.0-or-later

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Maintainer policy: pin Actions to exact published patch-version tags, e.g.
 # actions/checkout@v7.0.1. Zizmor's ref-pin policy checks for an explicit ref;

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Check the ABI and platform tags of a single cibuildwheel distribution."""
 

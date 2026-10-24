@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Measure batched Legendre and spectral interpolation kernels."""
 

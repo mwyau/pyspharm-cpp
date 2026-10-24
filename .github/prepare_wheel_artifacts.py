@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Name downloadable test wheels by their compilation profile."""
 

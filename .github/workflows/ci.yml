@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: CI
 
@@ -132,7 +133,7 @@ jobs:
           archive: false
 
   stable-abi-build:
-    name: ABI3 wheel
+    name: Build ABI3 wheel
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -172,7 +173,7 @@ jobs:
           archive: false
 
   stable-abi-tests:
-    name: ABI3 (Python ${{ matrix.python-version }})
+    name: Python ${{ matrix.python-version }} (ABI3 wheel)
     needs: [stable-abi-build]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -228,7 +229,7 @@ jobs:
           fail_ci_if_error: false
 
   pip-sdist:
-    name: Source distribution
+    name: Build and test source distribution
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -277,7 +278,7 @@ jobs:
           archive: false
 
   quality:
-    name: Quality
+    name: Code quality
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -322,7 +323,7 @@ jobs:
         run: uv run --locked --no-sync zizmor .github/workflows
 
   docs:
-    name: Documentation
+    name: Build documentation
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -347,7 +348,7 @@ jobs:
         run: uv run --locked --no-sync python .github/check_docs.py
 
   clang-tidy:
-    name: C++ analysis
+    name: Analyze C++
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -387,4 +388,4 @@ jobs:
   wheels:
     name: Distribution wheels
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    uses: ./.github/workflows/wheels.yml
+    uses: $/.github/workflows/wheels.yml

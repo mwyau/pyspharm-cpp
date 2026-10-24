@@ -1,27 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Check SPDX identifiers in first-party source and documentation files."""
+"""Check SPDX copyright and license headers in first-party text files."""
 
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-IDENTIFIER = "SPDX-License-Identifier: GPL-2.0-or-later"
+HEADERS = ("SPDX-FileCopyrightText:", "SPDX-License-Identifier: GPL-2.0-or-later")
 SUFFIXES = {
     ".c",
     ".cff",
     ".cpp",
     ".h",
+    ".html",
     ".hpp",
     ".md",
     ".py",
     ".pyi",
     ".toml",
+    ".txt",
     ".yaml",
     ".yml",
 }
 SPECIAL_FILES = {
     ".clang-format",
     ".clang-tidy",
+    ".gitignore",
+    ".gitmodules",
     "CMakeLists.txt",
 }
 SOURCE_DIRECTORIES = (
@@ -62,24 +67,26 @@ def candidate_files() -> set[Path]:
     return files
 
 
-def has_identifier(path: Path) -> bool:
+def missing_headers(path: Path) -> list[str]:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()[:8]
     except (OSError, UnicodeDecodeError):
-        return False
-    return any(IDENTIFIER in line for line in lines)
+        return list(HEADERS)
+    return [header for header in HEADERS if not any(header in line for line in lines)]
 
 
 def main() -> int:
-    missing = sorted(
-        path.relative_to(ROOT) for path in candidate_files() if not has_identifier(path)
-    )
+    missing = {
+        path.relative_to(ROOT): headers
+        for path in candidate_files()
+        if (headers := missing_headers(path))
+    }
     if missing:
-        print("Missing SPDX identifier in the first eight lines:", file=sys.stderr)
-        for path in missing:
-            print(f"  {path}", file=sys.stderr)
+        print("Missing SPDX headers in the first eight lines:", file=sys.stderr)
+        for path, headers in sorted(missing.items()):
+            print(f"  {path}: {', '.join(headers)}", file=sys.stderr)
         return 1
-    print(f"SPDX identifiers present in {len(candidate_files())} first-party files.")
+    print(f"SPDX headers present in {len(candidate_files())} first-party files.")
     return 0
 
 
