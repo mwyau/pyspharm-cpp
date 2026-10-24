@@ -90,12 +90,32 @@ jobs:
                 tests/test_numerics.py::test_batched_interpolation_complex_coefficient_all_eight_lanes
             done
           fi
+      - name: Prepare profile-specific wheel filename
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          uv run --locked --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+          from shutil import copy2
+
+          profile = os.environ["PROFILE"]
+          wheels = list(Path(f"dist/{profile}").glob("*.whl"))
+          assert len(wheels) == 1, f"Expected one {profile} wheel"
+          dist_version, python, abi, platform = wheels[0].stem.rsplit("-", 3)
+          output = Path("dist/artifact")
+          output.mkdir(exist_ok=True)
+          copy2(
+              wheels[0],
+              output / f"{dist_version}-0{profile}-{python}-{abi}-{platform}.whl",
+          )
+          PY
       - name: Upload tested ${{ matrix.profile }} wheel
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: ci-wheel-${{ matrix.profile }}-linux-x86_64
-          path: dist/${{ matrix.profile }}/*.whl
+          path: dist/artifact/*.whl
           if-no-files-found: error
+          archive: false
 
   stable-abi-build:
     name: Build abi3 wheel
@@ -133,9 +153,9 @@ jobs:
       - name: Upload abi3 wheel
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: cp312-abi3-linux-x86_64
           path: dist/abi3/*.whl
           if-no-files-found: error
+          archive: false
 
   stable-abi-tests:
     name: Test abi3 wheel on Python ${{ matrix.python-version }}
@@ -160,7 +180,8 @@ jobs:
       - name: Download abi3 wheel
         uses: actions/download-artifact@v8.0.2
         with:
-          name: cp312-abi3-linux-x86_64
+          pattern: "*-cp312-abi3-*.whl"
+          merge-multiple: true
           path: dist/abi3
       - name: Install and test abi3 wheel
         run: |
@@ -217,9 +238,9 @@ jobs:
       - name: Upload tested source distribution
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: ci-sdist
           path: dist/sdist/*.tar.gz
           if-no-files-found: error
+          archive: false
 
   quality:
     name: Check code quality
@@ -374,6 +395,6 @@ jobs:
       - name: Upload tested free-threaded wheel
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: ci-wheel-free-threaded-${{ matrix.python-version }}-linux-x86_64
           path: dist/free-threaded/*.whl
           if-no-files-found: error
+          archive: false
