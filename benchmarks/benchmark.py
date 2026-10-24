@@ -68,11 +68,11 @@ def spharm_operations(transform, grid, east, north, lmax):
     }
 
 
-def ducc_operations(ducc0, grid, east, north, gridtype, lmax, threads):
+def ducc_operations(np, ducc0, grid, east, north, gridtype, lmax, threads):
     geometry = "CC" if gridtype == "regular" else "GL"
     nlat, nlon = grid.shape
     scalar_map = grid[None, :, :]
-    wind_map = __import__("numpy").stack((east, north))
+    wind_map = np.stack((east, north))
     scalar = ducc0.sht.analysis_2d(
         map=scalar_map, spin=0, lmax=lmax, geometry=geometry, nthreads=threads
     )
@@ -182,7 +182,7 @@ def main():
             ]
             measurements.append(
                 ("ducc0", ducc_operations(
-                    ducc0, grid, east, north, gridtype, lmax, threads
+                    np, ducc0, grid, east, north, gridtype, lmax, threads
                 ))
             )
 
