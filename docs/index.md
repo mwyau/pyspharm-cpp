@@ -2,18 +2,9 @@
 
 # pyspharm-cpp
 
-`pyspharm-cpp` computes scalar and vector spherical harmonic transforms,
-gradients, vorticity, divergence, streamfunction, and velocity potential on
-regular or Gaussian latitude–longitude grids. Its NumPy interface follows
-PySpharm's function names and coefficient layout, with documented differences
-in precision, truncation, and Legendre evaluation. DUCC performs the transforms;
-the Python package does not require SPHEREPACK or the `ducc0` Python package.
+`pyspharm-cpp` computes scalar and vector spherical harmonic transforms on regular Clenshaw–Curtis and Gaussian latitude–longitude grids. It also implements gradients, vorticity, divergence, streamfunction, velocity potential, regridding, and spectral interpolation.
 
-The [quickstart](quickstart.md) shows scalar and vector operations.
-The [API reference](api.md) lists functions and methods, the
-[numerical conventions](conventions.md) define coordinates and spectral
-limits, and the [PySpharm comparison](pyspharm-compatibility.md) records tests
-against PySpharm/SPHEREPACK.
+Its NumPy API follows PySpharm's coefficient ordering. DUCC computes the transforms; PySpharm/SPHEREPACK is used only for independent reference comparisons, not at runtime.
 
 ```{toctree}
 ---
@@ -25,7 +16,4 @@ conventions
 pyspharm-compatibility
 ```
 
-For development and contribution instructions, see
-[CONTRIBUTING.md](https://github.com/mwyau/pyspharm-cpp/blob/main/CONTRIBUTING.md).
-For licensing and bundled DUCC sources, see
-[THIRD_PARTY_NOTICES.md](https://github.com/mwyau/pyspharm-cpp/blob/main/THIRD_PARTY_NOTICES.md).
+For development instructions, see [CONTRIBUTING.md](https://github.com/mwyau/pyspharm-cpp/blob/main/CONTRIBUTING.md). For the bundled DUCC license, see [third-party notices](https://github.com/mwyau/pyspharm-cpp/blob/main/THIRD_PARTY_NOTICES.md).

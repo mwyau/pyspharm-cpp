@@ -2,13 +2,14 @@
 import sys
 from datetime import date
 from pathlib import Path
+import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 project = "pyspharm-cpp"
 author = "Albert Yau"
 copyright = f"{date.today().year}, {author}"
-release = "0.1.0.dev0"
+release = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())["project"]["version"]
 
 extensions = [
     "myst_parser",

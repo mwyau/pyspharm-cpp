@@ -25,6 +25,4 @@
 .. autofunction:: spharm_cpp.cpu_info
 ```
 
-See the [numerical conventions](conventions.md) for supported array shapes,
-sampling limits and units. See the [PySpharm compatibility inventory](pyspharm-compatibility.md)
-for versioned legacy signatures, intentional differences, and parity evidence.
+For grid shapes, normalization, and truncation limits, see [numerical conventions](conventions.md). The [PySpharm comparison](pyspharm-compatibility.md) describes tested compatibility and differences.

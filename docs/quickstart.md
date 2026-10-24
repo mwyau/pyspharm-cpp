@@ -2,105 +2,57 @@
 
 # Quickstart
 
-## Install a wheel
+## Installation
 
-After a package release is available, install it with pip when a wheel is
-available for your platform and Python version:
+Install `pyspharm-cpp` when a wheel is available, or install it from a source checkout with the DUCC submodule initialized:
 
-```console
+```sh
 python -m pip install pyspharm-cpp
 ```
 
-The runtime dependency is NumPy. A source build requires Python 3.11 or newer,
-a C++17 compiler, CMake and the build tools declared by the project.
+The package imports as `spharm_cpp`. Python 3.11 or newer and NumPy are required.
 
-## Analyze and synthesize a field
-
-The example analyzes a degree-one spherical harmonic sampled on a Gaussian
-grid, then reconstructs the field from its coefficients:
+## Scalar analysis and synthesis
 
 ```python
 import numpy as np
 import spharm_cpp as spharm
 
 nlon, nlat = 32, 16
-transform = spharm.Spharmt(nlon, nlat, gridtype="gaussian")
-latitudes, _ = spharm.gaussian_lats_wts(nlat)
-longitudes = np.arange(nlon) * (360.0 / nlon)
+sht = spharm.Spharmt(nlon, nlat, gridtype="gaussian")
+lat, _ = spharm.gaussian_lats_wts(nlat)
+lon = np.arange(nlon) * 360.0 / nlon
 
-field = np.cos(np.deg2rad(latitudes))[:, None] * np.cos(np.deg2rad(longitudes))[None, :]
-spectrum = transform.grdtospec(field, ntrunc=1)
-reconstructed = transform.spectogrd(spectrum)
+field = np.cos(np.deg2rad(lat))[:, None] * np.cos(np.deg2rad(lon))[None, :]
+spectrum = sht.grdtospec(field, ntrunc=1)
+reconstructed = sht.spectogrd(spectrum)
 np.testing.assert_allclose(reconstructed, field, rtol=2e-12, atol=2e-12)
 ```
 
-`Spharmt` accepts either `gridtype="gaussian"` or `gridtype="regular"`.
-Regular grids use Clenshaw–Curtis latitude rings. Gaussian latitude and
-quadrature arrays are returned in north-to-south order by
-`gaussian_lats_wts`.
+Latitude rows run north to south; longitudes increase eastward without a duplicate endpoint. `gridtype="regular"` selects a Clenshaw–Curtis grid including both poles; `"gaussian"` selects Gaussian latitudes.
 
-## Vector operations
+## Wind and derivative operations
 
-The vector methods return eastward (zonal) and northward (meridional)
-components, in that order. This example differentiates the degree-one,
-order-one scalar harmonic and analyzes the resulting wind components:
+`getgrad` returns eastward and northward gradient components. `getvrtdivspec` analyzes wind components into relative vorticity and divergence spectra; `getuv` synthesizes wind from those spectra.
 
 ```python
 order, degree = spharm.getspecindx(1)
 potential = np.zeros(degree.size, dtype=np.complex128)
 potential[(order == 1) & (degree == 1)] = 1.0
-eastward, northward = transform.getgrad(potential)
 
-vorticity, divergence = transform.getvrtdivspec(eastward, northward, ntrunc=1)
-eastward_again, northward_again = transform.getuv(vorticity, divergence)
+eastward, northward = sht.getgrad(potential)
+vorticity, divergence = sht.getvrtdivspec(
+    eastward, northward, ntrunc=1
+)
+u, v = sht.getuv(vorticity, divergence)
 ```
 
-`getpsichi(ugrid, vgrid)` returns streamfunction and velocity potential,
-in that order. Spherical derivatives use the radius `rsphere`; use consistent
-units for the input field, wind components, and radius.
+`getpsichi(u, v)` returns streamfunction and velocity-potential maps. Derivative and wind operations use the sphere radius `rsphere`, so the radius and input field units must be consistent.
 
-## Precision and batched fields
+## Precision and multiple fields
 
-The default `dtype` is `numpy.float64`, paired with `numpy.complex128` spectral
-coefficients. Select single precision with `dtype=numpy.float32`; real and
-complex arrays must use the matching precision. Batched map inputs have shape
-`(nlat, nlon, nfields)` and batched spectra have shape `(ncoeff, nfields)`.
+The default grid/coefficients are float64/complex128. Select float32/complex64 with `Spharmt(..., dtype=np.float32)`. The input precision must match the instance.
 
-## Install from a checkout
+Multiple grid fields use shape `(nlat, nlon, nfields)`; spectral arrays use `(ncoeff, nfields)`.
 
-For a local editable installation, initialize the pinned DUCC submodule and
-sync the locked environment:
-
-```sh
-git submodule update --init --recursive
-uv sync --locked --python 3.14 --all-groups
-uv run --locked python -m pytest -q
-```
-
-The default build profile is selected by platform. To build a portable wheel,
-use:
-
-```sh
-uv run --locked --no-sync python -m build --wheel --no-isolation \
-  --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
-```
-
-For a CPython 3.12+ standard build, the linked nanobind stable ABI can be
-requested explicitly:
-
-```sh
-uv python install 3.12
-uv sync --locked --python 3.12 --group build
-uv run --locked --no-sync --python 3.12 python -m build \
-  --wheel --no-isolation \
-  --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable \
-  --config-setting cmake.define.SPHARM_CPP_STABLE_ABI=ON \
-  --config-setting wheel.py-api=cp312
-```
-
-This produces a `cp312-abi3` wheel. Keep a version-specific `cp311` wheel for
-Python 3.11. Free-threaded builds use the separate `cp314t` and `cp315t` ABI
-tags; the linked `abi3` build mode does not apply to them.
-
-See [numerical conventions](conventions.md) for the transform limits and
-coefficient layout.
+See [numerical conventions](conventions.md) for truncation and normalization, [API reference](api.md) for all operations, and [PySpharm comparison](pyspharm-compatibility.md) for tested differences.

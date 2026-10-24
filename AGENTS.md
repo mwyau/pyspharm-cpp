@@ -34,6 +34,12 @@ valid limits.
   dispatch, including DUCC's thread-pool initialization, must use baseline
   instructions in every backend namespace.
 
+## Documentation and verification
+
+- Follow [write-like-a-scientist](https://github.com/mwyau/write-like-a-scientist/blob/main/skills/write-like-a-scientist/SKILL.md) when editing scientific text. Preserve equations and claims; distinguish tested behavior from expected behavior.
+- Keep README and CONTRIBUTING focused on users and contributors. Put API explanations in `docs/` and implementation constraints here. Do not add work-log or agent-handoff files.
+- Preserve the parity manifest: every public contract and approved exception must have a behavior test. Keep validation manual-only and GitHub Actions pinned to exact patch releases.
+
 ## Python build and release
 
 - Use uv and a committed `uv.lock` for development environments, dependency
