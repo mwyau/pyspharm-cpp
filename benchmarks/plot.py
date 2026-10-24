@@ -18,9 +18,9 @@ TITLES = {
     "wind_synthesis": "Wind synthesis",
 }
 BACKENDS = (
-    ("PySpharm", "PySpharm · f32", "#a25561"),
+    ("PySpharm", "pyspharm · f32", "#a25561"),
     ("pyspharm-cpp", "pyspharm-cpp · f32", "#286a9b"),
-    ("ducc0", "DUCC · f32", "#3d8462"),
+    ("ducc0", "ducc0 · f32", "#3d8462"),
     ("pyspharm-cpp-float64", "pyspharm-cpp · f64", "#7268a8"),
 )
 HEIGHT = 136 + 202 * len(OPERATIONS)
@@ -72,7 +72,7 @@ def render(case, label, measurements):
         '<text x="27" y="40" font-size="21" font-family="sans-serif" '
         'font-weight="600" fill="#1f3546">Spherical harmonic transform latency</text>',
         f'<text x="27" y="66" font-size="14" font-family="sans-serif" '
-        f'fill="#526478">{escape(label)} · PySpharm serial · DUCC/cpp '
+        f'fill="#526478">{escape(label)} · pyspharm serial · ducc0/pyspharm-cpp '
         f'{threads} thread{"s" if threads != 1 else ""}</text>',
     ]
 
