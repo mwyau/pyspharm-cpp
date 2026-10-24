@@ -2,7 +2,7 @@
 
 # pyspharm-cpp
 
-[![CI](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/mwyau/pyspharm-cpp/ci.yml?branch=main&label=CI)](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml)
 [![Docs](https://readthedocs.org/projects/pyspharm-cpp/badge/?version=latest)](https://pyspharm-cpp.readthedocs.io/en/latest/?badge=latest)
 [![Codecov](https://codecov.io/github/mwyau/pyspharm-cpp/graph/badge.svg)](https://codecov.io/github/mwyau/pyspharm-cpp)
 [![PyPI version](https://img.shields.io/pypi/v/pyspharm-cpp)](https://pypi.org/project/pyspharm-cpp/)
