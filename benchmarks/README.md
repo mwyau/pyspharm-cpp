@@ -2,19 +2,18 @@
 
 # Benchmarks
 
-These figures show measured **float32 median execution times** in milliseconds.
+These charts compare median timings for PySpharm float32, DUCC float32, and `pyspharm-cpp` float32 and float64.
 Each operation has its own zero-based linear time scale; compare bar lengths
 within an operation, and use the printed values across operations. Smaller is
 better. The speedup column is PySpharm time divided by pyspharm-cpp time.
 
 Measured on a four-CPU AMD EPYC Linux runner (CPython 3.12, NumPy 1.26.4):
 serial PySpharm 1.0.9 versus four-thread DUCC 0.42.0 and pyspharm-cpp
-0.1.0.dev0, with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
+0.1.0.dev0 (both precisions), with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
 repetitions after two warmups, without CPU pinning.
 
-The fifth case repeats the 2.5° regular grid with one DUCC thread, on the
-same runner as the four-thread measurements. The figures report the two
-thread configurations separately.
+The fifth case repeats the 2.5° regular grid with one DUCC thread on the
+same runner. Float64 uses exact casts of the float32 samples.
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
 
@@ -84,7 +83,5 @@ python benchmarks/plot.py \
 
 `--threads 0` selects up to eight available CPUs, respecting Linux
 affinity and cgroup quota. Use an explicit thread count for controlled runs.
-`python benchmarks/plot.py` without a CSV regenerates the historical
-four-thread figures from the embedded medians until all five measurements
-from a matched runner are recorded. Raw benchmark CSVs are not
-tracked. Independent numerical validation is in [`tests/parity/`](../tests/parity).
+`python benchmarks/plot.py` requires both CSV files from one runner and
+fails if any timing series is missing. Raw CSVs are not tracked. Independent numerical validation is in [`tests/parity/`](../tests/parity).

@@ -27,52 +27,12 @@ OPERATIONS = (
     ("wind_analysis", "Wind analysis"),
 )
 BACKENDS = (
-    ("PySpharm", "PySpharm", "#a25561"),
-    ("pyspharm-cpp", "pyspharm-cpp", "#286a9b"),
-    ("ducc0", "DUCC", "#3d8462"),
+    ("PySpharm", "PySpharm · f32", "#a25561"),
+    ("pyspharm-cpp", "pyspharm-cpp · f32", "#286a9b"),
+    ("ducc0", "DUCC · f32", "#3d8462"),
+    ("pyspharm-cpp-float64", "pyspharm-cpp · f64", "#7268a8"),
 )
 
-
-# Exact median observations from hosted GitHub Actions run 40101800670;
-# chart regeneration does not depend on a checked-in raw CSV.
-SNAPSHOT = {
-    ("cc-2p5", "scalar_analysis", "PySpharm"): 0.069194,
-    ("cc-2p5", "scalar_synthesis", "PySpharm"): 0.029174,
-    ("cc-2p5", "wind_analysis", "PySpharm"): 0.177977,
-    ("cc-2p5", "scalar_analysis", "pyspharm-cpp"): 0.208873,
-    ("cc-2p5", "scalar_synthesis", "pyspharm-cpp"): 0.067051,
-    ("cc-2p5", "wind_analysis", "pyspharm-cpp"): 0.385208,
-    ("cc-2p5", "scalar_analysis", "ducc0"): 0.222424,
-    ("cc-2p5", "scalar_synthesis", "ducc0"): 0.063245,
-    ("cc-2p5", "wind_analysis", "ducc0"): 0.381092,
-    ("cc-0p25", "scalar_analysis", "PySpharm"): 95.026696,
-    ("cc-0p25", "scalar_synthesis", "PySpharm"): 76.560638,
-    ("cc-0p25", "wind_analysis", "PySpharm"): 244.674017,
-    ("cc-0p25", "scalar_analysis", "pyspharm-cpp"): 12.637532,
-    ("cc-0p25", "scalar_synthesis", "pyspharm-cpp"): 4.047290,
-    ("cc-0p25", "wind_analysis", "pyspharm-cpp"): 27.711609,
-    ("cc-0p25", "scalar_analysis", "ducc0"): 14.259676,
-    ("cc-0p25", "scalar_synthesis", "ducc0"): 3.875081,
-    ("cc-0p25", "wind_analysis", "ducc0"): 29.121713,
-    ("gl-128", "scalar_analysis", "PySpharm"): 0.633740,
-    ("gl-128", "scalar_synthesis", "PySpharm"): 0.108904,
-    ("gl-128", "wind_analysis", "PySpharm"): 1.160861,
-    ("gl-128", "scalar_analysis", "pyspharm-cpp"): 0.131477,
-    ("gl-128", "scalar_synthesis", "pyspharm-cpp"): 0.127902,
-    ("gl-128", "wind_analysis", "pyspharm-cpp"): 0.264737,
-    ("gl-128", "scalar_analysis", "ducc0"): 0.127501,
-    ("gl-128", "scalar_synthesis", "ducc0"): 0.117677,
-    ("gl-128", "wind_analysis", "ducc0"): 0.227181,
-    ("gl-640", "scalar_analysis", "PySpharm"): 184.648172,
-    ("gl-640", "scalar_synthesis", "PySpharm"): 47.849009,
-    ("gl-640", "wind_analysis", "PySpharm"): 612.969222,
-    ("gl-640", "scalar_analysis", "pyspharm-cpp"): 3.449693,
-    ("gl-640", "scalar_synthesis", "pyspharm-cpp"): 3.064896,
-    ("gl-640", "wind_analysis", "pyspharm-cpp"): 7.590132,
-    ("gl-640", "scalar_analysis", "ducc0"): 3.199028,
-    ("gl-640", "scalar_synthesis", "ducc0"): 2.963785,
-    ("gl-640", "wind_analysis", "ducc0"): 6.404595,
-}
 
 def load_measurements(paths: list[Path]):
     results = {}
@@ -97,20 +57,20 @@ def load_measurements(paths: list[Path]):
 def render(case, label, results):
     left, width = 227, 486
     doc = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="920" height="702" '
-        'viewBox="0 0 920 702" role="img" aria-labelledby="t d">',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="920" height="740" '
+        'viewBox="0 0 920 740" role="img" aria-labelledby="t d">',
         '<title id="t">Measured spherical harmonic transform timings</title>',
-        '<desc id="d">Three operations, each comparing PySpharm, pyspharm-cpp '
-        'and DUCC on a zero-based linear millisecond scale. Each operation '
-        'uses a different labeled axis extent.</desc>',
-        '<rect width="920" height="702" fill="white"/>',
+        '<desc id="d">Three operations comparing PySpharm and DUCC float32 '
+        'against pyspharm-cpp float32 and float64 on separate zero-based '
+        'linear millisecond axes.</desc>',
+        '<rect width="920" height="740" fill="white"/>',
         '<text x="27" y="40" font-size="21" font-family="sans-serif" '
         'font-weight="600" fill="#1f3546">Spherical harmonic transform latency</text>',
         f'<text x="27" y="66" font-size="14" font-family="sans-serif" '
-        f'fill="#526478">{escape(label)} · float32 · PySpharm serial · DUCC {1 if case.endswith("-1t") else 4} thread{"s" if not case.endswith("-1t") else ""}</text>',
+        f'fill="#526478">{escape(label)} · PySpharm serial · DUCC {1 if case.endswith("-1t") else 4} thread{"s" if not case.endswith("-1t") else ""}</text>',
     ]
     for i, (operation, title) in enumerate(OPERATIONS):
-        y0 = 98 + 190 * i
+        y0 = 98 + 202 * i
         values = [results[case, operation, name] for name, _, _ in BACKENDS]
         maximum = max(values) * 1.13
         maximum = float(f"{maximum:.2g}") if maximum >= 1 else math.ceil(maximum * 10) / 10
@@ -121,7 +81,7 @@ def render(case, label, results):
             f'font-weight="600" fill="#1f3546">{escape(title)}</text>'
         )
         for j, (name, caption, color) in enumerate(BACKENDS):
-            y = y0 + 23 + 34 * j
+            y = y0 + 23 + 29 * j
             val = results[case, operation, name]
             w = val / maximum * width
             doc.extend([
@@ -132,7 +92,7 @@ def render(case, label, results):
                 f'<text x="{left+w+9:.1f}" y="{y+17}" font-family="sans-serif" '
                 f'font-size="13" fill="#233646">{val:.3f} ms</text>',
             ])
-        axis_y = y0 + 138
+        axis_y = y0 + 156
         doc.append(f'<line x1="{left}" x2="{left+width}" y1="{axis_y}" '
                    f'y2="{axis_y}" stroke="#9caeba"/>')
         for frac in (0, 0.5, 1):
@@ -141,7 +101,7 @@ def render(case, label, results):
                        f'text-anchor="middle" font-size="11" '
                        f'font-family="sans-serif" fill="#536779">'
                        f'{maximum*frac:.3g}</text>')
-    doc.append('<text x="27" y="685" font-size="12" '
+    doc.append('<text x="27" y="723" font-size="12" '
                'font-family="sans-serif" fill="#526478">'
                'Linear milliseconds; separate axis per operation. '
                'Read printed numbers to compare across operations.</text>')
@@ -151,14 +111,15 @@ def render(case, label, results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", type=Path, nargs="+", help="CSV files from the same workflow job")
+    parser.add_argument(
+        "--csv", type=Path, nargs="+", required=True,
+        help="Both benchmark CSVs from the same runner",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).parent)
     args = parser.parse_args()
-    results = load_measurements(args.csv) if args.csv else SNAPSHOT
+    results = load_measurements(args.csv)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for case, label in CASES:
-        if not args.csv and (case, OPERATIONS[0][0], BACKENDS[0][0]) not in results:
-            continue
         target = args.output_dir / f"timings-{case}.svg"
         target.write_text(render(case, label, results), encoding="utf-8")
         print(target)

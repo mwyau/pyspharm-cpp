@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Run float32 SHT analysis/synthesis benchmarks on four specified grids."""
+"""Compare float32 and float64 SHT latencies on five grid cases."""
 
 from __future__ import annotations
 
@@ -106,17 +106,27 @@ def main():
             north = rng.standard_normal((nlat, nlon)).astype(np.float32)
             print(f"BENCHMARK_CASE={case} {nlon}x{nlat} "
                   f"{gridtype} lmax={lmax}", flush=True)
+            # Match sampled input values when comparing candidate precisions.
+            grid64 = grid.astype(np.float64)
+            east64 = east.astype(np.float64)
+            north64 = north.astype(np.float64)
             implementations = (
-                ("PySpharm", spharm.Spharmt(nlon, nlat, gridtype=gridtype)),
+                ("PySpharm", spharm.Spharmt(nlon, nlat, gridtype=gridtype),
+                 grid, east, north),
                 ("pyspharm-cpp", spharm_cpp.Spharmt(
-                    nlon, nlat, gridtype=gridtype, dtype=np.float32)),
+                    nlon, nlat, gridtype=gridtype, dtype=np.float32),
+                 grid, east, north),
+                ("pyspharm-cpp-float64", spharm_cpp.Spharmt(
+                    nlon, nlat, gridtype=gridtype, dtype=np.float64),
+                 grid64, east64, north64),
             )
-            for backend, sht in implementations:
-                coeff = sht.grdtospec(grid, lmax)
+            for backend, sht, scalar, zonal, meridional in implementations:
+                coeff = sht.grdtospec(scalar, lmax)
                 operations = {
-                    "scalar_analysis": lambda: sht.grdtospec(grid, lmax),
+                    "scalar_analysis": lambda: sht.grdtospec(scalar, lmax),
                     "scalar_synthesis": lambda: sht.spectogrd(coeff),
-                    "wind_analysis": lambda: sht.getvrtdivspec(east, north, lmax),
+                    "wind_analysis": lambda: sht.getvrtdivspec(
+                        zonal, meridional, lmax),
                 }
                 for operation in OPS:
                     median, p90 = measure(operations[operation],
