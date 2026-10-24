@@ -668,9 +668,11 @@ def test_geodesic_float32_order_and_double_precision_geometry():
         + np.sin(phi) ** 2
     )
     np.testing.assert_allclose(xyz_norm, 1.0, rtol=0, atol=3e-16)
-    lat32, lon32 = cpp.getgeodesicpts(2, dtype=np.float32)
-    assert np.max(np.abs(lat64 - lat32.astype(np.float64))) > 1e-6
-    assert np.max(np.abs(lon64 - lon32.astype(np.float64))) > 1e-6
+    for m in (1, 2, 3, 4, 6, 10, 20):
+        lat64, lon64 = cpp.getgeodesicpts(m)
+        lat32, lon32 = cpp.getgeodesicpts(m, dtype=np.float32)
+        np.testing.assert_array_equal(lat32, lat64.astype(np.float32))
+        np.testing.assert_array_equal(lon32, lon64.astype(np.float32))
     with pytest.raises(TypeError, match="float32 or numpy.float64"):
         cpp.getgeodesicpts(2, dtype=np.int32)
     with pytest.raises(TypeError):

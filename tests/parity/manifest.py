@@ -50,7 +50,7 @@ APPROVED_DIFFERENCES = {
     ),
     "geodesic_float64_default": (
         "getgeodesicpts defaults to double-precision geometry and float64 "
-        "coordinates; dtype=numpy.float32 selects the reference-precision path."
+        "coordinates; dtype=numpy.float32 casts the computed coordinates to float32."
     ),
     "regrid_native_precision_conversion": (
         "Regridding may analyze and synthesize at different supported native "

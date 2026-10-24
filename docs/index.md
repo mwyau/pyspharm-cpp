@@ -4,7 +4,7 @@
 
 `pyspharm-cpp` computes scalar and vector spherical harmonic transforms on regular Clenshaw–Curtis and Gaussian latitude–longitude grids. It also implements gradients, vorticity, divergence, streamfunction, velocity potential, regridding, and spectral interpolation.
 
-Its NumPy API follows PySpharm's coefficient ordering. DUCC computes the transforms; PySpharm/SPHEREPACK is used only for independent reference comparisons, not at runtime.
+Its NumPy API follows PySpharm's coefficient ordering, with DUCC providing the numerical transforms. Reference tests compare outputs with PySpharm/SPHEREPACK.
 
 ```{toctree}
 ---

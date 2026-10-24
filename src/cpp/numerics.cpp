@@ -707,13 +707,16 @@ void bind_numerics(py::module_& m)
             py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
         if (name == "float32")
         {
-          auto result = geodesic_points<float>(static_cast<std::size_t>(m));
+          auto result = geodesic_points<double>(static_cast<std::size_t>(m));
           NpArr latitudes = new_array<float>({result.first.size()});
           NpArr longitudes = new_array<float>({result.second.size()});
           auto lat = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(latitudes);
           auto lon = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(longitudes);
-          std::copy(result.first.begin(), result.first.end(), lat.data());
-          std::copy(result.second.begin(), result.second.end(), lon.data());
+          for (std::size_t i = 0; i < result.first.size(); ++i)
+          {
+            lat.data()[i] = static_cast<float>(result.first[i]);
+            lon.data()[i] = static_cast<float>(result.second[i]);
+          }
           return py::make_tuple(latitudes, longitudes);
         }
         if (name == "float64")
@@ -733,7 +736,7 @@ void bind_numerics(py::module_& m)
       py::sig(
           R"(def getgeodesicpts(m: int, *, dtype: object | None = None) -> tuple[numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]])"),
       "Return latitude and longitude coordinates of an icosahedral grid. Defaults "
-      "to float64; dtype=float32 selects the legacy-precision calculation.");
+      "to float64; dtype=float32 casts the result to single precision.");
 
   m.def(
       "specintrp",

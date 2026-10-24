@@ -58,11 +58,11 @@ where `U` denotes a Chebyshev polynomial of the second kind. Restricting regular
 
 Synthesis accepts triangular spectra through degree `nlat-1`; acceptance does not imply that analysis can uniquely recover every coefficient.
 
-For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitude. Its imaginary component is unobservable. Scalar analysis applies a factor of one half to its positive-order coefficient to match PySpharm's normalization. Spin-1 analysis does not accept this order.
+For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitude. Its imaginary component is unobservable. Scalar analysis applies a factor of one half to its positive-order coefficient to match PySpharm's normalization. Spin-1 analysis uses longitudinal orders below Nyquist.
 
 ## Precision, units, and component order
 
-`Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` returns float64 coordinates by default, with a float32 option.
+`Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` calculates coordinates in float64 and optionally returns float32 values.
 
 `rsphere` is a positive radius in the user's length units. Scalar transforms are independent of radius; gradients divide by radius, and wind-derived vorticity and divergence use spherical derivatives. Component order is eastward (`u`) then northward (`v`).
 

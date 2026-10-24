@@ -2,7 +2,7 @@
 
 # Comparison with PySpharm
 
-`spharm_cpp` implements the public PySpharm API with DUCC rather than SPHEREPACK. The implementations agree on the tested common input domain, subject to the differences below. Agreement with another implementation is evidence about compatibility, not proof of accuracy for every grid and degree.
+`spharm_cpp` provides a PySpharm-style Python API using DUCC transforms. The implementations agree on the tested common input domain, subject to the differences below. Agreement with another implementation is evidence about compatibility, not proof of accuracy for every grid and degree.
 
 The reference tests use `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e). The `pyspharm-syl` Python source removes the upstream `Spharmt.__repr__` and changes several equivalent rank-adaptation operations.
 
@@ -27,12 +27,12 @@ The full public contract inventory is enforced by `tests/parity/manifest.py`. It
 
 | Behavior | `spharm_cpp` |
 | --- | --- |
-| Import and implementation | Import `spharm_cpp` rather than `spharm`; DUCC replaces SPHEREPACK. |
+| Module and backend | `spharm_cpp` provides a DUCC-based implementation. |
 | Legendre evaluation | `legfunc="computed"` is the default and only supported mode; `"stored"` raises `ValueError`. |
 | Precision | float64/complex128 by default, float32/complex64 when requested. |
 | Regular-grid analysis | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`. |
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars. |
-| Geodesic coordinates | float64 calculation and output by default; `dtype=np.float32` uses the reference precision. |
+| Geodesic coordinates | Calculated in float64; `dtype=np.float32` casts the output coordinates. |
 | Regridding | Supports conversion between the two native precision modes. |
 | Representation | `Spharmt.__repr__` includes grid and precision information. |
 | Input validation | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
@@ -57,7 +57,7 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 
 ## Precision and validation evidence
 
-Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam.
+Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
 
 Run the PySpharm comparison with the manual [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. Missing contracts, blocked reference imports, and unapproved differences fail validation.
 

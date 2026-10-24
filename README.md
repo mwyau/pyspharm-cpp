@@ -39,15 +39,15 @@ np.testing.assert_allclose(reconstructed, field, atol=2e-12, rtol=2e-12)
 
 ## Differences from PySpharm
 
-- **Backend:** import `spharm_cpp`, which uses DUCC rather than SPHEREPACK.
+- **Backend:** the `spharm_cpp` module uses DUCC for transforms.
 - **Defaults:** float64/complex128, with optional float32/complex64; computed Legendre functions only (`legfunc="stored"` is unsupported).
 - **Truncation:** regular analysis stops at `min(nlat-2, nlon//2)`, Gaussian analysis at `min(nlat-1, nlon//2)`. Vector analysis also requires `ntrunc <= (nlon-1)//2`.
 - **Highest regular degree:** synthesis evaluates odd-order harmonics at `l=nlat-1` that the tested SPHEREPACK synthesis omits. Regular-grid analysis cannot uniquely recover all coefficients at that degree.
 - **Zero truncation:** coefficient arrays retain one dimension; `getpsichi(..., ntrunc=0)` returns zero maps instead of raising an exception.
-- **Other changes:** `getgeodesicpts` defaults to float64, `getspecindx` returns NumPy `intp`, and `regrid` supports precision conversion. Batched Legendre/interpolation and stricter input checks are additional features.
+- **Other changes:** `getgeodesicpts` calculates in float64 (with optional float32 output), `getspecindx` returns NumPy `intp`, and `regrid` supports precision conversion. Batched Legendre/interpolation and stricter input checks are additional features.
 
 For even longitude counts, the imaginary scalar Nyquist coefficient is unobservable. See [numerical conventions](docs/conventions.md) and the [PySpharm comparison](docs/pyspharm-compatibility.md) for details, or the [quickstart](docs/quickstart.md) and [API reference](docs/api.md) for usage.
 
 ## License
 
-GPL-2.0-or-later. DUCC is included as an unmodified submodule; see [third-party notices](THIRD_PARTY_NOTICES.md). This project is independent of PySpharm and DUCC.
+GPL-2.0-or-later. DUCC is included as an unmodified submodule; see [third-party notices](THIRD_PARTY_NOTICES.md). DUCC is used under its respective license.
