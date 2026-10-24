@@ -21,6 +21,7 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
+html_sidebars = {"**": ["site-collapse.html", "site-navigation.html"]}
 source_suffix = {".md": "markdown"}
 root_doc = "index"
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
