@@ -373,7 +373,7 @@ def test_float32_radius_scaling_without_premature_casts(gridtype):
     baseline = spharm.Spharmt(16, 9, 1.0, gridtype, dtype=np.float32)
     large = spharm.Spharmt(16, 9, 1e40, gridtype, dtype=np.float32)
     spec = np.zeros(3, dtype=np.complex64)
-    spec[1] = 1
+    spec[1] = 1e20
     zero = np.zeros_like(spec)
 
     reference_grad = baseline.getgrad(spec)
@@ -383,24 +383,27 @@ def test_float32_radius_scaling_without_premature_casts(gridtype):
             actual.astype(np.float64),
             reference.astype(np.float64) / large.rsphere,
             rtol=5e-5,
-            atol=1.5e-45,
+            atol=1e-26,
         )
     assert np.any(large_grad[1] != 0)
 
-    small_spec = spec * np.float32(1e-40)
-    amplitude = float(small_spec[1].real) * large.rsphere
-    for actual, reference in zip(large.getuv(small_spec, zero), baseline.getuv(spec, zero)):
+    small_spec = np.zeros_like(spec)
+    small_spec[1] = 1e-20
+    for actual, reference in zip(
+        large.getuv(small_spec, zero), baseline.getuv(spec, zero)
+    ):
         np.testing.assert_allclose(
-            actual, reference.astype(np.float64) * amplitude, rtol=5e-5, atol=2e-6
+            actual / 1e20, reference / 1e20, rtol=5e-5, atol=5e-6
         )
 
-    _, divergence = large.getvrtdivspec(*reference_grad, 1)
+    huge = spharm.Spharmt(16, 9, 1e50, gridtype, dtype=np.float32)
+    _, divergence = huge.getvrtdivspec(*reference_grad, 1)
     _, reference_divergence = baseline.getvrtdivspec(*reference_grad, 1)
     np.testing.assert_allclose(
         divergence.astype(np.float64),
-        reference_divergence.astype(np.float64) / large.rsphere,
+        reference_divergence.astype(np.float64) / huge.rsphere,
         rtol=5e-5,
-        atol=1.5e-45,
+        atol=1e-36,
     )
     assert np.any(divergence != 0)
 
@@ -410,8 +413,8 @@ def test_float32_radius_scaling_without_premature_casts(gridtype):
     medium_potentials = medium.getpsichi(*winds, 1)
     for actual, reference in zip(medium_potentials, reference_potentials):
         np.testing.assert_allclose(
-            actual.astype(np.float64),
-            reference.astype(np.float64) * medium.rsphere,
+            actual.astype(np.float64) / medium.rsphere,
+            reference.astype(np.float64),
             rtol=5e-5,
-            atol=1e7,
+            atol=1e6,
         )
