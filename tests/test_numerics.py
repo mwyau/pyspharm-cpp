@@ -36,7 +36,6 @@ def test_gaussian_rule_and_spectral_indices():
     ]
 
 
-
 @pytest.mark.parametrize("nlat", [64, 128, 640, 2048])
 def test_gaussian_rule_high_resolution(nlat):
     lat, weights = spharm.gaussian_lats_wts(nlat)
