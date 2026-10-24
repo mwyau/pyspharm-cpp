@@ -45,7 +45,7 @@ See [numerical conventions](conventions.md) for the supported grid and vector-an
 
 ## Longitude Nyquist
 
-For even `nlon`, the scalar order `m=nlon/2` samples `e^{im\lambda_j}=(-1)^j`. Its imaginary coefficient component cannot be determined from the samples. The scalar analysis conversion applies a half-factor at this order, matching PySpharm's positive/negative-frequency convention in direct comparisons. Analytic basis tests separately check the sampled field.
+For even `nlon`, the scalar order `m=nlon/2` samples {math}`e^{im\lambda_j}=(-1)^j`. Its imaginary coefficient component cannot be determined from the samples. The scalar analysis conversion applies a half-factor at this order, matching PySpharm's positive/negative-frequency convention in direct comparisons. Analytic basis tests separately check the sampled field.
 
 Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `getpsichi` use the upper longitude limit `(nlon-1)//2`. Tests of vector synthesis include analytic gradient and wind fields at the boundary, while direct SPHEREPACK vector comparisons use resolved orders below Nyquist.
 

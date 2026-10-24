@@ -33,7 +33,7 @@ The associated Legendre functions exclude the Condon–Shortley phase and use th
 P_{lm}(\sin\phi),
 ```
 
-where latitude `\phi` is in radians in this formula and `P_{lm}` excludes the Condon–Shortley phase. In particular, `\bar P_{00}=1/\sqrt{2}`. The public `legendre` and `legendre_many` functions accept latitudes in **degrees**.
+where latitude {math}`\phi` is in radians in this formula and {math}`P_{lm}` excludes the Condon–Shortley phase. In particular, {math}`\bar P_{00}=1/\sqrt{2}`. The public `legendre` and `legendre_many` functions accept latitudes in **degrees**.
 
 For real fields, positive orders contribute twice the real part of the complex harmonic. At `m=0` the spectral coefficient is real.
 
@@ -46,7 +46,7 @@ For real fields, positive orders contribute twice the real part of the complex h
 
 The default analysis uses the applicable maximum. Larger explicit requests raise `ValueError`. Vector analysis (`getvrtdivspec` and `getpsichi`) also requires `ntrunc <= (nlon-1)//2` because ducc0's spin-1 analysis excludes the even-longitude Nyquist order.
 
-The highest regular-grid degree is not uniquely recoverable for every longitudinal order. At `ntrunc=nlat-1`, the `m=1` latitude matrix has `nlat-1` coefficients but only `nlat-2` informative interior latitude samples. With colatitude `\theta=\pi/2-\phi`, one sampled null field is
+The highest regular-grid degree is not uniquely recoverable for every longitudinal order. At `ntrunc=nlat-1`, the `m=1` latitude matrix has `nlat-1` coefficients but only `nlat-2` informative interior latitude samples. With colatitude {math}`\theta=\pi/2-\phi`, one sampled null field is
 
 ```{math}
 \sin[(n_{\mathrm{lat}}-1)\theta_j] =
