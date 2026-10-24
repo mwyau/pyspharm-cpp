@@ -27,10 +27,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
       - name: Check tag matches package version
-        run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          test "$GITHUB_REF_NAME" = "v$version"
+        run: test "$GITHUB_REF_NAME" = "v$(uv version --short)"
 
   wheels:
     name: Release wheels
