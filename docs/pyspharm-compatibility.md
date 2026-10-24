@@ -2,9 +2,9 @@
 
 # Comparison with PySpharm
 
-`spharm_cpp` provides a PySpharm-style Python API using DUCC transforms. The implementations agree on the tested common input domain, subject to the differences below. Agreement with another implementation is evidence about compatibility, not proof of accuracy for every grid and degree.
+`spharm_cpp` provides a PySpharm-style Python API using DUCC transforms. The implementations agree in the tested cases, with the differences described below.
 
-The reference tests use `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e). The `pyspharm-syl` Python source removes the upstream `Spharmt.__repr__` and changes several equivalent rank-adaptation operations.
+The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e). 
 
 ## Tested operations
 
@@ -12,7 +12,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 
 | Operation                                            | Comparison                                                                                   |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Spharmt`, attributes, `dtype`, representation       | Constructor, defaults, configuration, and output precision                                   |
+|  `Spharmt`, attributes, `dtype`       | Constructor, parameters, and output precision                                   |
 | `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
 | `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
 | `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
@@ -21,7 +21,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 | `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
 | `cpu_info`                                           | DUCC CPU metadata keys and types                                                             |
 
-The full public contract inventory is enforced by `tests/parity/manifest.py`. It lists the public API and the differences checked by the reference tests.
+The reference tests cover the public functions and the differences listed below.
 
 ## Differences
 
@@ -37,7 +37,7 @@ The full public contract inventory is enforced by `tests/parity/manifest.py`. It
 | Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
 | `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
 
-These differences are covered by tests. See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
+ See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
 
 ## Regular-grid truncation
 

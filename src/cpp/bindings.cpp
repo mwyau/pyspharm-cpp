@@ -375,7 +375,15 @@ void add_api(py::module_& m)
 {
   py::class_<Spharmt>(
       m, "Spharmt",
-      "Spherical harmonic transforms on regular or Gaussian latitude grids.",
+      R"doc(Scalar and vector spherical harmonic transforms on latitude-longitude grids.
+
+Grid maps are ordered north to south and eastward in longitude.
+Input fields have shape (nlat, nlon) or (nlat, nlon, nfields).
+Spectral coefficients have shape (ncoeff,) or (ncoeff, nfields)
+and use triangular degree and order packing.
+
+See Numerical conventions for normalization, coordinate conventions,
+and the separate analysis and synthesis truncation limits.)doc",
       py::dynamic_attr())
       .def(py::init<std::size_t, std::size_t, double, std::string, std::string,
                     py::object>(),
@@ -384,8 +392,30 @@ void add_api(py::module_& m)
            py::sig("def __init__(self, nlon: int, nlat: int, rsphere: float = "
                    "6371200.0, gridtype: str = 'regular', legfunc: str = 'computed', "
                    "*, dtype: object | None = None) -> None"),
-           "Create a transform for a grid with nlat latitudes and nlon longitudes.\n\n"
-           "dtype selects float32/complex64 or float64/complex128 arrays.")
+           R"doc(Create a transform on a regular or Gaussian latitude-longitude grid.
+
+Parameters
+----------
+nlon : int
+    Number of equally spaced longitudes, at least 4.
+nlat : int
+    Number of latitude rings, at least 3.
+rsphere : float, default 6371200.0
+    Positive sphere radius. Derivatives and wind quantities use this
+    radius in the chosen length units.
+gridtype : {'regular', 'gaussian'}, default 'regular'
+    Clenshaw-Curtis latitudes including both poles, or Gauss-Legendre
+    latitudes excluding the poles.
+legfunc : {'computed'}, default 'computed'
+    Associated Legendre functions are computed during each transform.
+dtype : numpy dtype, optional
+    float64 (default) or float32 for maps; spectral coefficients
+    use the corresponding complex128 or complex64 precision.
+
+Notes
+-----
+The public coefficient ordering follows PySpharm. For an explicit
+truncation ntrunc, there are (ntrunc + 1) * (ntrunc + 2) / 2 coefficients.)doc")
       .def_prop_ro("nlon", &Spharmt::nlon)
       .def_prop_ro("nlat", &Spharmt::nlat)
       .def_prop_ro("rsphere", &Spharmt::rsphere)
@@ -398,14 +428,46 @@ void add_api(py::module_& m)
                    "| numpy.typing.NDArray[numpy.float64], ntrunc: int | None = None) "
                    "-> numpy.typing.NDArray[numpy.complex64] | "
                    "numpy.typing.NDArray[numpy.complex128]"),
-           "Analyze a latitude-longitude grid into triangular spectral coefficients.")
+           R"doc(Analyze gridded scalar fields into spherical harmonic coefficients.
+
+Parameters
+----------
+datagrid : ndarray
+    Real-valued array with shape (nlat, nlon) or (nlat, nlon, nfields).
+    Its dtype must match the transform.
+ntrunc : int, optional
+    Maximum spherical harmonic degree. The default is the grid's
+    maximum analysis truncation.
+
+Returns
+-------
+ndarray
+    Complex coefficients with shape (ncoeff,) or (ncoeff, nfields).
+    Order m is the outer packed index; degree l runs from m to ntrunc.
+
+Notes
+-----
+Clenshaw-Curtis analysis permits ntrunc <= min(nlat - 2, nlon // 2).
+Gaussian analysis permits ntrunc <= min(nlat - 1, nlon // 2).)doc")
       .def(
           "spectogrd", &Spharmt::spectogrd, "dataspec"_a,
           py::sig("def spectogrd(self, dataspec: numpy.typing.NDArray[numpy.complex64] "
                   "| numpy.typing.NDArray[numpy.complex128]) -> "
                   "numpy.typing.NDArray[numpy.float32] | "
                   "numpy.typing.NDArray[numpy.float64]"),
-          "Synthesize triangular spectral coefficients on this grid.")
+          R"doc(Synthesize scalar fields from triangular spherical harmonic coefficients.
+
+Parameters
+----------
+dataspec : ndarray
+    Complex coefficients of shape (ncoeff,) or (ncoeff, nfields).
+    The first dimension determines the harmonic truncation.
+
+Returns
+-------
+ndarray
+    Real grid fields with shape (nlat, nlon) or
+    (nlat, nlon, nfields), in the transform's precision.)doc")
       .def("getvrtdivspec", &Spharmt::getvrtdivspec, "ugrid"_a, "vgrid"_a,
            "ntrunc"_a = py::none(),
            py::sig("def getvrtdivspec(self, ugrid: numpy.typing.NDArray[numpy.float32] "
@@ -416,9 +478,27 @@ void add_api(py::module_& m)
                    "numpy.typing.NDArray[numpy.complex128], "
                    "numpy.typing.NDArray[numpy.complex64] | "
                    "numpy.typing.NDArray[numpy.complex128]]"),
-           "Analyze zonal and meridional wind components into vorticity and divergence "
-           "coefficients. DUCC spin-1 analysis excludes the even-longitude Nyquist "
-           "order.")
+           R"doc(Analyze eastward and northward winds into relative vorticity and divergence.
+
+Parameters
+----------
+ugrid, vgrid : ndarray
+    Eastward and northward wind components of matching shape
+    (nlat, nlon) or (nlat, nlon, nfields), in the transform's dtype.
+ntrunc : int, optional
+    Maximum degree of the vector analysis.
+
+Returns
+-------
+(vrtspec, divspec) : tuple of ndarray
+    Spectral coefficients of relative vorticity and divergence,
+    each with shape (ncoeff,) or (ncoeff, nfields).
+
+Notes
+-----
+The sphere radius determines the derivative scale. Vector analysis
+uses ntrunc <= (nlon - 1) // 2, excluding the even-longitude Nyquist
+order, and the corresponding grid's latitude truncation limit.)doc")
       .def("getuv", &Spharmt::getuv, "vrtspec"_a, "divspec"_a,
            py::sig("def getuv(self, vrtspec: numpy.typing.NDArray[numpy.complex64] | "
                    "numpy.typing.NDArray[numpy.complex128], divspec: "
@@ -428,8 +508,24 @@ void add_api(py::module_& m)
                    "numpy.typing.NDArray[numpy.float64], "
                    "numpy.typing.NDArray[numpy.float32] | "
                    "numpy.typing.NDArray[numpy.float64]]"),
-           "Synthesize zonal and meridional winds from vorticity and divergence "
-           "coefficients.")
+           R"doc(Synthesize eastward and northward winds from vorticity and divergence.
+
+Parameters
+----------
+vrtspec, divspec : ndarray
+    Complex relative-vorticity and divergence coefficients with
+    identical shape (ncoeff,) or (ncoeff, nfields).
+
+Returns
+-------
+(u, v) : tuple of ndarray
+    Eastward and northward wind maps, each with shape
+    (nlat, nlon) or (nlat, nlon, nfields).
+
+Notes
+-----
+The synthesis uses the transform's sphere radius and returns real
+arrays of its selected precision.)doc")
       .def("getgrad", &Spharmt::getgrad, "chispec"_a,
            py::sig("def getgrad(self, chispec: numpy.typing.NDArray[numpy.complex64] | "
                    "numpy.typing.NDArray[numpy.complex128]) -> "
@@ -437,8 +533,23 @@ void add_api(py::module_& m)
                    "numpy.typing.NDArray[numpy.float64], "
                    "numpy.typing.NDArray[numpy.float32] | "
                    "numpy.typing.NDArray[numpy.float64]]"),
-           "Synthesize the zonal and meridional gradient components of a scalar "
-           "potential.")
+           R"doc(Compute the eastward and northward gradient of a scalar field.
+
+Parameters
+----------
+chispec : ndarray
+    Complex scalar spectral coefficients with shape (ncoeff,)
+    or (ncoeff, nfields).
+
+Returns
+-------
+(eastward, northward) : tuple of ndarray
+    Real components of the spherical gradient on the transform grid.
+    Each component has the corresponding grid shape.
+
+Notes
+-----
+Each component is a spatial derivative divided by the sphere radius.)doc")
       .def("getpsichi", &Spharmt::getpsichi, "ugrid"_a, "vgrid"_a,
            "ntrunc"_a = py::none(),
            py::sig("def getpsichi(self, ugrid: numpy.typing.NDArray[numpy.float32] | "
@@ -449,8 +560,26 @@ void add_api(py::module_& m)
                    "numpy.typing.NDArray[numpy.float64], "
                    "numpy.typing.NDArray[numpy.float32] | "
                    "numpy.typing.NDArray[numpy.float64]]"),
-           "Return streamfunction and velocity-potential maps for a wind field. "
-           "The analysis band excludes the even-longitude Nyquist order.")
+           R"doc(Compute streamfunction and velocity potential from wind components.
+
+Parameters
+----------
+ugrid, vgrid : ndarray
+    Eastward and northward wind maps of the same shape and dtype.
+ntrunc : int, optional
+    Maximum degree used to analyze the wind.
+
+Returns
+-------
+(psi, chi) : tuple of ndarray
+    Real streamfunction and velocity-potential maps with the input
+    grid shape and precision.
+
+Notes
+-----
+The degree-zero inverse Laplacian coefficient is set to zero.
+The vector analysis uses degrees below the even-longitude Nyquist
+order.)doc")
       .def("specsmooth", &Spharmt::specsmooth, "datagrid"_a, "smooth"_a,
            py::sig("def specsmooth(self, datagrid: numpy.typing.NDArray[numpy.float32] "
                    "| numpy.typing.NDArray[numpy.float64], smooth: "
@@ -458,7 +587,21 @@ void add_api(py::module_& m)
                    "numpy.typing.NDArray[numpy.float64]) -> "
                    "numpy.typing.NDArray[numpy.float32] | "
                    "numpy.typing.NDArray[numpy.float64]"),
-           "Apply a degree-dependent spectral smoothing window to a grid field.");
+           R"doc(Apply an isotropic spectral filter to one or more scalar maps.
+
+Parameters
+----------
+datagrid : ndarray
+    Real map with shape (nlat, nlon) or (nlat, nlon, nfields).
+smooth : ndarray
+    Real smoothing factors of length nlat; smooth[l] multiplies
+    every spherical harmonic coefficient of degree l. Its dtype
+    must match the transform.
+
+Returns
+-------
+ndarray
+    Filtered map or maps with the input grid shape and dtype.)doc");
 
   bind_numerics(m);
 
@@ -510,7 +653,29 @@ void add_api(py::module_& m)
           "ntrunc: int | None = None, smooth: numpy.typing.NDArray[numpy.float32] | "
           "numpy.typing.NDArray[numpy.float64] | None = None) -> "
           "numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]"),
-      "Analyze a field on one grid and synthesize it on another.");
+      R"doc(Regrid scalar fields by spherical harmonic analysis and synthesis.
+
+Parameters
+----------
+grdin, grdout : Spharmt
+    Source and target transforms. They may use different grid
+    types, dimensions, or floating-point precision.
+datagrid : ndarray
+    Source-grid fields of shape (grdin.nlat, grdin.nlon) or
+    (grdin.nlat, grdin.nlon, nfields).
+ntrunc : int, optional
+    Shared harmonic truncation. The default uses the source
+    analysis limit and target synthesis limit.
+smooth : ndarray, optional
+    Degree-dependent smoothing factors of length grdout.nlat,
+    in the target transform's real precision.
+
+Returns
+-------
+ndarray
+    Real fields on the target grid with shape
+    (grdout.nlat, grdout.nlon) or (grdout.nlat, grdout.nlon, nfields).
+    The output dtype follows grdout.)doc");
 }
 
 }  // namespace SPHARM_CPP_NAMESPACE

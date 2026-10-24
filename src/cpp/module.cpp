@@ -81,12 +81,19 @@ void add_cpu_diagnostics(py::module_& m, const ducc0_multiarch::cpu_capabilities
         return result;
       },
       py::sig("def cpu_info() -> dict[str, object]"),
-      "Return information about the current CPU and DUCC dispatch configuration.\n\n"
-      "The ``features`` entry lists SIMD/vector features recognized by DUCC that are "
-      "available to the current process.\n\n"
-      "For multiarch builds, the result also reports the compiled and available "
-      "x86-64 profiles, the configured profile limit, and the profile selected for "
-      "the current process.");
+      R"doc(Return detected processor features and spherical transform dispatch metadata.
+
+Returns
+-------
+dict
+    architecture and features describe the detected CPU.
+    multiarch indicates whether multiple binary profiles are compiled.
+    Multiarch builds also report compiled_profiles, available_profiles,
+    configured_limit, and active_profile.
+
+Notes
+-----
+The active profile describes the current pyspharm-cpp implementation.)doc");
 }
 
 }  // namespace

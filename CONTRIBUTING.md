@@ -14,14 +14,10 @@ uv sync --locked --python 3.14
 uv run --locked python -m pytest -q
 ```
 
-Before submitting a pull request, run:
+Before submitting a pull request, run the configured checks:
 
 ```sh
-uv run --locked ruff check src tests typing docs .github/check_spdx.py
-uv run --locked ruff format --check src tests typing docs .github/check_spdx.py
-uv run --locked ty check typing/consumer.py
-uv run --locked clang-format --dry-run --Werror src/cpp/*.cpp src/cpp/*.hpp
-uv lock --check
+uv run --locked prek run --all-files
 ```
 
 CI additionally builds the extension, tests supported Python versions and build profiles, checks documentation, and measures native C++ coverage.

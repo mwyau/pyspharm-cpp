@@ -585,7 +585,19 @@ void bind_numerics(py::module_& m)
       "nlat"_a,
       py::sig(
           R"(def gaussian_lats_wts(nlat: int) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]])"),
-      "Return Gaussian latitudes in degrees and their quadrature weights.");
+      R"doc(Return Gauss-Legendre latitudes and quadrature weights.
+
+Parameters
+----------
+nlat : int
+    Positive number of Gaussian latitude rings.
+
+Returns
+-------
+(latitudes, weights) : tuple of ndarray
+    Float64 arrays of length nlat. Latitude is in degrees and
+    decreases from north to south. Weights integrate over sine
+    latitude and sum to 2 up to floating-point roundoff.)doc");
 
   m.def(
       "getspecindx",
@@ -613,7 +625,18 @@ void bind_numerics(py::module_& m)
       "ntrunc"_a,
       py::sig(
           R"(def getspecindx(ntrunc: int) -> tuple[numpy.typing.NDArray[numpy.intp], numpy.typing.NDArray[numpy.intp]])"),
-      "Return zonal-wavenumber and degree indices in triangular coefficient order.");
+      R"doc(Return longitudinal orders and degrees of packed spectral coefficients.
+
+Parameters
+----------
+ntrunc : int
+    Nonnegative maximum spherical harmonic degree.
+
+Returns
+-------
+(order, degree) : tuple of ndarray
+    Integer arrays of length (ntrunc + 1) * (ntrunc + 2) / 2.
+    Order m is the outer index and degree l runs from m to ntrunc.)doc");
 
   m.def(
       "legendre",
@@ -636,7 +659,27 @@ void bind_numerics(py::module_& m)
       "lat"_a, "ntrunc"_a, py::kw_only(), "dtype"_a = py::none(),
       py::sig(
           R"(def legendre(lat: float, ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
-      "Return normalized associated Legendre functions at one latitude.");
+      R"doc(Evaluate normalized associated Legendre functions at one latitude.
+
+Parameters
+----------
+lat : float
+    Latitude in degrees, between -90 and 90.
+ntrunc : int
+    Nonnegative maximum spherical harmonic degree.
+dtype : numpy dtype, optional
+    Output float32 or float64 (default).
+
+Returns
+-------
+ndarray
+    Real values in triangular coefficient order, of length
+    (ntrunc + 1) * (ntrunc + 2) / 2.
+
+Notes
+-----
+The normalization excludes the Condon-Shortley phase. In particular,
+the degree-zero value is 1 / sqrt(2).)doc");
 
   m.def(
       "legendre_many",
@@ -660,7 +703,22 @@ void bind_numerics(py::module_& m)
       "latitudes"_a, "ntrunc"_a, py::kw_only(), "dtype"_a = py::none(),
       py::sig(
           R"(def legendre_many(latitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
-      "Return normalized associated Legendre functions for a batch of latitudes.");
+      R"doc(Evaluate normalized associated Legendre functions at several latitudes.
+
+Parameters
+----------
+latitudes : ndarray
+    One-dimensional real latitude array in degrees, between -90 and 90.
+ntrunc : int
+    Nonnegative maximum spherical harmonic degree.
+dtype : numpy dtype, optional
+    Output float32 or float64 (default).
+
+Returns
+-------
+ndarray
+    Real array of shape (npoints, ncoeff), using the same
+    normalization and packing as legendre.)doc");
 
   m.def(
       "getgeodesicpts",
@@ -702,8 +760,21 @@ void bind_numerics(py::module_& m)
       "m"_a, py::kw_only(), "dtype"_a = py::none(),
       py::sig(
           R"(def getgeodesicpts(m: int, *, dtype: object | None = None) -> tuple[numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]])"),
-      "Return latitude and longitude coordinates of an icosahedral grid. Defaults "
-      "to float64; dtype=float32 casts the result to single precision.");
+      R"doc(Return the vertices of a subdivided icosahedral geodesic grid.
+
+Parameters
+----------
+m : int
+    Number of points per icosahedral edge, including endpoints;
+    must be at least 1.
+dtype : numpy dtype, optional
+    float64 (default) or float32 output coordinates.
+
+Returns
+-------
+(latitudes, longitudes) : tuple of ndarray
+    Coordinate arrays in degrees with 10 * (m - 1)**2 + 2 points.
+    Coordinates are computed in float64 before optional conversion.)doc");
 
   m.def(
       "specintrp",
@@ -731,8 +802,24 @@ void bind_numerics(py::module_& m)
       "lon"_a, "dataspec"_a, "legfuncs"_a,
       py::sig(
           R"(def specintrp(lon: float, dataspec: numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]) -> float)"),
-      "Evaluate spectral coefficients at one longitude using precomputed Legendre "
-      "values.");
+      R"doc(Evaluate a scalar spherical harmonic expansion at one point.
+
+Parameters
+----------
+lon : float
+    Longitude in degrees.
+dataspec : ndarray
+    One-dimensional complex coefficients in triangular packing.
+legfuncs : ndarray
+    One-dimensional associated Legendre values at the point's
+    latitude, as returned by legendre. Precision must match
+    dataspec (float32/complex64 or float64/complex128).
+
+Returns
+-------
+float
+    Real interpolated value at the specified longitude and
+    latitude represented by legfuncs.)doc");
 
   m.def(
       "specintrp_many",
@@ -766,8 +853,22 @@ void bind_numerics(py::module_& m)
       "longitudes"_a, "dataspec"_a, "legfuncs"_a,
       py::sig(
           R"(def specintrp_many(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64])"),
-      "Evaluate spectral coefficients at multiple longitudes using precomputed "
-      "Legendre values.");
+      R"doc(Evaluate one scalar spherical harmonic expansion at several points.
+
+Parameters
+----------
+longitudes : ndarray
+    One-dimensional longitude array in degrees, length npoints.
+dataspec : ndarray
+    One-dimensional complex coefficients in triangular packing.
+legfuncs : ndarray
+    Associated Legendre values of shape (npoints, ncoeff), e.g.,
+    from legendre_many. Precision must match dataspec.
+
+Returns
+-------
+ndarray
+    Float64 interpolated values with shape (npoints,).)doc");
 }
 
 }  // namespace SPHARM_CPP_NAMESPACE

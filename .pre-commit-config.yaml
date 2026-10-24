@@ -35,3 +35,12 @@ repos:
       - id: mdformat
         additional_dependencies: [mdformat-myst==0.3.0]
         files: ^(README\.md|CONTRIBUTING\.md|CHANGELOG\.md|docs/.*\.md)$
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty type checking
+        entry: uv run --locked --no-sync ty check typing/consumer.py
+        language: system
+        pass_filenames: false
+        always_run: true
