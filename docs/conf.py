@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import sys
+import tomllib
 from datetime import date
 from pathlib import Path
-import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 project = "pyspharm-cpp"
 author = "Albert Yau"
 copyright = f"{date.today().year}, {author}"
-release = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())["project"]["version"]
+pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+release = tomllib.loads(pyproject.read_text())["project"]["version"]
 
 extensions = [
     "myst_parser",
