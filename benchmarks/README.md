@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # Benchmarks
 
 These charts compare scalar and wind analysis and synthesis latencies for

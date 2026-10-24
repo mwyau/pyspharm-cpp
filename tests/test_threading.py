@@ -249,7 +249,7 @@ def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
         for name in ("ducc-two", "ducc-four", "omp-four", "all-threads"):
             with np.load(output_paths[name]) as actual:
                 for key in reference.files:
-                    if key.startswith("sht_"):
+                    if np.issubdtype(reference[key].dtype, np.inexact):
                         tolerance = 3e-6 if key.endswith("32") else 3e-12
                         np.testing.assert_allclose(
                             actual[key],

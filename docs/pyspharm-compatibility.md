@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # Comparison with PySpharm
 
 `spharm_cpp` provides a PySpharm-compatible Python API using ducc0 transforms. The implementations agree in the tested cases, with the differences described below.

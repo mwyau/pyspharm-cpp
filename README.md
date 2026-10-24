@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # pyspharm-cpp
 
 [![CI](https://img.shields.io/github/actions/workflow/status/mwyau/pyspharm-cpp/ci.yml?branch=main&label=CI)](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml)

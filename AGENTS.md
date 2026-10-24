@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # Repository constraints
 
 These rules apply to implementation, tests, and documentation.

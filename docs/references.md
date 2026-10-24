@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # References
 
 `pyspharm-cpp` uses ducc0 for spherical harmonic transforms and follows PySpharm's Python API, which was built around NCAR SPHEREPACK. The following publications describe these numerical methods and their development.

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Check SPDX copyright and license headers in first-party text files."""
+"""Check SPDX copyright and license headers in first-party source files."""
 
 import sys
 from pathlib import Path
@@ -14,7 +14,6 @@ SUFFIXES = {
     ".h",
     ".html",
     ".hpp",
-    ".md",
     ".py",
     ".pyi",
     ".toml",

@@ -1,6 +1,3 @@
-<!-- SPDX-FileCopyrightText: 2026 Albert M. W. Yau -->
-<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-
 # SIMD and batched transform measurements
 
 The SIMD comparison measured `legendre_many` and `specintrp_many` before and
