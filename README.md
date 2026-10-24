@@ -3,7 +3,7 @@
 # pyspharm-cpp
 
 [![CI](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml)
-[![Docs](https://readthedocs.org/projects/pyspharm-cpp/badge/?version=latest)](https://pyspharm-cpp.readthedocs.io/en/latest/)
+[![Docs](https://app.readthedocs.org/projects/pyspharm-cpp/badge/?version=latest)](https://pyspharm-cpp.readthedocs.io/en/latest/)
 [![Codecov](https://codecov.io/github/mwyau/pyspharm-cpp/graph/badge.svg)](https://codecov.io/github/mwyau/pyspharm-cpp)
 
 `pyspharm-cpp` implements the PySpharm Python API for scalar and vector spherical harmonic transforms (SHTs), spectral regridding, Legendre functions, and interpolation. It uses DUCC's C++ transforms with nanobind and requires only NumPy at runtime.
@@ -62,7 +62,6 @@ repetitions were used.
 | Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |               15.6× |
 | Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |               80.8× |
 
-Small-grid results differ: PySpharm was faster on the 2.5° regular grid.
 See [all four measured grids and reproduction instructions](benchmarks/README.md).
 
 ## License
