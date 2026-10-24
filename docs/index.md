@@ -2,7 +2,7 @@
 
 # pyspharm-cpp
 
-`pyspharm-cpp` computes scalar and vector spherical harmonic transforms on Clenshaw–Curtis and Gaussian latitude–longitude grids using DUCC. Its NumPy interface follows PySpharm's coefficient ordering and includes gradients, vorticity, divergence, streamfunction, velocity potential, regridding, and interpolation.
+`pyspharm-cpp` computes scalar and vector spherical harmonic transforms on Clenshaw–Curtis and Gaussian latitude–longitude grids using ducc0. Its NumPy interface follows PySpharm's coefficient ordering and includes gradients, vorticity, divergence, streamfunction, velocity potential, regridding, and interpolation.
 
 ```{toctree}
 ---

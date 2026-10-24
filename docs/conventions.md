@@ -44,7 +44,7 @@ For real fields, positive orders contribute twice the real part of the complex h
 | Regular Clenshaw–Curtis | `min(nlat-2, nlon//2)`             |
 | Gaussian                | `min(nlat-1, nlon//2)`             |
 
-The default analysis uses the applicable maximum. Larger explicit requests raise `ValueError`. Vector analysis (`getvrtdivspec` and `getpsichi`) also requires `ntrunc <= (nlon-1)//2` because DUCC's spin-1 analysis excludes the even-longitude Nyquist order.
+The default analysis uses the applicable maximum. Larger explicit requests raise `ValueError`. Vector analysis (`getvrtdivspec` and `getpsichi`) also requires `ntrunc <= (nlon-1)//2` because ducc0's spin-1 analysis excludes the even-longitude Nyquist order.
 
 The highest regular-grid degree is not uniquely recoverable for every longitudinal order. At `ntrunc=nlat-1`, the `m=1` latitude matrix has `nlat-1` coefficients but only `nlat-2` informative interior latitude samples. With colatitude `\theta=\pi/2-\phi`, one sampled null field is
 

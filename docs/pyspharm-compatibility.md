@@ -2,7 +2,7 @@
 
 # Comparison with PySpharm
 
-`spharm_cpp` provides a PySpharm-style Python API using DUCC transforms. The implementations agree in the tested cases, with the differences described below.
+`spharm_cpp` provides a PySpharm-style Python API using ducc0 transforms. The implementations agree in the tested cases, with the differences described below.
 
 The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e). 
 

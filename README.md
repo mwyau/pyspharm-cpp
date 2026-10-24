@@ -11,7 +11,7 @@
 
 `pyspharm-cpp` implements the PySpharm Python API for scalar and vector spherical harmonic transforms (SHTs), spectral regridding, Legendre functions, and interpolation. It uses ducc0's C++ transforms with nanobind and requires only NumPy at runtime.
 
-For direct access to ducc0's C++ or Python transform APIs, consider using [DUCC](https://gitlab.mpcdf.mpg.de/mtr/ducc). For higher-level atmospheric-science operations, such as vorticity, divergence, streamfunction, velocity potential, spectral filtering, and regridding, consider using [spharmgrid](https://github.com/mwyau/spharmgrid). It supports Xarray fields through a DUCC CPU backend and separate JAX/S2FFT and PyTorch/torch-harmonics interfaces for GPU calculations.
+For direct access to ducc0's C++ or Python transform APIs, consider using [ducc0](https://gitlab.mpcdf.mpg.de/mtr/ducc). For higher-level atmospheric-science operations, such as vorticity, divergence, streamfunction, velocity potential, spectral filtering, and regridding, consider using [spharmgrid](https://github.com/mwyau/spharmgrid). It supports Xarray fields through a ducc0 CPU backend and separate JAX/S2FFT and PyTorch/torch-harmonics interfaces for GPU calculations.
 
 ## Installation
 
@@ -28,7 +28,7 @@ conda install -c conda-forge pyspharm-cpp
 mamba install -c conda-forge pyspharm-cpp
 ```
 
-Python 3.11 or newer is required. Source builds need a C++17 compiler and the DUCC submodule. The Python module imports as `spharm_cpp`; `import spharm_cpp as spharm` is convenient when adapting PySpharm code.
+Python 3.11 or newer is required. Source builds need a C++17 compiler and the ducc0 submodule. The Python module imports as `spharm_cpp`; `import spharm_cpp as spharm` is convenient when adapting PySpharm code.
 
 ## Example
 
