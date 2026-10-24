@@ -40,7 +40,7 @@ def check_latest_run(workflow: str, event: str, sha: str) -> None:
         for run in data["workflow_runs"]
         if run["head_sha"] == sha
         and run["event"] == event
-        and (workflow != "ci.yml" or run["head_branch"] == "main")
+        and run["head_branch"] == "main"
     ]
     if not runs:
         raise SystemExit(f"No {workflow} {event} run for {sha}")
@@ -77,7 +77,7 @@ def main() -> None:
         index = "testpypi" if ".dev" in version else "pypi"
         print(f"Validated {tag} for {index}")
         check_latest_run("ci.yml", "push", sha)
-        check_latest_run("validation.yml", "workflow_dispatch", sha)
+        check_latest_run("validation.yml", "push", sha)
 
 
 if __name__ == "__main__":
