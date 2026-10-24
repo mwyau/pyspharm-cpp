@@ -20,7 +20,9 @@ elif target.startswith("macos-"):
     families = {"macos"}
 else:
     families = {"windows"}
-expected = {(python, abi, family) for python, abi in expected_pairs for family in families}
+expected = {
+    (python, abi, family) for python, abi in expected_pairs for family in families
+}
 
 actual = set()
 for wheel in wheels:
@@ -30,8 +32,7 @@ for wheel in wheels:
         for tag in tags:
             assert tag.endswith(f"_{arch}"), wheel.name
         family_set = {
-            "manylinux" if tag.startswith("manylinux") else "musllinux"
-            for tag in tags
+            "manylinux" if tag.startswith("manylinux") else "musllinux" for tag in tags
         }
         assert all(tag.startswith(("manylinux", "musllinux")) for tag in tags)
     elif target.startswith("macos-"):

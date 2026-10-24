@@ -32,8 +32,7 @@ def release_commit(tag: str) -> str:
 
 def check_latest_run(workflow: str, event: str, sha: str) -> None:
     data = gh_api(
-        f"actions/workflows/{workflow}/runs"
-        f"?head_sha={sha}&event={event}&per_page=100"
+        f"actions/workflows/{workflow}/runs?head_sha={sha}&event={event}&per_page=100"
     )
     runs = [
         run
@@ -44,7 +43,9 @@ def check_latest_run(workflow: str, event: str, sha: str) -> None:
         raise SystemExit(f"No {workflow} {event} run for {sha}")
     latest = max(runs, key=lambda run: run["run_started_at"] or run["created_at"])
     if latest["status"] != "completed" or latest["conclusion"] != "success":
-        raise SystemExit(f"{workflow} has no successful latest {event} run: {latest['html_url']}")
+        raise SystemExit(
+            f"{workflow} has no successful latest {event} run: {latest['html_url']}"
+        )
     print(f"{workflow}: {latest['html_url']}")
 
 
