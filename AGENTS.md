@@ -2,54 +2,63 @@
 
 # Repository constraints
 
-These apply to all implementation and review work in this repository.
+These rules apply to implementation, tests, and documentation.
 
-## Numerical boundary
+## Numerical methods
 
-All analysis must respect the longitude sampling limit `lmax <= floor(nlon/2)`.
-Regular-grid analysis must additionally use DUCC's native transform and its
-supported `lmax <= nlat-2` limit. Gaussian analysis may use `lmax=nlat-1`
-when the longitude limit permits it. Explicit analysis requests above either
-limit must be rejected, never silently clamped. Never implement or emulate
-SPHEREPACK `zbar` projection, maximum-degree correction, pseudoinverse,
-least-squares fallback, or another transform to reproduce regular-grid
-`lmax=nlat-1` analysis. This exclusion is permanent unless the owner
-explicitly changes it. Supported regular-grid synthesis retains its separate
-valid limits.
+- Scalar analysis must obey the longitude sampling limit `lmax <= nlon//2`.
+  Clenshaw–Curtis analysis uses ducc0's native transform through
+  `lmax <= nlat-2`; Gaussian analysis permits `lmax <= nlat-1`.
+  Reject explicit truncations above these limits.
+- Vector analysis also excludes the even-longitude Nyquist order:
+  `lmax <= (nlon-1)//2`. Scalar and vector synthesis have their own
+  truncation limits.
+- Do not introduce SPHEREPACK `zbar` projection, a maximum-degree correction,
+  a pseudoinverse, or another fallback to recover regular-grid
+  `lmax=nlat-1` analysis. Change this boundary only with the owner's approval.
+- Preserve coefficient normalization, packing, sign conventions, input
+  precision, and the distinction between scalar and vector transforms.
+  Test changed numerical behavior against analytic results and, where useful,
+  the identified PySpharm implementation.
 
-## DUCC and native integration
+## ducc0 and native builds
 
-- Use only the unmodified DUCC source in the `third_party/ducc` Git submodule;
-  preserve its commit pin and upstream provenance.
-- Do not vendor/copy its source into another tracked tree, add a development
-  vendoring script, retrieve it during wheel builds, or depend on its Python
-  package at runtime.
-- Keep our C++ driver, PySpharm bindings and compatibility code outside the
-  submodule. Reuse DUCC's SHT/FFT, SIMD, threading, CPU detection and multiarch
-  dispatch.
-- Do not add an independent FFT, transform backend, or CPU-dispatch framework.
-- Multiarch release defaults to Linux x86-64 v1/v3/v4 with baseline driver and
-  isolated namespaces; use portable builds by default elsewhere. Native builds
-  are explicitly host-specific. Any initialization that can run before CPU
-  dispatch, including DUCC's thread-pool initialization, must use baseline
-  instructions in every backend namespace.
+- Use the pinned, unmodified Git submodule at `third_party/ducc`.
+  Keep the C++ driver and Python bindings outside the submodule. Reuse
+  ducc0's FFT, SHT, SIMD, threading, and CPU-dispatch implementations.
+- Do not vendor a second copy of ducc0 or add a separate transform,
+  FFT, or CPU-dispatch implementation.
+- Linux x86-64 multiarch builds use v1/v3/v4 code paths with a baseline
+  dispatcher. Other platforms default to portable builds. Code that executes
+  before CPU dispatch, including thread-pool initialization, must use
+  baseline instructions.
+- Keep scikit-build-core, CMake, and nanobind as the build stack. NumPy is
+  the only required Python runtime dependency. Isolated pip builds must not
+  need uv, the ducc0 Python package, or network retrieval of the submodule.
 
-## Documentation and verification
+## Documentation and checks
 
-- Follow [write-like-a-scientist](https://github.com/mwyau/write-like-a-scientist/blob/main/skills/write-like-a-scientist/SKILL.md) when editing scientific text. Preserve equations and claims; distinguish tested behavior from expected behavior.
-- Keep README and CONTRIBUTING focused on users and contributors. Put API explanations in `docs/` and implementation constraints here. Do not add work-log or agent-handoff files.
-- Preserve the parity manifest: every public contract and approved exception must have a behavior test. Keep validation manual-only and GitHub Actions pinned to exact patch releases.
+- Follow [write-like-a-scientist](https://github.com/mwyau/write-like-a-scientist/blob/main/skills/write-like-a-scientist/SKILL.md)
+  for scientific prose and docstrings. Use established terminology, including
+  *atmospheric science*, *relative vorticity*, and *spectral truncation*.
+  State scientific limits, units, and evidence precisely.
+- Describe current behavior in README and `docs/`; avoid dated CI results,
+  development history, and work logs. README and CONTRIBUTING cover usage
+  and contribution instructions; API details belong in `docs/`.
+- Keep the parity manifest and its behavior tests synchronized with the
+  public API and documented differences. PySpharm validation runs manually.
+- Update `src/spharm_cpp/_spharm_cpp.pyi` when nanobind signatures or
+  docstrings change. CI regenerates the stub, formats it, and compares it
+  with the checked-in file and `py.typed`.
+- Run `uv run --locked prek run --all-files` and
+  `uv run --locked python -m pytest -q` before submitting changes.
 
-## Python build and release
+## Packaging and releases
 
-- Use uv and a committed `uv.lock` for development environments, dependency
-  groups, tests, editable installs, and ordinary project wheel/sdist builds.
-- Keep scikit-build-core as the only PEP 517 backend, CMake for native builds,
-  nanobind for bindings, and NumPy as the only required Python runtime
-  dependency. Do not add Hatchling, setuptools, uv_build or the `ducc0` Python
-  package without a demonstrated requirement.
-- Keep ordinary `pip install` and isolated PEP 517 builds independent of uv.
-- Include project and bundled-source license/attribution notices in both
-  source distributions and wheels.
-- Release preparation may create CI and artifacts, but do not publish to PyPI,
-  create release tags, make the repository public, or force-push.
+- Use uv and the committed `uv.lock` for development dependencies,
+  tests, editable installations, and local builds.
+- Keep the source distribution self-contained, with ducc0 source and
+  project and third-party license notices. Preserve wheel and source
+  distribution attribution.
+- Do not publish releases, create tags, change repository visibility, or
+  force-push without the owner's approval.

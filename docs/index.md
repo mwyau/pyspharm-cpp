@@ -16,4 +16,4 @@ benchmarks
 references
 ```
 
-Development instructions are in [CONTRIBUTING.md](https://github.com/mwyau/pyspharm-cpp/blob/main/CONTRIBUTING.md). DUCC's license is recorded in the [third-party notices](https://github.com/mwyau/pyspharm-cpp/blob/main/THIRD_PARTY_NOTICES.md).
+Development instructions are in [CONTRIBUTING.md](https://github.com/mwyau/pyspharm-cpp/blob/main/CONTRIBUTING.md). ducc0's license is recorded in the [third-party notices](https://github.com/mwyau/pyspharm-cpp/blob/main/THIRD_PARTY_NOTICES.md).

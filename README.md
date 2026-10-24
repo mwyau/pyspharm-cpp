@@ -11,7 +11,7 @@
 
 `pyspharm-cpp` implements the PySpharm Python API for scalar and vector spherical harmonic transforms (SHTs), spectral regridding, Legendre functions, and interpolation. It uses ducc0's C++ transforms with nanobind and requires only NumPy at runtime.
 
-For direct access to ducc0's C++ or Python transform APIs, consider using [ducc0](https://gitlab.mpcdf.mpg.de/mtr/ducc). For higher-level atmospheric-science operations, such as vorticity, divergence, streamfunction, velocity potential, spectral filtering, and regridding, consider using [spharmgrid](https://github.com/mwyau/spharmgrid). It supports Xarray fields through a ducc0 CPU backend and separate JAX/S2FFT and PyTorch/torch-harmonics interfaces for GPU calculations.
+For lower-level spherical harmonic transforms, consider using [ducc0](https://pypi.org/project/ducc0/). For atmospheric science operations such as relative vorticity, divergence, streamfunction, velocity potential, spectral filtering, and regridding, consider using [spharmgrid](https://github.com/mwyau/spharmgrid). Spharmgrid supports Xarray fields with a ducc0 CPU backend and separate JAX/S2FFT and PyTorch/torch-harmonics interfaces for GPU calculations.
 
 ## Installation
 

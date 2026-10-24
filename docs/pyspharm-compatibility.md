@@ -2,9 +2,9 @@
 
 # Comparison with PySpharm
 
-`spharm_cpp` provides a PySpharm-style Python API using ducc0 transforms. The implementations agree in the tested cases, with the differences described below.
+`spharm_cpp` provides a PySpharm-compatible Python API using ducc0 transforms. The implementations agree in the tested cases, with the differences described below.
 
-The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e). 
+The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e).
 
 ## Tested operations
 
@@ -12,14 +12,14 @@ The comparison tests exercise the following interfaces, including scalar and bat
 
 | Operation                                            | Comparison                                                                                   |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Spharmt`, attributes, `dtype`       | Constructor, parameters, and output precision                                   |
+| `Spharmt`, attributes, `dtype`                       | Constructor, parameters, and output precision                                                |
 | `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
 | `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
 | `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
 | `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
-| `cpu_info`                                           | DUCC CPU metadata keys and types                                                             |
+| `cpu_info`                                           | CPU metadata keys and types                                                             |
 
 The reference tests cover the public functions and the differences listed below.
 
@@ -27,7 +27,7 @@ The reference tests cover the public functions and the differences listed below.
 
 | Behavior                          | `spharm_cpp`                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| Module and backend                | `spharm_cpp` provides a DUCC-based implementation.                                           |
+| Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                           |
 | Legendre evaluation               | `legfunc="computed"` is the default and only supported mode; `"stored"` raises `ValueError`. |
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
@@ -37,7 +37,7 @@ The reference tests cover the public functions and the differences listed below.
 | Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
 | `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
 
- See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
+See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
 
 ## Regular-grid truncation
 

@@ -6,7 +6,7 @@ Contributions and numerical bug reports are welcome. For numerical changes, incl
 
 ## Development
 
-Initialize DUCC, install the locked environment, and run the tests:
+Initialize the ducc0 submodule, install the locked environment, and run the tests:
 
 ```sh
 git submodule update --init --recursive
@@ -24,7 +24,7 @@ CI additionally builds the extension, tests supported Python versions and build 
 
 ## Code and numerical conventions
 
-First-party C++ code is in `src/cpp/`. DUCC is an unmodified Git submodule. The [numerical conventions](docs/conventions.md) describe coordinate order, normalization, and truncation. Preserve both precision modes and add regression tests for changed numerical behavior.
+First-party C++ code is in `src/cpp/`. ducc0 is an unmodified Git submodule. The [numerical conventions](docs/conventions.md) describe coordinate order, normalization, and truncation. Preserve both precision modes and add regression tests for changed numerical behavior.
 
 [AGENTS.md](AGENTS.md) records repository-specific implementation constraints. Keep documentation focused on behavior that users can observe.
 
