@@ -18,7 +18,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 | `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
-| `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
+| `legendre_many`, `specintrp_many`                    | Batched results against scalar operations using precision-specific tolerances                |
 | `cpu_info`                                           | CPU metadata keys and types                                                                  |
 
 The reference tests cover the public functions and the differences listed below.

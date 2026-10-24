@@ -21,8 +21,11 @@ LEGACY_CONTRACTS = {
 }
 
 ADDITIVE_CONTRACTS = {
-    "legendre_many": "batched Legendre evaluation equals repeated scalar calls",
-    "specintrp_many": "batched interpolation equals repeated scalar calls",
+    "legendre_many": (
+        "batched Legendre evaluation matches scalar calls within "
+        "dtype-specific tolerances"
+    ),
+    "specintrp_many": "batched interpolation equals scalar calls with matched precision",
     "cpu_info": "DUCC CPU metadata schema and value types",
     "Spharmt.dtype": "selected map and coefficient precision",
 }

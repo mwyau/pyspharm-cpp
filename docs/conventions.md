@@ -64,6 +64,8 @@ For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitu
 
 `Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` calculates coordinates in float64 and optionally returns float32 values.
 
+`legendre_many` evaluates its associated Legendre recurrence at the requested precision. `specintrp_many` accepts float32 Legendre values with complex64 coefficients or float64 Legendre values with complex128 coefficients; its output follows that pair regardless of the longitude-array dtype. At high spectral truncation, float32 recurrence and summation roundoff produce larger differences from float64-intermediate calculations. In tests, `legendre_many` differed from the scalar float32 result by at most 2.6e-2 absolute at `ntrunc=1024` near 89.999° latitude, where the coefficient magnitude was about 29.5. At `ntrunc=2048`, the degree norm differed by at most 3.5e-4 relative across eight tested latitudes. These results describe the tested inputs and do not bound other latitudes or spectra.
+
 `rsphere` is a positive radius in the user's length units. Scalar transforms are independent of radius; gradients divide by radius, and wind-derived vorticity and divergence use spherical derivatives. Component order is eastward (`u`) then northward (`v`).
 
 `getuv` returns eastward and northward wind; `getvrtdivspec` returns vorticity then divergence spectra; `getpsichi` returns streamfunction then velocity potential. Longitude arguments for `specintrp` and `specintrp_many` are in degrees.

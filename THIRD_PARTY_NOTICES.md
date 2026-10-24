@@ -13,11 +13,12 @@ tag `ducc0_0_42_0`, commit
 The build compiles DUCC's SHT/FFT and required support translation units from
 `third_party/ducc/src/ducc0/` and reuses
 `third_party/ducc/python/multiarch.cc` and `multiarch.h` for CPU detection and
-dispatch. The source distribution includes the complete pinned
-`third_party/ducc/src/**` tree so transitive headers retain their original
-paths, the two multiarch files, and `third_party/ducc/LICENSE`. It excludes
-DUCC Git metadata. A wheel built from the sdist therefore needs ordinary Python
-build dependencies but does not retrieve DUCC or require Git metadata.
+dispatch. The source distribution includes the pinned DUCC translation units
+and headers selected by the build configuration, preserving their upstream
+paths, along with the two multiarch files and `third_party/ducc/LICENSE`. It
+excludes unrelated files from the full source tree and DUCC Git metadata. A
+wheel built from the sdist therefore needs ordinary Python build dependencies
+but does not retrieve DUCC or require Git metadata.
 
 DUCC source code is licensed under GNU GPL version 2 or later. Files in its
 FFT component and internal dependencies may additionally be used under the

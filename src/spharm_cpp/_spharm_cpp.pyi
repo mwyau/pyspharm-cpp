@@ -1,3 +1,5 @@
+from typing import overload
+
 import numpy
 import numpy.typing
 
@@ -411,13 +413,13 @@ def specintrp(
         latitude represented by legfuncs.
     """
 
+@overload
 def specintrp_many(
     longitudes: numpy.typing.NDArray[numpy.float32]
     | numpy.typing.NDArray[numpy.float64],
-    dataspec: numpy.typing.NDArray[numpy.complex64]
-    | numpy.typing.NDArray[numpy.complex128],
-    legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
-) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
+    dataspec: numpy.typing.NDArray[numpy.complex64],
+    legfuncs: numpy.typing.NDArray[numpy.float32],
+) -> numpy.typing.NDArray[numpy.float32]:
     """
     Evaluate one scalar spherical harmonic expansion at several points.
 
@@ -426,16 +428,43 @@ def specintrp_many(
     longitudes : ndarray
         One-dimensional longitude array in degrees, length npoints.
     dataspec : ndarray
-        One-dimensional complex coefficients in triangular packing.
+        One-dimensional complex64 coefficients in triangular packing.
     legfuncs : ndarray
         Associated Legendre values of shape (npoints, ncoeff), e.g.,
-        from legendre_many. Precision must match dataspec.
+        from legendre_many. Use float32 values with complex64 coefficients.
 
     Returns
     -------
     ndarray
-        Interpolated values of shape (npoints,), with float32 or float64
-        precision matching dataspec and legfuncs.
+        Float32 interpolated values of shape (npoints,). The longitude array
+        may use float32 or float64; its dtype does not determine output precision.
+    """
+
+@overload
+def specintrp_many(
+    longitudes: numpy.typing.NDArray[numpy.float32]
+    | numpy.typing.NDArray[numpy.float64],
+    dataspec: numpy.typing.NDArray[numpy.complex128],
+    legfuncs: numpy.typing.NDArray[numpy.float64],
+) -> numpy.typing.NDArray[numpy.float64]:
+    """
+    Evaluate one scalar spherical harmonic expansion at several points.
+
+    Parameters
+    ----------
+    longitudes : ndarray
+        One-dimensional longitude array in degrees, length npoints.
+    dataspec : ndarray
+        One-dimensional complex128 coefficients in triangular packing.
+    legfuncs : ndarray
+        Associated Legendre values of shape (npoints, ncoeff), e.g.,
+        from legendre_many. Use float64 values with complex128 coefficients.
+
+    Returns
+    -------
+    ndarray
+        Float64 interpolated values of shape (npoints,). The longitude array
+        may use float32 or float64; its dtype does not determine output precision.
     """
 
 def regrid(

@@ -38,6 +38,27 @@ std::vector<std::size_t> ducc_mstart(std::size_t lmax)
   return result;
 }
 
+struct TransformSetup
+{
+  std::vector<std::size_t> starts;
+  std::vector<double> ringfactor;
+
+  TransformSetup(std::size_t lmax, std::size_t nlat)
+      : starts(ducc_mstart(lmax)), ringfactor(nlat, 1.0)
+  {
+  }
+
+  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart() const
+  {
+    return {starts.data(), std::array<std::size_t, 1>{starts.size()}};
+  }
+
+  DUCC0_NAMESPACE::cmav<double, 1> rfactor() const
+  {
+    return {ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()}};
+  }
+};
+
 std::size_t transform_nthreads()
 {
   static const std::size_t configured = []
@@ -141,12 +162,9 @@ NpArr grid_to_spectral(const CNpArr& grid, std::size_t nlat, std::size_t nlon,
   const std::size_t nalm = coefficient_count(lmax);
   NpArr result = grid.ndim() == 2 ? new_array<std::complex<T>>({nalm})
                                   : new_array<std::complex<T>>({nalm, nfield});
-  std::vector<std::size_t> starts = ducc_mstart(lmax);
-  std::vector<double> ringfactor(nlat, 1.0);
-  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart(
-      starts.data(), std::array<std::size_t, 1>{starts.size()});
-  DUCC0_NAMESPACE::cmav<double, 1> rfactor(
-      ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()});
+  const TransformSetup setup(lmax, nlat);
+  const auto mstart = setup.mstart();
+  const auto rfactor = setup.rfactor();
   for (std::size_t f = 0; f < nfield; ++f)
   {
     auto alms = as_ducc_alms<T>(result, nalm, f, grid.ndim() == 3);
@@ -180,16 +198,12 @@ NpArr spectral_to_grid(const CNpArr& spec, std::size_t nlat, std::size_t nlon,
       for (std::size_t l = m; l <= lmax; ++l)
       {
         const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
-        dest(0, idx) =
-            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
+        dest(0, idx) = source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
       }
   }
-  std::vector<std::size_t> starts = ducc_mstart(lmax);
-  std::vector<double> ringfactor(nlat, 1.0);
-  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart(
-      starts.data(), std::array<std::size_t, 1>{starts.size()});
-  DUCC0_NAMESPACE::cmav<double, 1> rfactor(
-      ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()});
+  const TransformSetup setup(lmax, nlat);
+  const auto mstart = setup.mstart();
+  const auto rfactor = setup.rfactor();
   for (std::size_t f = 0; f < nfield; ++f)
   {
     auto dest = as_ducc_alms<T>(normalized, nalm, f, true);
@@ -222,12 +236,9 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
   const std::size_t npix = nlat * nlon;
   std::vector<T> map_storage(2 * npix);
   std::vector<std::complex<T>> alm_storage(nalm);
-  std::vector<std::size_t> starts = ducc_mstart(lmax);
-  std::vector<double> ringfactor(nlat, 1.0);
-  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart(
-      starts.data(), std::array<std::size_t, 1>{starts.size()});
-  DUCC0_NAMESPACE::cmav<double, 1> rfactor(
-      ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()});
+  const TransformSetup setup(lmax, nlat);
+  const auto mstart = setup.mstart();
+  const auto rfactor = setup.rfactor();
   const std::array<std::size_t, 2> alm_shape{1, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
@@ -284,12 +295,9 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
   const std::size_t npix = nlat * nlon;
   std::vector<T> map_storage(2 * npix);
   std::vector<std::complex<T>> alm_storage(2 * nalm);
-  std::vector<std::size_t> starts = ducc_mstart(lmax);
-  std::vector<double> ringfactor(nlat, 1.0);
-  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart(
-      starts.data(), std::array<std::size_t, 1>{starts.size()});
-  DUCC0_NAMESPACE::cmav<double, 1> rfactor(
-      ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()});
+  const TransformSetup setup(lmax, nlat);
+  const auto mstart = setup.mstart();
+  const auto rfactor = setup.rfactor();
   const std::array<std::size_t, 2> alm_shape{2, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
@@ -354,12 +362,9 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
   const std::size_t npix = nlat * nlon;
   std::vector<T> map_storage(2 * npix);
   std::vector<std::complex<T>> alm_storage(2 * nalm);
-  std::vector<std::size_t> starts = ducc_mstart(lmax);
-  std::vector<double> ringfactor(nlat, 1.0);
-  DUCC0_NAMESPACE::cmav<std::size_t, 1> mstart(
-      starts.data(), std::array<std::size_t, 1>{starts.size()});
-  DUCC0_NAMESPACE::cmav<double, 1> rfactor(
-      ringfactor.data(), std::array<std::size_t, 1>{ringfactor.size()});
+  const TransformSetup setup(lmax, nlat);
+  const auto mstart = setup.mstart();
+  const auto rfactor = setup.rfactor();
   const std::array<std::size_t, 2> alm_shape{2, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),

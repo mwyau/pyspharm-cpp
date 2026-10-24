@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Representative consumer calls used to validate the packaged stubs."""
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -34,12 +36,20 @@ def exercise_public_types() -> None:
     zonal_indices, degrees = getspecindx(3)
     one_latitude = legendre(20.0, 3, dtype=np.float64)
     latitude_batch = legendre_many(np.array([-30.0, 0.0, 30.0], dtype=np.float64), 3)
+    latitude_batch32 = cast(
+        NDArray[np.float32],
+        legendre_many(np.array([-30.0, 30.0], dtype=np.float32), 3, dtype=np.float32),
+    )
     point_latitudes, point_longitudes = getgeodesicpts(2)
     interpolated = specintrp(0.0, spectrum, one_latitude)
     interpolated_many = specintrp_many(
         np.array([0.0, 90.0], dtype=np.float64),
         spectrum,
         np.stack([one_latitude, one_latitude]),
+    )
+    spectrum32: NDArray[np.complex64] = np.zeros(10, dtype=np.complex64)
+    interpolated_many32 = specintrp_many(
+        np.array([0.0, 90.0], dtype=np.float64), spectrum32, latitude_batch32
     )
     diagnostics = cpu_info()
 
@@ -60,5 +70,6 @@ def exercise_public_types() -> None:
         point_longitudes,
         interpolated,
         interpolated_many,
+        interpolated_many32,
         diagnostics,
     )

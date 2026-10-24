@@ -818,7 +818,7 @@ def test_specintrp_many_matches_repeated_reference_scalar_calls():
         ]
     )
     actual = cpp.specintrp_many(longitudes, spec, legendre_rows)
-    assert actual.dtype == np.float64
+    assert actual.dtype == np.float32
     parity.assert_close(
         "specintrp_many_float32",
         "float32",

@@ -96,8 +96,7 @@ std::vector<double> real_vector(const CNpArr& array, const char* name)
 namespace
 {
 
-void validate_map_shape(const CNpArr& map, std::size_t nlat,
-                        std::size_t nlon)
+void validate_map_shape(const CNpArr& map, std::size_t nlat, std::size_t nlon)
 {
   if (map.ndim() != 2 && map.ndim() != 3)
     throw py::value_error("grid data must have rank 2 or 3");
