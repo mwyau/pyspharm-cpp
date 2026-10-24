@@ -41,9 +41,7 @@ potential = np.zeros(degree.size, dtype=np.complex128)
 potential[(order == 1) & (degree == 1)] = 1.0
 
 eastward, northward = sht.getgrad(potential)
-vorticity, divergence = sht.getvrtdivspec(
-    eastward, northward, ntrunc=1
-)
+vorticity, divergence = sht.getvrtdivspec(eastward, northward, ntrunc=1)
 u, v = sht.getuv(vorticity, divergence)
 ```
 
