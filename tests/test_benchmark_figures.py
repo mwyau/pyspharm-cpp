@@ -12,7 +12,12 @@ from pathlib import Path
 def test_benchmark_figures_render_from_measurements(tmp_path: Path) -> None:
     directory = Path(__file__).resolve().parents[1] / "benchmarks"
     cases = ("cc-2p5", "cc-2p5-1t", "cc-0p25", "gl-128", "gl-640")
-    operations = ("scalar_analysis", "scalar_synthesis", "wind_analysis", "wind_synthesis")
+    operations = (
+        "scalar_analysis",
+        "scalar_synthesis",
+        "wind_analysis",
+        "wind_synthesis",
+    )
     backends = (
         "PySpharm",
         "pyspharm-cpp",
