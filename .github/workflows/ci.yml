@@ -37,9 +37,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install editable package and test dependencies
-        run: >-
-          uv sync --locked --python ${{ matrix.python-version }}
-
+        run: uv sync --locked --python ${{ matrix.python-version }}
       - name: Report CPU build profile
         run: uv run --locked python -c "import spharm_cpp; print('spharm_cpp.cpu_info():', spharm_cpp.cpu_info())"
       - name: Run API and numerical tests
@@ -66,9 +64,7 @@ jobs:
       - name: Install Python
         run: uv python install 3.14
       - name: Sync locked build and test tools
-        run: >-
-          uv sync --locked --python 3.14
-         --no-install-project
+        run: uv sync --locked --python 3.14 --no-install-project
       - name: Build wheel
         run: >-
           uv run --locked --no-sync --python 3.14 python -m build
