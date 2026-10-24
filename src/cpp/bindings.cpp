@@ -468,17 +468,18 @@ Returns
 ndarray
     Real grid fields with shape (nlat, nlon) or
     (nlat, nlon, nfields), in the transform's precision.)doc")
-      .def("getvrtdivspec", &Spharmt::getvrtdivspec, "ugrid"_a, "vgrid"_a,
-           "ntrunc"_a = py::none(),
-           py::sig("def getvrtdivspec(self, ugrid: numpy.typing.NDArray[numpy.float32] "
-                   "| numpy.typing.NDArray[numpy.float64], vgrid: "
-                   "numpy.typing.NDArray[numpy.float32] | "
-                   "numpy.typing.NDArray[numpy.float64], ntrunc: int | None = None) -> "
-                   "tuple[numpy.typing.NDArray[numpy.complex64] | "
-                   "numpy.typing.NDArray[numpy.complex128], "
-                   "numpy.typing.NDArray[numpy.complex64] | "
-                   "numpy.typing.NDArray[numpy.complex128]]"),
-           R"doc(Analyze eastward and northward winds into relative vorticity and divergence.
+      .def(
+          "getvrtdivspec", &Spharmt::getvrtdivspec, "ugrid"_a, "vgrid"_a,
+          "ntrunc"_a = py::none(),
+          py::sig("def getvrtdivspec(self, ugrid: numpy.typing.NDArray[numpy.float32] "
+                  "| numpy.typing.NDArray[numpy.float64], vgrid: "
+                  "numpy.typing.NDArray[numpy.float32] | "
+                  "numpy.typing.NDArray[numpy.float64], ntrunc: int | None = None) -> "
+                  "tuple[numpy.typing.NDArray[numpy.complex64] | "
+                  "numpy.typing.NDArray[numpy.complex128], "
+                  "numpy.typing.NDArray[numpy.complex64] | "
+                  "numpy.typing.NDArray[numpy.complex128]]"),
+          R"doc(Analyze eastward and northward winds into relative vorticity and divergence.
 
 Parameters
 ----------

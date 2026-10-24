@@ -24,7 +24,12 @@ source_suffix = {".md": "markdown"}
 root_doc = "index"
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 nitpicky = True
-nitpick_ignore_regex = [(r"py:class", r"numpy(\..*)?")]
+nitpick_ignore_regex = [(r"py:class", r"numpy(\\..*)?")]
+nitpick_ignore = [
+    ("py:class", "ndarray"),
+    ("py:class", "optional"),
+    ("py:class", "numpy dtype"),
+]
 todo_include_todos = False
 
 html_theme = "pydata_sphinx_theme"
