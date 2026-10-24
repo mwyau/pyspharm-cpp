@@ -2,20 +2,21 @@
 
 # Benchmarks
 
-These charts compare median timings for PySpharm float32, DUCC float32, and
-`pyspharm-cpp` float32 and float64. Each operation has its own zero-based
-linear time scale; compare bar lengths within an operation and use the printed
-values across operations. Smaller is better. Speedup is PySpharm time divided
-by `pyspharm-cpp` float32 time.
+These charts compare scalar and wind analysis and synthesis latencies for
+PySpharm float32, DUCC float32, and `pyspharm-cpp` float32 and float64.
+Each operation has its own zero-based linear time scale; compare bar lengths
+within an operation, and use the printed values across operations.
+Smaller is better. Speedup is PySpharm time divided by `pyspharm-cpp` float32 time.
 
-All five cases were measured in one [GitHub Actions benchmark run](https://github.com/mwyau/pyspharm-cpp/actions/runs/40109072587)
+All five cases were measured in one [GitHub Actions benchmark run](https://github.com/mwyau/pyspharm-cpp/actions/runs/40110235638)
 on October 24, 2026, using an AMD EPYC 9V45 runner with four allocated CPUs,
 AVX-512 (`x86-64-v4`) selected, CPython 3.12.15, NumPy 1.26.4,
 PySpharm 1.0.9, and DUCC 0.42.0.
 The 2.5° one-thread case uses one DUCC thread; the other four cases use
-four DUCC threads. PySpharm is serial in both configurations.
-Each median uses 7 timed repetitions after 2 warmups, without CPU pinning.
-Float64 measurements use casts of the float32 input fields.
+four DUCC threads. PySpharm remains serial. Each median uses
+7 timed repetitions after 2 warmups without CPU pinning.
+Float64 runs use casts of the same float32 input fields, and synthesis inputs
+are computed before timing.
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
 
@@ -23,9 +24,10 @@ Float64 measurements use casts of the float32 input fields.
 
 | Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.068 ms | 0.218 ms | 0.219 ms | 0.228 ms | 0.31× |
-| Scalar synthesis | 0.031 ms | 0.080 ms | 0.053 ms | 0.061 ms | 0.38× |
-| Wind analysis | 0.179 ms | 0.449 ms | 0.424 ms | 0.461 ms | 0.40× |
+| Scalar analysis | 0.068 ms | 0.217 ms | 0.215 ms | 0.221 ms | 0.32× |
+| Scalar synthesis | 0.029 ms | 0.061 ms | 0.054 ms | 0.061 ms | 0.48× |
+| Wind analysis | 0.255 ms | 0.435 ms | 0.428 ms | 0.581 ms | 0.59× |
+| Wind synthesis | 0.117 ms | 0.126 ms | 0.108 ms | 0.250 ms | 0.93× |
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
 
@@ -33,9 +35,10 @@ Float64 measurements use casts of the float32 input fields.
 
 | Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.068 ms | 0.211 ms | 0.237 ms | 0.220 ms | 0.32× |
-| Scalar synthesis | 0.029 ms | 0.070 ms | 0.060 ms | 0.064 ms | 0.42× |
-| Wind analysis | 0.182 ms | 0.427 ms | 0.387 ms | 0.442 ms | 0.42× |
+| Scalar analysis | 0.069 ms | 0.221 ms | 0.243 ms | 0.224 ms | 0.31× |
+| Scalar synthesis | 0.030 ms | 0.069 ms | 0.064 ms | 0.075 ms | 0.44× |
+| Wind analysis | 0.178 ms | 0.399 ms | 0.386 ms | 0.415 ms | 0.45× |
+| Wind synthesis | 0.083 ms | 0.114 ms | 0.101 ms | 0.114 ms | 0.72× |
 
 ## Clenshaw–Curtis · 0.25° · 1440 × 721 (four threads)
 
@@ -43,9 +46,10 @@ Float64 measurements use casts of the float32 input fields.
 
 | Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 95.925 ms | 12.349 ms | 13.911 ms | 12.257 ms | 7.77× |
-| Scalar synthesis | 77.371 ms | 3.910 ms | 3.866 ms | 3.896 ms | 19.79× |
-| Wind analysis | 243.901 ms | 31.281 ms | 28.891 ms | 30.546 ms | 7.80× |
+| Scalar analysis | 93.747 ms | 12.657 ms | 13.958 ms | 12.699 ms | 7.41× |
+| Scalar synthesis | 78.324 ms | 3.978 ms | 3.749 ms | 4.015 ms | 19.69× |
+| Wind analysis | 243.113 ms | 28.321 ms | 28.858 ms | 31.550 ms | 8.58× |
+| Wind synthesis | 108.406 ms | 10.806 ms | 9.274 ms | 14.694 ms | 10.03× |
 
 ## Gaussian · 128 latitude rings · 256 × 128 (four threads)
 
@@ -53,9 +57,10 @@ Float64 measurements use casts of the float32 input fields.
 
 | Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.624 ms | 0.136 ms | 0.126 ms | 0.136 ms | 4.58× |
-| Scalar synthesis | 0.109 ms | 0.127 ms | 0.104 ms | 0.130 ms | 0.86× |
-| Wind analysis | 3.242 ms | 0.262 ms | 0.213 ms | 0.261 ms | 12.38× |
+| Scalar analysis | 1.575 ms | 0.131 ms | 0.133 ms | 0.139 ms | 12.06× |
+| Scalar synthesis | 0.126 ms | 0.125 ms | 0.113 ms | 0.146 ms | 1.01× |
+| Wind analysis | 4.581 ms | 0.273 ms | 0.241 ms | 0.313 ms | 16.77× |
+| Wind synthesis | 0.300 ms | 0.249 ms | 0.222 ms | 0.285 ms | 1.21× |
 
 ## Gaussian · 640 latitude rings · 1280 × 640 (four threads)
 
@@ -63,9 +68,10 @@ Float64 measurements use casts of the float32 input fields.
 
 | Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 183.330 ms | 3.165 ms | 3.021 ms | 3.280 ms | 57.92× |
-| Scalar synthesis | 45.608 ms | 3.020 ms | 2.734 ms | 3.047 ms | 15.10× |
-| Wind analysis | 620.010 ms | 7.681 ms | 6.158 ms | 11.640 ms | 80.72× |
+| Scalar analysis | 142.171 ms | 3.361 ms | 2.959 ms | 3.574 ms | 42.30× |
+| Scalar synthesis | 45.133 ms | 2.908 ms | 2.901 ms | 3.004 ms | 15.52× |
+| Wind analysis | 349.341 ms | 7.901 ms | 6.260 ms | 8.908 ms | 44.21× |
+| Wind synthesis | 74.312 ms | 7.571 ms | 6.445 ms | 11.460 ms | 9.81× |
 
 ## Reproduce
 
