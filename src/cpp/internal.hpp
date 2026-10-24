@@ -19,7 +19,6 @@ namespace py = nanobind;
 using NpArr = DUCC0_NAMESPACE::detail_pybind::NpArr;
 using CNpArr = DUCC0_NAMESPACE::detail_pybind::CNpArr;
 
-inline constexpr double pi = 3.141592653589793238462643383279502884;
 inline constexpr double sqrt_2pi = 2.506628274631000502415765284811045253;
 
 std::size_t checked_truncation(const py::object&, std::size_t, std::size_t,
