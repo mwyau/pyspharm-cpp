@@ -8,7 +8,7 @@ The reference tests use `pyspharm-syl==1.2.1` (module version 1.0.9 and a compil
 
 ## Tested operations
 
-The independent tests exercise the following interfaces, including scalar and batched shapes where applicable.
+The comparison tests exercise the following interfaces, including scalar and batched shapes where applicable.
 
 | Operation                                            | Comparison                                                                                   |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -21,9 +21,9 @@ The independent tests exercise the following interfaces, including scalar and ba
 | `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
 | `cpu_info`                                           | DUCC CPU metadata keys and types                                                             |
 
-The full public contract inventory is enforced by `tests/parity/manifest.py`. It contains 20 public API items and 11 accepted differences. Each item requires a marked test; missing tests fail validation.
+The full public contract inventory is enforced by `tests/parity/manifest.py`. It lists the public API and the differences checked by the reference tests.
 
-## Supported differences
+## Differences
 
 | Behavior                          | `spharm_cpp`                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -34,20 +34,15 @@ The full public contract inventory is enforced by `tests/parity/manifest.py`. It
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
 | Geodesic coordinates              | Calculated in float64; `dtype=np.float32` casts the output coordinates.                      |
 | Regridding                        | Supports conversion between the two native precision modes.                                  |
-| Representation                    | `Spharmt.__repr__` includes grid and precision information.                                  |
 | Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
-| Regular maximum-degree synthesis  | Evaluates odd-order harmonics at degree `nlat-1` that the tested SPHEREPACK synthesis omits. |
 | `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
 
-These exceptions are tested rather than skipped. See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
+These differences are covered by tests. See [numerical conventions](conventions.md) for the supported grid and vector-analysis limits.
 
-## Highest regular-grid degree
+## Regular-grid truncation
 
-For regular grids with `nlat` latitude samples, spherical harmonics with `m>0` vanish at the poles. At degree `nlat-1`, the `m=1` expansion has more coefficients than independent interior latitude samples. Coefficient recovery is therefore not unique.
+`spharm_cpp` limits Clenshaw–Curtis analysis to degree `nlat-2`, also subject to the longitude sampling limit. PySpharm accepts `nlat-1`. On the regular grid, not every coefficient at that highest degree can be recovered uniquely. Synthesis and analysis have separate degree limits.
 
-PySpharm/SPHEREPACK accepts the full coefficient array for synthesis, but the tested `SHSES`/`SHSEC` routines omit odd-`m` contributions at degree `nlat-1`. DUCC evaluates these harmonics. Independent Legendre tests confirm that the corresponding basis functions need not vanish; this is an observed implementation difference, separate from the `m=1` sampling nullspace.
-
-`spharm_cpp` limits regular-grid analysis to `nlat-2`, while synthesis accepts degree `nlat-1`. Gaussian grids support analysis through `nlat-1` when adequately resolved in longitude.
 
 ## Longitude Nyquist
 
@@ -61,4 +56,3 @@ Float32 numerical comparisons use operation-specific absolute and relative toler
 
 Run the PySpharm comparison with the manual [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. Missing contracts, blocked reference imports, and unapproved differences fail validation.
 
-An [earlier hosted comparison](https://github.com/mwyau/pyspharm-cpp/actions/runs/40060787028) passed 37 cases at commit `cdbee944` on October 24, 2026. That result does not establish parity for later commits until they have been tested separately.

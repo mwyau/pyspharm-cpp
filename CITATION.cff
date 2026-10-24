@@ -5,7 +5,7 @@ title: "pyspharm-cpp"
 type: software
 authors:
   - family-names: Yau
-    given-names: Albert
+    given-names: Albert M. W.
 version: 0.1.0.dev0
 abstract: >-
   A C++17 spherical harmonic transform library with a PySpharm-compatible

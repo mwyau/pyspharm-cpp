@@ -2,7 +2,7 @@
 
 # Contributing
 
-Contributions and numerical bug reports are welcome. For numerical changes, include a small reproducible case and, where possible, an analytic result or an independent reference comparison. Describe the grid, truncation, precision, and expected behavior.
+Contributions and numerical bug reports are welcome. For numerical changes, include a small reproducible case and, where possible, an analytic result or an independent reference comparison. Numerical background and software references are listed in [the documentation](docs/references.md). Describe the grid, truncation, precision, and expected behavior.
 
 ## Development
 

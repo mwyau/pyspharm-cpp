@@ -6,14 +6,17 @@ These charts compare scalar and wind analysis and synthesis latencies for
 pyspharm float32, ducc0 float32, and `pyspharm-cpp` float32 and float64.
 Each operation has its own zero-based linear time scale; compare bar lengths
 within an operation, and use the printed values across operations.
-Smaller is better. Speedup is pyspharm time divided by `pyspharm-cpp` float32 time.
+Smaller is better. Speedup is PySpharm time divided by `pyspharm-cpp` float32 time.
 
 All five cases were measured in one [GitHub Actions benchmark run](https://github.com/mwyau/pyspharm-cpp/actions/runs/40110235638)
-on October 24, 2026, using an AMD EPYC 9V45 runner with four allocated CPUs,
-AVX-512 (`x86-64-v4`) selected, CPython 3.12.15, NumPy 1.26.4,
+using an AMD EPYC 9V45 runner with four allocated CPUs,
+the `pyspharm-cpp` AVX-512 (`x86-64-v4`) profile active, CPython 3.12.15, NumPy 1.26.4,
 pyspharm 1.0.9, and ducc0 0.42.0.
-The 2.5° one-thread case uses one ducc0 thread; the other four cases use
-four ducc0 threads. pyspharm remains serial. Each median uses
+The 2.5° one-thread case uses one DUCC thread; the other four cases use
+four DUCC threads. PySpharm is serial. DUCC spin-1 transforms form the wind baseline;
+`getvrtdivspec` and `getuv` additionally convert spectral coefficients to and
+from the vorticity/divergence convention. The active `pyspharm-cpp` CPU profile
+was checked separately; the `ducc0` wheel's CPU dispatch was not checked. Each median uses
 7 timed repetitions after 2 warmups without CPU pinning.
 Float64 runs use casts of the same float32 input fields, and synthesis inputs
 are computed before timing.
@@ -75,7 +78,10 @@ are computed before timing.
 
 ## Reproduce
 
-The benchmarks compare the same truncation on each backend. The regular-grid
+The benchmarks compare the same truncation on each backend. The committed
+[measurements.csv](measurements.csv) contains the 80 measurements used for the
+five figures, including thread count, truncation, median, and 90th-percentile
+timings. The regular-grid
 analysis limit is `nlat-2`, Gaussian is `nlat-1`, and even-longitude
 vector Nyquist modes are excluded. The benchmark uses seeded float32 inputs.
 
@@ -97,5 +103,10 @@ python benchmarks/plot.py \
 The reproduced four-case series explicitly uses four threads. `--threads 0`
 selects up to eight available CPUs, respecting Linux affinity and cgroup
 quota; use an explicit thread count for controlled runs.
-`python benchmarks/plot.py` requires both CSV files from one runner and
-fails if any timing series is missing. Raw CSVs are not tracked. Independent numerical validation is in [`tests/parity/`](../tests/parity).
+The plotting script also accepts the committed combined CSV:
+
+```sh
+python benchmarks/plot.py --csv benchmarks/measurements.csv --output-dir benchmarks
+```
+
+It fails if any timing series is missing. Independent numerical validation is in [`tests/parity/`](../tests/parity).

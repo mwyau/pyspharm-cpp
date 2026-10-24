@@ -4,15 +4,8 @@
 
 ## Unreleased
 
-- Corrected mathematical equations in the documentation and recorded the
-  tested API differences, numerical limits, and workflow configuration.
-- Reorganized native code into focused C++ binding, transform and numerical
-  modules while retaining the pinned DUCC implementation.
-- Added scalar and batched numerical utilities, free-threaded CPython build
-  support, typed signatures, and expanded numerical and concurrency tests.
-- Added runner architecture checks, reproducible wheel metadata validation,
-  development checks, documentation and native coverage configuration.
-- Added standard-ABI wheel builds: CPython 3.11 keeps a `cp311` wheel, CPython
-  3.12 and newer use a shared `cp312-abi3` wheel, and free-threaded versions
-  remain separately tagged.
-- No package has been published and no release tag has been created.
+- Added a DUCC-backed, PySpharm-compatible NumPy interface for scalar and vector spherical harmonic transforms, regridding, interpolation, and spectral utilities.
+- Added float32/complex64 support and batched numerical operations.
+- Documented the Clenshaw–Curtis and Gaussian analysis limits, coefficient conventions, and tested PySpharm differences.
+- Added free-threaded Python support and CPU-dispatched Linux wheels.
+- Added comparative benchmarks and numerical regression tests.

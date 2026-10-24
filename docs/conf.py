@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 project = "pyspharm-cpp"
-author = "Albert Yau"
+author = "Albert M. W. Yau"
 copyright = f"{date.today().year}, {author}"
 pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
 release = tomllib.loads(pyproject.read_text())["project"]["version"]

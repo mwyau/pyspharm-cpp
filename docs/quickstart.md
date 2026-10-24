@@ -4,13 +4,21 @@
 
 ## Installation
 
-Install `pyspharm-cpp` when a wheel is available, or install it from a source checkout with the DUCC submodule initialized:
+Install a compatible wheel from PyPI when available:
 
 ```sh
 python -m pip install pyspharm-cpp
 ```
 
-The package imports as `spharm_cpp`. Python 3.11 or newer and NumPy are required.
+Conda and Mamba packages can be installed from conda-forge after publication:
+
+```sh
+conda install -c conda-forge pyspharm-cpp
+# Or:
+mamba install -c conda-forge pyspharm-cpp
+```
+
+The package imports as `spharm_cpp`; the examples use `import spharm_cpp as spharm`. Python 3.11 or newer and NumPy are required. For source builds, see [contributing](https://github.com/mwyau/pyspharm-cpp/blob/main/CONTRIBUTING.md).
 
 ## Scalar analysis and synthesis
 
@@ -49,8 +57,28 @@ u, v = sht.getuv(vorticity, divergence)
 
 ## Precision and multiple fields
 
-The default grid/coefficients are float64/complex128. Select float32/complex64 with `Spharmt(..., dtype=np.float32)`. The input precision must match the instance.
+The default grid/coefficients are float64/complex128. Select float32/complex64 with `Spharmt(..., dtype=np.float32)`. Input precision must match the instance.
 
-Multiple grid fields use shape `(nlat, nlon, nfields)`; spectral arrays use `(ncoeff, nfields)`.
+Multiple grid fields use shape `(nlat, nlon, nfields)`; spectral arrays use `(ncoeff, nfields)`. For example:
+
+```python
+sht32 = spharm.Spharmt(nlon, nlat, gridtype="gaussian", dtype=np.float32)
+fields = np.stack((field, 2 * field), axis=-1).astype(np.float32)
+spectra = sht32.grdtospec(fields, ntrunc=1)
+assert spectra.shape == (3, 2)
+reconstructed = sht32.spectogrd(spectra)
+assert reconstructed.shape == fields.shape
+```
+
+## Regridding
+
+`regrid` analyzes data on the source grid and synthesizes it on the target grid. The truncation must fit both grids.
+
+```python
+source = spharm.Spharmt(32, 16, gridtype="gaussian")
+target = spharm.Spharmt(64, 32, gridtype="gaussian")
+interpolated = spharm.regrid(source, target, field, ntrunc=1)
+assert interpolated.shape == (32, 64)
+```
 
 See [numerical conventions](conventions.md) for truncation and normalization, [API reference](api.md) for all operations, and [PySpharm comparison](pyspharm-compatibility.md) for tested differences.
