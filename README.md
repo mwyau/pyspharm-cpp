@@ -62,7 +62,7 @@ repetitions were used.
 | Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |               15.6× |
 | Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |               80.8× |
 
-See [all four measured grids and reproduction instructions](benchmarks/README.md).
+See [all five benchmark cases and reproduction instructions](benchmarks/README.md).
 
 ## License
 

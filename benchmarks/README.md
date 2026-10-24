@@ -12,8 +12,17 @@ serial PySpharm 1.0.9 versus four-thread DUCC 0.42.0 and pyspharm-cpp
 0.1.0.dev0 (both precisions), with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
 repetitions after two warmups, without CPU pinning.
 
-The fifth case repeats the 2.5° regular grid with one DUCC thread on the
-same runner. Float64 uses exact casts of the float32 samples.
+The 2.5° one-thread and four-thread runs were measured together on an AMD EPYC 9V45 runner with AVX-512 active. The other figures use the same CPU model and SIMD profile. Float64 uses casts of the float32 input fields.
+
+## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
+
+![Clenshaw–Curtis 2.5° one-thread timings](timings-cc-2p5-1t.svg)
+
+| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: |
+| Scalar analysis | 0.065 ms | 0.208 ms | 0.209 ms | 0.31× |
+| Scalar synthesis | 0.028 ms | 0.059 ms | 0.054 ms | 0.48× |
+| Wind analysis | 0.170 ms | 0.625 ms | 0.417 ms | 0.27× |
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
 
@@ -54,11 +63,6 @@ same runner. Float64 uses exact casts of the float32 samples.
 | Scalar analysis  | 184.648 ms |     3.450 ms | 3.199 ms |              53.53× |
 | Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |              15.61× |
 | Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |              80.76× |
-
-## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
-
-The additional one-thread figure is produced from the paired runner
-measurements. It is not included in the historical four-thread snapshot.
 
 ## Reproduce
 
