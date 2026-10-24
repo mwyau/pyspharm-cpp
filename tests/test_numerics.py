@@ -297,7 +297,7 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
             for lon, pbar in zip(longitudes, expected_pnm)
         ]
     )
-    assert values.dtype == np.float64
+    assert values.dtype == np.dtype(dtype)
     np.testing.assert_allclose(values, expected, rtol=tol, atol=tol)
 
     with pytest.raises(ValueError, match="rank one"):
@@ -326,6 +326,7 @@ def test_batched_interpolation_complex_coefficient_all_eight_lanes(dtype, cdtype
     spec[index] = coefficient
 
     values = spharm.specintrp_many(longitudes, spec, pbar)
+    assert values.dtype == np.dtype(dtype)
     phase = np.deg2rad(order * longitudes)
     expected = (
         2.0
