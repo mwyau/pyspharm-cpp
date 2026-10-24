@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="705" viewBox="0 0 900 705" role="img" aria-labelledby="chart-title chart-desc">
+<title id="chart-title">Measured spherical harmonic transform latencies</title>
+<desc id="chart-desc">Three groups show PySpharm, pyspharm-cpp and DUCC latencies in milliseconds. Each group uses its own linear axis starting at zero; axes should not be compared by bar length across groups.</desc>
+<rect width="900" height="705" fill="white"/>
+<text x="26" y="37" font-family="sans-serif" font-size="21" font-weight="600" fill="#1c3040">Measured SHT latency</text>
+<text x="26" y="62" font-family="sans-serif" font-size="13" fill="#536578">512×256 Gaussian · float32 · one thread · lower is better</text>
+<text x="26" y="104" font-family="sans-serif" font-size="16" font-weight="600" fill="#1c3040">Scalar analysis</text>
+<text x="26" y="139" font-family="sans-serif" font-size="13" fill="#273849">PySpharm 1.0.9</text>
+<rect x="222" y="122" width="466.2" height="23" rx="2" fill="#975463"/>
+<text x="696.2" y="139" font-family="sans-serif" font-size="13" fill="#273849">28.545 ms</text>
+<text x="26" y="173" font-family="sans-serif" font-size="13" fill="#273849">pyspharm-cpp</text>
+<rect x="222" y="156" width="18.2" height="23" rx="2" fill="#3077a3"/>
+<text x="248.2" y="173" font-family="sans-serif" font-size="13" fill="#273849">1.114 ms</text>
+<text x="26" y="207" font-family="sans-serif" font-size="13" fill="#273849">DUCC 0.42.0</text>
+<rect x="222" y="190" width="18.0" height="23" rx="2" fill="#4c876b"/>
+<text x="248.0" y="207" font-family="sans-serif" font-size="13" fill="#273849">1.105 ms</text>
+<line x1="222.0" y1="231" x2="222.0" y2="235" stroke="#8fa1af"/>
+<text x="222.0" y="251" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">0</text>
+<line x1="467.0" y1="231" x2="467.0" y2="235" stroke="#8fa1af"/>
+<text x="467.0" y="251" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">15</text>
+<line x1="712.0" y1="231" x2="712.0" y2="235" stroke="#8fa1af"/>
+<text x="712.0" y="251" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">30</text>
+<line x1="222" y1="235" x2="712" y2="235" stroke="#8fa1af"/>
+<text x="26" y="296" font-family="sans-serif" font-size="16" font-weight="600" fill="#1c3040">Wind analysis</text>
+<text x="26" y="331" font-family="sans-serif" font-size="13" fill="#273849">PySpharm 1.0.9</text>
+<rect x="222" y="314" width="394.0" height="23" rx="2" fill="#975463"/>
+<text x="624.0" y="331" font-family="sans-serif" font-size="13" fill="#273849">20.102 ms</text>
+<text x="26" y="365" font-family="sans-serif" font-size="13" fill="#273849">pyspharm-cpp</text>
+<rect x="222" y="348" width="56.1" height="23" rx="2" fill="#3077a3"/>
+<text x="286.1" y="365" font-family="sans-serif" font-size="13" fill="#273849">2.864 ms</text>
+<text x="26" y="399" font-family="sans-serif" font-size="13" fill="#273849">DUCC 0.42.0</text>
+<rect x="222" y="382" width="52.7" height="23" rx="2" fill="#4c876b"/>
+<text x="282.7" y="399" font-family="sans-serif" font-size="13" fill="#273849">2.690 ms</text>
+<line x1="222.0" y1="423" x2="222.0" y2="427" stroke="#8fa1af"/>
+<text x="222.0" y="443" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">0</text>
+<line x1="467.0" y1="423" x2="467.0" y2="427" stroke="#8fa1af"/>
+<text x="467.0" y="443" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">12.5</text>
+<line x1="712.0" y1="423" x2="712.0" y2="427" stroke="#8fa1af"/>
+<text x="712.0" y="443" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">25</text>
+<line x1="222" y1="427" x2="712" y2="427" stroke="#8fa1af"/>
+<text x="26" y="488" font-family="sans-serif" font-size="16" font-weight="600" fill="#1c3040">Eight-field scalar analysis</text>
+<text x="26" y="523" font-family="sans-serif" font-size="13" fill="#273849">PySpharm 1.0.9</text>
+<rect x="222" y="506" width="441.3" height="23" rx="2" fill="#975463"/>
+<text x="671.3" y="523" font-family="sans-serif" font-size="13" fill="#273849">225.174 ms</text>
+<text x="26" y="557" font-family="sans-serif" font-size="13" fill="#273849">pyspharm-cpp</text>
+<rect x="222" y="540" width="18.5" height="23" rx="2" fill="#3077a3"/>
+<text x="248.5" y="557" font-family="sans-serif" font-size="13" fill="#273849">9.432 ms</text>
+<text x="26" y="591" font-family="sans-serif" font-size="13" fill="#273849">DUCC 0.42.0</text>
+<rect x="222" y="574" width="17.9" height="23" rx="2" fill="#4c876b"/>
+<text x="247.9" y="591" font-family="sans-serif" font-size="13" fill="#273849">9.130 ms</text>
+<line x1="222.0" y1="615" x2="222.0" y2="619" stroke="#8fa1af"/>
+<text x="222.0" y="635" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">0</text>
+<line x1="467.0" y1="615" x2="467.0" y2="619" stroke="#8fa1af"/>
+<text x="467.0" y="635" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">125</text>
+<line x1="712.0" y1="615" x2="712.0" y2="619" stroke="#8fa1af"/>
+<text x="712.0" y="635" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#536578">250</text>
+<line x1="222" y1="619" x2="712" y2="619" stroke="#8fa1af"/>
+<text x="26" y="688" font-family="sans-serif" font-size="12" fill="#536578">Independent linear millisecond scale for each operation; historical single-host medians.</text>
+</svg>

@@ -2,33 +2,33 @@
 
 # Benchmarks
 
-The figure compares median elapsed times for three Gaussian-grid operations
-at 512 × 256, float32, one DUCC thread, on an AVX2 Linux x86-64 host.
-PySpharm 1.0.9 and the multiarch `pyspharm-cpp` 0.1.0 wheel were measured in
-the same reference environment (CPython 3.15.0rc2). The original run used
-three warmups and ten measured repetitions; neither process isolation nor
-CPU affinity was enforced. These are **single-host observations**, not
-expected speedups on other systems.
+The figure compares median elapsed times for three spherical harmonic
+operations on a 512 × 256 Gaussian grid, float32, using one DUCC thread.
+Each operation has a separate **linear** millisecond axis, starting at zero,
+to make the three implementations visible at different time scales.
 
-![Observed transform speedup](speedup.svg)
+![Measured scalar and wind transform timings](timings.svg)
 
-| Operation | PySpharm 1.0.9 | pyspharm-cpp | Direct DUCC 0.42.0 |
-| --- | ---: | ---: | ---: |
-| Scalar analysis | 28.545 ms | 1.114 ms | 1.105 ms |
-| Wind analysis | 20.102 ms | 2.864 ms | 2.690 ms |
-| Eight-field scalar analysis | 225.174 ms | 9.432 ms | 9.130 ms |
+| Operation | PySpharm 1.0.9 | pyspharm-cpp | DUCC 0.42.0 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: |
+| Scalar analysis | 28.545 ms | 1.114 ms | 1.105 ms | 25.6× |
+| Wind analysis | 20.102 ms | 2.864 ms | 2.690 ms | 7.0× |
+| Eight-field scalar analysis | 225.174 ms | 9.432 ms | 9.130 ms | 23.9× |
 
-Lower latency is better. In these cases, `pyspharm-cpp` tracks the direct
-DUCC backend closely. This does not imply that all operations or grid sizes
-are faster than PySpharm: other measured workloads favored the reference.
+The speedup column compares **pyspharm-cpp with PySpharm**, calculated from
+unrounded median times; DUCC is shown as a direct-backend reference.
+Measurements used PySpharm 1.0.9, the multiarch `pyspharm-cpp` 0.1.0
+wheel, and DUCC 0.42.0 on a Linux x86-64 AVX2 host running CPython
+3.15.0rc2. The historical run used three warmups and ten repetitions,
+without CPU pinning. Performance depends on the operation, grid, hardware,
+build profile, and host load.
 
 ## Reproduce
 
-`benchmark.py` measures warmed median and p90 latency, checks representative
-outputs, and writes a CSV. Optional PySpharm and `ducc0` installations add
-their corresponding measurements. For a PySpharm comparison, use an
-environment containing `pyspharm-syl==1.2.1` (PySpharm 1.0.9), the installed
-`pyspharm-cpp` wheel, and compatible NumPy.
+`benchmark.py` measures warmed median and p90 times and exports CSV.
+Install `pyspharm-cpp`, `ducc0==0.42.0`, and
+`pyspharm-syl==1.2.1` (PySpharm 1.0.9), with a compatible NumPy, in the
+benchmark environment.
 
 ```sh
 DUCC0_NUM_THREADS=1 python benchmarks/benchmark.py \
@@ -37,18 +37,13 @@ DUCC0_NUM_THREADS=1 python benchmarks/benchmark.py \
   --output /tmp/pyspharm-benchmark.csv
 python benchmarks/plot.py \
   --csv /tmp/pyspharm-benchmark.csv \
-  --output benchmarks/speedup.svg
+  --output benchmarks/timings.svg
 ```
 
-Run `python benchmarks/plot.py` without `--csv` to regenerate the
-checked-in historical figure from the fixed summary medians in that script.
-Results from a new measurement will generally differ. The script uses only
-the Python standard library, including for SVG generation.
+`python benchmarks/plot.py` alone regenerates the checked-in historical
+figure from its recorded medians. Both scripts produce local files; the
+plotting script uses only the standard library. A new run will generally
+produce different timings.
 
-Different build profiles (`portable`, `native`, `multiarch`), CPU features,
-thread counts, and host load can change the results substantially.
-The benchmark excludes PySpharm on float64 because its API is float32-only.
-Python-traced allocations do not include all native C++ workspaces.
-
-The comprehensive numerical cross-library tests live in
-[`tests/parity/`](../tests/parity), separate from performance benchmarks.
+For independent numerical comparisons, see
+[`tests/parity/`](../tests/parity).

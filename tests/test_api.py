@@ -18,6 +18,16 @@ def test_installed_distribution_metadata():
     assert dist.requires[0].lower().startswith("numpy")
 
 
+@pytest.mark.parametrize("m", [1, 2, 4, 10])
+def test_geodesic_float32_is_rounded_float64(m):
+    latitude64, longitude64 = spharm.getgeodesicpts(m)
+    latitude32, longitude32 = spharm.getgeodesicpts(m, dtype=np.float32)
+    assert latitude64.dtype == longitude64.dtype == np.float64
+    assert latitude32.dtype == longitude32.dtype == np.float32
+    np.testing.assert_array_equal(latitude32, latitude64.astype(np.float32))
+    np.testing.assert_array_equal(longitude32, longitude64.astype(np.float32))
+
+
 def test_constructor_and_regular_analysis_limit():
     t = spharm.Spharmt(16, 9, 2.0, "regular", "computed")
     assert t.dtype == "float64"
