@@ -330,8 +330,9 @@ jobs:
                   link.get("href", "").split("#")[0].rsplit("/", 1)[-1]
                   for link in nav.select("a[href]")
               }
-              assert expected_links <= links, (
-                  f"{page}: missing section links {expected_links - links}"
+              required_links = expected_links - {f"{page}.html"}
+              assert required_links <= links, (
+                  f"{page}: missing section links {required_links - links}"
               )
           for page, formula in (
               ("conventions", r"\bar P_{00}"),
