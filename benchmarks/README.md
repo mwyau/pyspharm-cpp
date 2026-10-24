@@ -2,67 +2,70 @@
 
 # Benchmarks
 
-These charts compare median timings for PySpharm float32, DUCC float32, and `pyspharm-cpp` float32 and float64.
-Each operation has its own zero-based linear time scale; compare bar lengths
-within an operation, and use the printed values across operations. Smaller is
-better. The speedup column is PySpharm time divided by pyspharm-cpp time.
+These charts compare median timings for PySpharm float32, DUCC float32, and
+`pyspharm-cpp` float32 and float64. Each operation has its own zero-based
+linear time scale; compare bar lengths within an operation and use the printed
+values across operations. Smaller is better. Speedup is PySpharm time divided
+by `pyspharm-cpp` float32 time.
 
-Measured on a four-CPU AMD EPYC Linux runner (CPython 3.12, NumPy 1.26.4):
-serial PySpharm 1.0.9 versus four-thread DUCC 0.42.0 and pyspharm-cpp
-0.1.0.dev0 (both precisions), with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
-repetitions after two warmups, without CPU pinning.
-
-The 2.5° one-thread and four-thread runs were measured together on an AMD EPYC 9V45 runner with AVX-512 active. The other figures use the same CPU model and SIMD profile. Float64 uses casts of the float32 input fields.
+All five cases were measured in one [GitHub Actions benchmark run](https://github.com/mwyau/pyspharm-cpp/actions/runs/40109072587)
+on October 24, 2026, using an AMD EPYC 9V45 runner with four allocated CPUs,
+AVX-512 (`x86-64-v4`) selected, CPython 3.12.15, NumPy 1.26.4,
+PySpharm 1.0.9, and DUCC 0.42.0.
+The 2.5° one-thread case uses one DUCC thread; the other four cases use
+four DUCC threads. PySpharm is serial in both configurations.
+Each median uses 7 timed repetitions after 2 warmups, without CPU pinning.
+Float64 measurements use casts of the float32 input fields.
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
 
-![Clenshaw–Curtis 2.5° one-thread timings](timings-cc-2p5-1t.svg)
+![Clenshaw–Curtis · 2.5° · 144 × 73 (one thread) SHT benchmark timings](timings-cc-2p5-1t.svg)
 
-| Operation | PySpharm | pyspharm-cpp | DUCC | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.065 ms | 0.208 ms | 0.209 ms | 0.31× |
-| Scalar synthesis | 0.028 ms | 0.059 ms | 0.054 ms | 0.48× |
-| Wind analysis | 0.170 ms | 0.625 ms | 0.417 ms | 0.27× |
+| Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 0.068 ms | 0.218 ms | 0.219 ms | 0.228 ms | 0.31× |
+| Scalar synthesis | 0.031 ms | 0.080 ms | 0.053 ms | 0.061 ms | 0.38× |
+| Wind analysis | 0.179 ms | 0.449 ms | 0.424 ms | 0.461 ms | 0.40× |
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
 
-![Timings for Clenshaw–Curtis · 2.5° · 144 × 73](timings-cc-2p5.svg)
+![Clenshaw–Curtis · 2.5° · 144 × 73 (four threads) SHT benchmark timings](timings-cc-2p5.svg)
 
-| Operation        | PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
-| ---------------- | -------: | -----------: | -------: | ------------------: |
-| Scalar analysis  | 0.069 ms |     0.209 ms | 0.222 ms |               0.33× |
-| Scalar synthesis | 0.029 ms |     0.067 ms | 0.063 ms |               0.44× |
-| Wind analysis    | 0.178 ms |     0.385 ms | 0.381 ms |               0.46× |
+| Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 0.068 ms | 0.211 ms | 0.237 ms | 0.220 ms | 0.32× |
+| Scalar synthesis | 0.029 ms | 0.070 ms | 0.060 ms | 0.064 ms | 0.42× |
+| Wind analysis | 0.182 ms | 0.427 ms | 0.387 ms | 0.442 ms | 0.42× |
 
-## Clenshaw–Curtis · 0.25° · 1440 × 721
+## Clenshaw–Curtis · 0.25° · 1440 × 721 (four threads)
 
-![Timings for Clenshaw–Curtis · 0.25° · 1440 × 721](timings-cc-0p25.svg)
+![Clenshaw–Curtis · 0.25° · 1440 × 721 (four threads) SHT benchmark timings](timings-cc-0p25.svg)
 
-| Operation        |   PySpharm | pyspharm-cpp |      DUCC | Speedup vs PySpharm |
-| ---------------- | ---------: | -----------: | --------: | ------------------: |
-| Scalar analysis  |  95.027 ms |    12.638 ms | 14.260 ms |               7.52× |
-| Scalar synthesis |  76.561 ms |     4.047 ms |  3.875 ms |              18.92× |
-| Wind analysis    | 244.674 ms |    27.712 ms | 29.122 ms |               8.83× |
+| Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 95.925 ms | 12.349 ms | 13.911 ms | 12.257 ms | 7.77× |
+| Scalar synthesis | 77.371 ms | 3.910 ms | 3.866 ms | 3.896 ms | 19.79× |
+| Wind analysis | 243.901 ms | 31.281 ms | 28.891 ms | 30.546 ms | 7.80× |
 
-## Gaussian · 128 latitude rings · 256 × 128
+## Gaussian · 128 latitude rings · 256 × 128 (four threads)
 
-![Timings for Gaussian · 128 latitude rings · 256 × 128](timings-gl-128.svg)
+![Gaussian · 128 latitude rings · 256 × 128 (four threads) SHT benchmark timings](timings-gl-128.svg)
 
-| Operation        | PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
-| ---------------- | -------: | -----------: | -------: | ------------------: |
-| Scalar analysis  | 0.634 ms |     0.131 ms | 0.128 ms |               4.82× |
-| Scalar synthesis | 0.109 ms |     0.128 ms | 0.118 ms |               0.85× |
-| Wind analysis    | 1.161 ms |     0.265 ms | 0.227 ms |               4.38× |
+| Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 0.624 ms | 0.136 ms | 0.126 ms | 0.136 ms | 4.58× |
+| Scalar synthesis | 0.109 ms | 0.127 ms | 0.104 ms | 0.130 ms | 0.86× |
+| Wind analysis | 3.242 ms | 0.262 ms | 0.213 ms | 0.261 ms | 12.38× |
 
-## Gaussian · 640 latitude rings · 1280 × 640
+## Gaussian · 640 latitude rings · 1280 × 640 (four threads)
 
-![Timings for Gaussian · 640 latitude rings · 1280 × 640](timings-gl-640.svg)
+![Gaussian · 640 latitude rings · 1280 × 640 (four threads) SHT benchmark timings](timings-gl-640.svg)
 
-| Operation        |   PySpharm | pyspharm-cpp |     DUCC | Speedup vs PySpharm |
-| ---------------- | ---------: | -----------: | -------: | ------------------: |
-| Scalar analysis  | 184.648 ms |     3.450 ms | 3.199 ms |              53.53× |
-| Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |              15.61× |
-| Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |              80.76× |
+| Operation | PySpharm f32 | pyspharm-cpp f32 | DUCC f32 | pyspharm-cpp f64 | Speedup vs PySpharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 183.330 ms | 3.165 ms | 3.021 ms | 3.280 ms | 57.92× |
+| Scalar synthesis | 45.608 ms | 3.020 ms | 2.734 ms | 3.047 ms | 15.10× |
+| Wind analysis | 620.010 ms | 7.681 ms | 6.158 ms | 11.640 ms | 80.72× |
 
 ## Reproduce
 
