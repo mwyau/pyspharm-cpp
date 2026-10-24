@@ -96,9 +96,8 @@ std::vector<double> real_vector(const CNpArr& array, const char* name)
 namespace
 {
 
-template <typename T>
-std::vector<std::size_t> map_shape(const CNpArr& map, std::size_t nlat,
-                                   std::size_t nlon)
+void validate_map_shape(const CNpArr& map, std::size_t nlat,
+                        std::size_t nlon)
 {
   if (map.ndim() != 2 && map.ndim() != 3)
     throw py::value_error("grid data must have rank 2 or 3");
@@ -106,7 +105,7 @@ std::vector<std::size_t> map_shape(const CNpArr& map, std::size_t nlat,
     throw py::value_error("grid data must have shape (nlat, nlon[, nfields])");
   if (map.ndim() == 3 && map.shape(2) == 0)
     throw py::value_error("the number of fields must be positive");
-  return {map.ndim() == 2 ? 1 : map.shape(2)};
+
 }
 
 }  // namespace
@@ -222,7 +221,7 @@ class Spharmt
 
   NpArr grdtospec(const CNpArr& grid, const py::object& ntrunc) const
   {
-    map_shape<float>(grid, nlat_, nlon_);
+    validate_map_shape(grid, nlat_, nlon_);
     const auto fallback = default_analysis_lmax();
     const auto lmax = checked_truncation(ntrunc, fallback, nlat_ - 1, "ntrunc");
     check_analysis_lmax(lmax);
@@ -264,7 +263,7 @@ class Spharmt
     for (std::size_t i = 0; i < ugrid.ndim(); ++i)
       if (ugrid.shape(i) != vgrid.shape(i))
         throw py::value_error("ugrid and vgrid must have the same shape");
-    map_shape<float>(ugrid, nlat_, nlon_);
+    validate_map_shape(ugrid, nlat_, nlon_);
     const auto lmax =
         checked_truncation(ntrunc, default_vector_analysis_lmax(), nlat_ - 1, "ntrunc");
     check_vector_analysis_lmax(lmax);
@@ -355,7 +354,7 @@ class Spharmt
 
   NpArr specsmooth(const CNpArr& grid, const CNpArr& smooth) const
   {
-    map_shape<float>(grid, nlat_, nlon_);
+    validate_map_shape(grid, nlat_, nlon_);
     if (smooth.ndim() != 1 || smooth.shape(0) != nlat_)
       throw py::value_error("smooth must be rank 1 with length nlat");
     CNpArr spec(grdtospec(grid, py::none()));
