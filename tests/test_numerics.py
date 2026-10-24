@@ -169,6 +169,18 @@ def test_high_degree_batched_legendre_simd_lanes(dtype, rtol, atol, norm_rtol):
         )
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_batched_legendre_simd_full_width_and_tail(dtype):
+    latitudes = np.linspace(-89.9, 89.9, 19)
+    latitudes[0], latitudes[-1] = -90.0, 90.0
+    actual = spharm.legendre_many(latitudes, 64, dtype=dtype)
+    reference = np.stack(
+        [spharm.legendre(float(lat), 64, dtype=dtype) for lat in latitudes]
+    )
+    tolerance = 1e-3 if dtype is np.float32 else 2e-11
+    np.testing.assert_allclose(actual, reference, rtol=tolerance, atol=tolerance)
+
+
 def _decimal_legendre_reference(latitude, order, degree):
     """High precision normalized Pbar_lm, without the Condon-Shortley phase."""
     phi = float(latitude) * math.pi / 180.0

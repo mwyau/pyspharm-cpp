@@ -77,3 +77,5 @@ transform. Wind synthesis uses DUCC's transform-level threading and is not
 assigned an outer field schedule. Its field-batched workspace variant was
 reverted after 16-field float64 single-thread timings rose from 5.86 to 9.30 ms
 on the medium grid and from 38.5 to 53.3 ms on the large grid.
+The field-scheduling threshold was benchmarked on x86-64 only; ARM64
+performance, including Raspberry Pi and GitHub ARM runners, remains unmeasured.
