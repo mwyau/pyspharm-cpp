@@ -28,7 +28,7 @@ The reference tests cover the public functions and the differences listed below.
 | Behavior                          | `spharm_cpp`                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                   |
-| Legendre evaluation               | `legfunc="computed"` is the default. Stored Legendre functions (`legfunc="stored"`) are not supported. |
+| Legendre evaluation               | Stored Legendre functions (`legfunc="stored"`) are not supported.                            |
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
