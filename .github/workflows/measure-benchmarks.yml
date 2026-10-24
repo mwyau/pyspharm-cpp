@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Measure SHT benchmarks
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "benchmarks/measure_grids.py"
+      - ".github/workflows/measure-benchmarks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
+      - name: Install CPython and SPHEREPACK reference
+        run: |
+          uv python install 3.12
+          uv sync --locked --python 3.12 --group build --group test --group validation --no-build-package pyspharm-syl
+          uv pip install --python .venv/bin/python "ducc0==0.42.0"
+      - name: Inspect CPU and SIMD
+        run: |
+          nproc
+          lscpu | grep -E "Model name|CPU\(s\):|Flags:"
+          cat /sys/fs/cgroup/cpu.max || true
+      - name: Measure the four grid configurations
+        run: |
+          mkdir -p "$RUNNER_TEMP/sht-bench"
+          uv run --locked --no-sync python benchmarks/measure_grids.py \
+            --threads 0 --warmups 2 --repeats 7 \
+            --output "$RUNNER_TEMP/sht-bench/measurements.csv"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: four-grid-sht-bench-${{ github.sha }}
+          path: ${{ runner.temp }}/sht-bench/
+          if-no-files-found: warn
