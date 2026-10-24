@@ -19,7 +19,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
 | `legendre_many`, `specintrp_many`                    | Results against repeated scalar operations                                                   |
-| `cpu_info`                                           | CPU metadata keys and types                                                             |
+| `cpu_info`                                           | CPU metadata keys and types                                                                  |
 
 The reference tests cover the public functions and the differences listed below.
 
@@ -27,7 +27,7 @@ The reference tests cover the public functions and the differences listed below.
 
 | Behavior                          | `spharm_cpp`                                                                                 |
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                           |
+| Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                   |
 | Legendre evaluation               | `legfunc="computed"` is the default and only supported mode; `"stored"` raises `ValueError`. |
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
