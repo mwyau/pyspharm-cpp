@@ -69,3 +69,12 @@ For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitu
 `rsphere` is a positive radius in the user's length units. Scalar transforms are independent of radius; gradients divide by radius, and wind-derived vorticity and divergence use spherical derivatives. Component order is eastward (`u`) then northward (`v`).
 
 `getuv` returns eastward and northward wind; `getvrtdivspec` returns vorticity then divergence spectra; `getpsichi` returns streamfunction then velocity potential. Longitude arguments for `specintrp` and `specintrp_many` are in degrees.
+
+## Thread selection
+
+Transforms and batched numerical kernels use DUCC's thread pool. Set
+`DUCC0_NUM_THREADS` to select the thread count; when it is unset,
+`OMP_NUM_THREADS` is used. If both are unset, operations use one thread. A
+thread count of zero asks DUCC to use all threads available to its pool, and a
+positive count is limited to the pool's capacity. The setting is read on the
+first numerical call in each process, so set it before that call.

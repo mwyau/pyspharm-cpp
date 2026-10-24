@@ -348,16 +348,33 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
     s[i] = static_cast<T>((lat == 90.0 || lat == -90.0) ? 0.0 : std::cos(phi));
   }
 
-  std::size_t start = 0;
+  const auto vector_batches = padded_size / vlen;
+  const auto process_batches = [&](std::size_t lo, std::size_t hi)
   {
-    py::gil_scoped_release release;
-    for (; padded_size - start >= vlen; start += vlen)
+    for (std::size_t batch = lo; batch < hi; ++batch)
     {
+      const auto start = batch * vlen;
       const auto active_lanes = std::min(vlen, latitudes.size() - start);
       legendre_many_vector_block<T, Tv>(x, s, lmax, start, active_lanes, output);
     }
+  };
+  {
+    py::gil_scoped_release release;
+    if (vector_batches >= 4)
+    {
+      const auto nthreads = configured_nthreads();
+      if (nthreads > 1)
+        DUCC0_NAMESPACE::execParallel(0, vector_batches, nthreads, process_batches);
+      else
+        process_batches(0, vector_batches);
+    }
+    else
+      process_batches(0, vector_batches);
+    auto start = std::min(vector_batches * vlen, latitudes.size());
     for (; start < latitudes.size(); ++start)
+    {
       legendre_many_scalar_row<T>(x[start], s[start], lmax, start, output);
+    }
   }
   for (std::size_t row = 0; row < latitudes.size(); ++row)
     if (latitudes[row] == 90.0 || latitudes[row] == -90.0)
@@ -617,22 +634,44 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
   using Tv = DUCC0_NAMESPACE::native_simd<T>;
   constexpr std::size_t vlen = Tv::size();
   const auto remainder = longitudes.size() % vlen;
-  std::size_t point = 0;
+  const auto native_batches = longitudes.size() / vlen;
+  auto vector_batches = native_batches;
+  bool four_lane_tail = false;
+  if constexpr (DUCC0_NAMESPACE::simd_exists<T, 4>)
   {
-    py::gil_scoped_release release;
-    for (; longitudes.size() - point >= vlen; point += vlen)
-      interpolate_spectral_block<T, Tv>(longitudes, ntrunc, coefficients, legendre,
-                                        output, point);
-    if constexpr (DUCC0_NAMESPACE::simd_exists<T, 4>)
+    four_lane_tail = remainder == 4;
+    if (four_lane_tail)
+      ++vector_batches;
+  }
+  const auto process_batches = [&](std::size_t lo, std::size_t hi)
+  {
+    for (std::size_t batch = lo; batch < hi; ++batch)
     {
-      if (remainder == 4)
+      const auto point = batch * vlen;
+      if (batch < native_batches)
+        interpolate_spectral_block<T, Tv>(longitudes, ntrunc, coefficients, legendre,
+                                          output, point);
+      else if constexpr (DUCC0_NAMESPACE::simd_exists<T, 4>)
       {
         using TailTv = typename DUCC0_NAMESPACE::simd_select<T, 4>::type;
         interpolate_spectral_block<T, TailTv>(longitudes, ntrunc, coefficients,
                                               legendre, output, point);
-        point += 4;
       }
     }
+  };
+  {
+    py::gil_scoped_release release;
+    if (vector_batches >= 4)
+    {
+      const auto nthreads = configured_nthreads();
+      if (nthreads > 1)
+        DUCC0_NAMESPACE::execParallel(0, vector_batches, nthreads, process_batches);
+      else
+        process_batches(0, vector_batches);
+    }
+    else
+      process_batches(0, vector_batches);
+    std::size_t point = native_batches * vlen + (four_lane_tail ? 4 : 0);
     for (; point < longitudes.size(); ++point)
     {
       T sum = T(0);

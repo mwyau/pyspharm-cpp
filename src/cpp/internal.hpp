@@ -4,13 +4,18 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 
+#include <charconv>
 #include <complex>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "ducc0/bindings/pybind_utils.h"
+#include "ducc0/infra/threading.h"
 
 namespace SPHARM_CPP_NAMESPACE
 {
@@ -26,6 +31,26 @@ std::size_t checked_truncation(const py::object&, std::size_t, std::size_t,
 std::size_t truncation_from_count(std::size_t);
 std::size_t coefficient_count(std::size_t);
 std::vector<double> real_vector(const CNpArr&, const char*);
+
+inline std::size_t configured_nthreads()
+{
+  static const std::size_t requested = []
+  {
+    const char* value = std::getenv("DUCC0_NUM_THREADS");
+    if (!value)
+      value = std::getenv("OMP_NUM_THREADS");
+    if (!value)
+      return std::size_t(1);
+    const char* end = value + std::strlen(value);
+    std::size_t parsed = 0;
+    const auto result = std::from_chars(value, end, parsed);
+    if (result.ec != std::errc{} || result.ptr != end)
+      throw std::runtime_error(
+          "DUCC0_NUM_THREADS/OMP_NUM_THREADS must be a nonnegative integer");
+    return parsed;
+  }();
+  return DUCC0_NAMESPACE::adjust_nthreads(requested);
+}
 
 template <typename T>
 inline void validate_array_dtype(const CNpArr& arr, const char* expected)
