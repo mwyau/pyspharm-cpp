@@ -6,6 +6,8 @@ on:
   push:
     paths:
       - ".github/workflows/measure-benchmarks.yml"
+      - "benchmarks/benchmark.py"
+      - "benchmarks/plot.py"
 
 permissions:
   contents: read
