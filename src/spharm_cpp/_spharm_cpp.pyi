@@ -152,7 +152,7 @@ def getgeodesicpts(
     numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
 ]:
     """
-    Return latitude and longitude coordinates of an icosahedral grid. Defaults to float64; dtype=float32 selects the legacy-precision calculation.
+    Return latitude and longitude coordinates of an icosahedral grid. Defaults to float64; dtype=float32 casts the result to single precision.
     """
 
 def specintrp(
