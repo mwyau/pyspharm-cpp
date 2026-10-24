@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Measure C++ coverage
+name: Coverage
 
 on:
   push:
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   coverage:
-    name: Measure C++ coverage
+    name: C++ coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:

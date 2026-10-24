@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Test PySpharm parity
+name: Parity
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   parity:
-    name: Test PySpharm parity
+    name: PySpharm parity
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:

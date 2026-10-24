@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Benchmark SHT performance
+name: Benchmarks
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   measure:
-    name: Benchmark SHT performance
+    name: SHT benchmarks
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:

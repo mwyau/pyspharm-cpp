@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Build and publish distributions
+name: Release
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   release-policy:
-    name: Validate release policy
+    name: Validate tag
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -33,7 +33,7 @@ jobs:
         run: python3 .github/check_release.py --evidence
 
   wheels:
-    name: Build wheels (${{ matrix.target }})
+    name: Release wheels (${{ matrix.target }})
     needs: release-policy
     timeout-minutes: 180
     strategy:
@@ -143,7 +143,7 @@ jobs:
           if-no-files-found: error
 
   sdist:
-    name: Build source distribution
+    name: Release sdist
     needs: release-policy
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -174,7 +174,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish distributions
+    name: Publish
     if: github.ref_type == 'tag'
     needs: [release-policy, wheels, sdist]
     runs-on: ubuntu-24.04
@@ -228,7 +228,7 @@ jobs:
           repository-url: ${{ contains(github.ref_name, '.dev') && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
 
   github-release:
-    name: Create GitHub release
+    name: GitHub release
     needs: [publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
