@@ -12,7 +12,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 
 | Operation                                            | Comparison                                                                                   |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-|  `Spharmt`, attributes, `dtype`       | Constructor, parameters, and output precision                                   |
+| `Spharmt`, attributes, `dtype`       | Constructor, parameters, and output precision                                   |
 | `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
 | `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
 | `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
@@ -43,7 +43,6 @@ The reference tests cover the public functions and the differences listed below.
 
 `spharm_cpp` limits Clenshaw–Curtis analysis to degree `nlat-2`, also subject to the longitude sampling limit. PySpharm accepts `nlat-1`. On the regular grid, not every coefficient at that highest degree can be recovered uniquely. Synthesis and analysis have separate degree limits.
 
-
 ## Longitude Nyquist
 
 For even `nlon`, the scalar order `m=nlon/2` samples `e^{im\lambda_j}=(-1)^j`. Its imaginary coefficient component cannot be determined from the samples. The scalar analysis conversion applies a half-factor at this order, matching PySpharm's positive/negative-frequency convention in direct comparisons. Analytic basis tests separately check the sampled field.
@@ -55,4 +54,3 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
 
 Run the PySpharm comparison with the manual [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. Missing contracts, blocked reference imports, and unapproved differences fail validation.
-

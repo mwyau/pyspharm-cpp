@@ -63,12 +63,12 @@ See [numerical conventions](docs/conventions.md) for coefficient ordering and no
 
 Median timings in milliseconds on a Gaussian 1280 × 640 grid, with four ducc0 threads and serial PySpharm. All timings use float32 and the same truncation.
 
-| Operation | PySpharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs PySpharm |
-| --- | ---: | ---: | ---: | ---: |
-| Scalar analysis | 142.171 ms | 3.361 ms | 2.959 ms | 42.30× |
-| Scalar synthesis | 45.133 ms | 2.908 ms | 2.901 ms | 15.52× |
-| Wind analysis | 349.341 ms | 7.901 ms | 6.260 ms | 44.21× |
-| Wind synthesis | 74.312 ms | 7.571 ms | 6.445 ms | 9.81× |
+| Operation        | PySpharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs PySpharm |
+| ---------------- | -----------: | ---------------: | --------: | ------------------: |
+| Scalar analysis  |   142.171 ms |         3.361 ms |  2.959 ms |              42.30× |
+| Scalar synthesis |    45.133 ms |         2.908 ms |  2.901 ms |              15.52× |
+| Wind analysis    |   349.341 ms |         7.901 ms |  6.260 ms |              44.21× |
+| Wind synthesis   |    74.312 ms |         7.571 ms |  6.445 ms |               9.81× |
 
 See [benchmark results and reproduction instructions](benchmarks/README.md) for all five grid cases.
 
