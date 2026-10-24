@@ -8,8 +8,7 @@ Each operation has its own zero-based linear time scale; compare bar lengths
 within an operation, and use the printed values across operations.
 Smaller is better. Speedup is PySpharm time divided by `pyspharm-cpp` float32 time.
 
-All five cases were measured in one [GitHub Actions benchmark run](https://github.com/mwyau/pyspharm-cpp/actions/runs/40110235638)
-using an AMD EPYC 9V45 runner with four allocated CPUs,
+All five cases were measured on an AMD EPYC 9V45 runner with four allocated CPUs,
 the `pyspharm-cpp` AVX-512 (`x86-64-v4`) profile active, CPython 3.12.15, NumPy 1.26.4,
 pyspharm 1.0.9, and ducc0 0.42.0.
 The 2.5° one-thread case uses one DUCC thread; the other four cases use

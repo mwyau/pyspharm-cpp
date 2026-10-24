@@ -6,6 +6,6 @@ The [benchmark report](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmark
 
 The benchmark uses matching spectral truncation for each grid. Synthesis coefficients are prepared before timing, and timing values are medians from repeated measurements after warmup.
 
-The direct DUCC baseline measures spin-0 and spin-1 transforms. `spharm_cpp` uses DUCC transforms with additional coefficient conversion for PySpharm-compatible outputs, especially vorticity and divergence. Therefore, the direct spin-1 DUCC result is a transform baseline, not an end-to-end timing of the same wind API.
+The direct ducc0 baseline measures spin-0 and spin-1 transforms. `spharm_cpp` uses DUCC transforms with additional coefficient conversion for PySpharm-compatible outputs, especially vorticity and divergence. Therefore, the direct spin-1 DUCC result is a transform baseline, not an end-to-end timing of the same wind API.
 
 Performance depends on grid resolution, thread count, processor, and precision. The figures show individual measurements rather than performance guarantees.

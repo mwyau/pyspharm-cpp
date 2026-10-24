@@ -4,13 +4,13 @@
 
 ## Installation
 
-Install a compatible wheel from PyPI when available:
+Install from PyPI:
 
 ```sh
 python -m pip install pyspharm-cpp
 ```
 
-Conda and Mamba packages can be installed from conda-forge after publication:
+Or install from conda-forge with Conda or Mamba:
 
 ```sh
 conda install -c conda-forge pyspharm-cpp
