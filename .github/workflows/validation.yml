@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      PYSPHARM_VALIDATION_DIR: ${{ runner.temp }}/pyspharm-validation
+      PYSPHARM_VALIDATION_DIR: /tmp/pyspharm-validation
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -44,5 +44,5 @@ jobs:
         if: always()
         with:
           name: pyspharm-validation-${{ github.sha }}
-          path: ${{ runner.temp }}/pyspharm-validation/
+          path: /tmp/pyspharm-validation/
           if-no-files-found: warn
