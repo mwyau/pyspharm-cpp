@@ -3,8 +3,11 @@
 # pyspharm-cpp
 
 [![CI](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/mwyau/pyspharm-cpp/actions/workflows/ci.yml)
-[![Docs](https://app.readthedocs.org/projects/pyspharm-cpp/badge/?version=latest)](https://pyspharm-cpp.readthedocs.io/en/latest/)
+[![Docs](https://readthedocs.org/projects/pyspharm-cpp/badge/?version=latest)](https://pyspharm-cpp.readthedocs.io/en/latest/?badge=latest)
 [![Codecov](https://codecov.io/github/mwyau/pyspharm-cpp/graph/badge.svg)](https://codecov.io/github/mwyau/pyspharm-cpp)
+[![PyPI version](https://img.shields.io/pypi/v/pyspharm-cpp)](https://pypi.org/project/pyspharm-cpp/)
+[![Conda version](https://img.shields.io/conda/vn/conda-forge/pyspharm-cpp)](https://anaconda.org/channels/conda-forge/packages/pyspharm-cpp/overview)
+[![License](https://img.shields.io/github/license/mwyau/pyspharm-cpp)](https://github.com/mwyau/pyspharm-cpp/blob/main/LICENSE)
 
 `pyspharm-cpp` implements the PySpharm Python API for scalar and vector spherical harmonic transforms (SHTs), spectral regridding, Legendre functions, and interpolation. It uses DUCC's C++ transforms with nanobind and requires only NumPy at runtime.
 
