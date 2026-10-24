@@ -400,8 +400,8 @@ def test_float32_radius_scaling_without_premature_casts(gridtype):
     _, divergence = huge.getvrtdivspec(*reference_grad, 1)
     _, reference_divergence = baseline.getvrtdivspec(*reference_grad, 1)
     np.testing.assert_allclose(
-        divergence.astype(np.float64),
-        reference_divergence.astype(np.float64) / huge.rsphere,
+        divergence.astype(np.complex128),
+        reference_divergence.astype(np.complex128) / huge.rsphere,
         rtol=5e-5,
         atol=1e-36,
     )

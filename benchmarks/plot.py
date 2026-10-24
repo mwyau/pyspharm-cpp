@@ -15,8 +15,8 @@ from html import escape
 from pathlib import Path
 
 CASES = (
-    ("cc-2p5", "Clenshaw–Curtis · 2.5° · 144 × 73 · 4 threads"),
-    ("cc-2p5-1t", "Clenshaw–Curtis · 2.5° · 144 × 73 · 1 thread"),
+    ("cc-2p5", "Clenshaw–Curtis · 2.5° · 144 × 73"),
+    ("cc-2p5-1t", "Clenshaw–Curtis · 2.5° · 144 × 73"),
     ("cc-0p25", "Clenshaw–Curtis · 0.25° · 1440 × 721"),
     ("gl-128", "Gaussian · 128 latitude rings · 256 × 128"),
     ("gl-640", "Gaussian · 640 latitude rings · 1280 × 640"),
