@@ -28,9 +28,9 @@ if family in {"manylinux", "musllinux"}:
     ), wheel.name
 elif family == "macos":
     prefix = f"macosx_{deployment.replace('.', '_')}_"
-    assert any(
-        tag.startswith(prefix) and tag.endswith(f"_{arch}") for tag in tags
-    ), wheel.name
+    assert any(tag.startswith(prefix) and tag.endswith(f"_{arch}") for tag in tags), (
+        wheel.name
+    )
     assert all(tag.endswith(f"_{arch}") for tag in tags), wheel.name
 else:
     assert family == "windows"
