@@ -190,13 +190,13 @@ jobs:
       - name: Download abi3 wheel
         uses: actions/download-artifact@v8.0.2
         with:
-          pattern: "*-cp312-abi3-*.whl"
+          pattern: "*-cp312-abi3-linux_x86_64.whl"
           merge-multiple: true
           path: dist/abi3
       - name: Install and test abi3 wheel
         run: |
+          test "$(find dist/abi3 -maxdepth 1 -name '*.whl' | wc -l)" -eq 1
           wheel="$(find dist/abi3 -maxdepth 1 -name '*.whl' -print -quit)"
-          test -n "$wheel"
           wheel_venv="/tmp/pyspharm-cpp-abi3-${{ matrix.python-version }}"
           uv venv --python ${{ matrix.python-version }} "$wheel_venv"
           uv pip install --python "$wheel_venv/bin/python" "$wheel" "pytest>=8"

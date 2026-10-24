@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   wheels:
-    name: ${{ matrix.target }} / ${{ matrix.abi }}
+    name: ${{ matrix.target }} (${{ matrix.abi }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
