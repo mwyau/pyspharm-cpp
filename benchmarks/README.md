@@ -12,11 +12,11 @@ serial PySpharm 1.0.9 versus four-thread DUCC 0.42.0 and pyspharm-cpp
 0.1.0.dev0, with AVX-512 (`x86-64-v4`) selected. Medians use seven timed
 repetitions after two warmups, without CPU pinning.
 
-On the smallest grid (144 × 73), serial PySpharm is faster. Fixed transform
-and thread-dispatch costs are plausible explanations; a controlled
-single-thread comparison is needed to distinguish them.
+The fifth case repeats the 2.5° regular grid with one DUCC thread, on the
+same runner as the four-thread measurements. The figures report the two
+thread configurations separately.
 
-## Clenshaw–Curtis · 2.5° · 144 × 73
+## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
 
 ![Timings for Clenshaw–Curtis · 2.5° · 144 × 73](timings-cc-2p5.svg)
 
@@ -56,6 +56,11 @@ single-thread comparison is needed to distinguish them.
 | Scalar synthesis |  47.849 ms |     3.065 ms | 2.964 ms |              15.61× |
 | Wind analysis    | 612.969 ms |     7.590 ms | 6.405 ms |              80.76× |
 
+## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
+
+The additional one-thread figure is produced from the paired runner
+measurements. It is not included in the historical four-thread snapshot.
+
 ## Reproduce
 
 The benchmarks compare the same truncation on each backend. The regular-grid
@@ -69,12 +74,17 @@ From the repository root, run:
 ```sh
 python benchmarks/benchmark.py --threads 0 --warmups 2 --repeats 7 \
   --output /path/to/measurements.csv
-python benchmarks/plot.py --csv /path/to/measurements.csv \
+# To reproduce the five charts, also run:
+python benchmarks/benchmark.py --cases cc-2p5-1t --threads 1 \
+  --warmups 2 --repeats 7 --output /path/to/one-thread.csv
+python benchmarks/plot.py \
+  --csv /path/to/measurements.csv /path/to/one-thread.csv \
   --output-dir benchmarks
 ```
 
 `--threads 0` selects up to eight available CPUs, respecting Linux
 affinity and cgroup quota. Use an explicit thread count for controlled runs.
-`python benchmarks/plot.py` without a CSV regenerates the four checked-in
-figures from the embedded historical medians. Raw benchmark CSVs are not
+`python benchmarks/plot.py` without a CSV regenerates the historical
+four-thread figures from the embedded medians until all five measurements
+from a matched runner are recorded. Raw benchmark CSVs are not
 tracked. Independent numerical validation is in [`tests/parity/`](../tests/parity).

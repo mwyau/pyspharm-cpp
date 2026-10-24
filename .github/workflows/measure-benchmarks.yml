@@ -52,6 +52,13 @@ jobs:
           uv run --locked --no-sync python benchmarks/benchmark.py \
             --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
             --output "$RUNNER_TEMP/sht-bench/one-thread.csv"
+      - name: Plot all five cases from this runner
+        run: |
+          uv run --locked --no-sync python benchmarks/plot.py \
+            --csv "$RUNNER_TEMP/sht-bench/four-thread.csv" \
+                  "$RUNNER_TEMP/sht-bench/one-thread.csv" \
+            --output-dir "$RUNNER_TEMP/sht-bench/figures"
+          test "$(find "$RUNNER_TEMP/sht-bench/figures" -name 'timings-*.svg' | wc -l)" -eq 5
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

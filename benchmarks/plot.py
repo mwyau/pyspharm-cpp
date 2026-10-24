@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Render four comparable raw-latency SVG charts from benchmark.py CSV.
+"""Render five comparable raw-latency SVG charts from benchmark.py CSVs.
 
 Each operation has its own labeled linear millisecond axis, so the much slower
 reference never forces candidate times into invisible slivers. Bars within an
@@ -15,7 +15,8 @@ from html import escape
 from pathlib import Path
 
 CASES = (
-    ("cc-2p5", "Clenshaw–Curtis · 2.5° · 144 × 73"),
+    ("cc-2p5", "Clenshaw–Curtis · 2.5° · 144 × 73 · 4 threads"),
+    ("cc-2p5-1t", "Clenshaw–Curtis · 2.5° · 144 × 73 · 1 thread"),
     ("cc-0p25", "Clenshaw–Curtis · 0.25° · 1440 × 721"),
     ("gl-128", "Gaussian · 128 latitude rings · 256 × 128"),
     ("gl-640", "Gaussian · 640 latitude rings · 1280 × 640"),
@@ -73,17 +74,18 @@ SNAPSHOT = {
     ("gl-640", "wind_analysis", "ducc0"): 6.404595,
 }
 
-def load_measurements(path: Path):
+def load_measurements(paths: list[Path]):
     results = {}
-    with path.open(newline="", encoding="utf-8") as fp:
-        for row in csv.DictReader(fp):
-            key = (row["case"], row["operation"], row["backend"])
-            if key in results:
-                raise ValueError(f"Duplicate measurement {key}")
-            v = float(row["median_ms"])
-            if not math.isfinite(v) or v <= 0:
-                raise ValueError(f"Invalid median for {key}")
-            results[key] = v
+    for path in paths:
+        with path.open(newline="", encoding="utf-8") as fp:
+            for row in csv.DictReader(fp):
+                key = (row["case"], row["operation"], row["backend"])
+                if key in results:
+                    raise ValueError(f"Duplicate measurement {key}")
+                v = float(row["median_ms"])
+                if not math.isfinite(v) or v <= 0:
+                    raise ValueError(f"Invalid median for {key}")
+                results[key] = v
     for case, _ in CASES:
         for op, _ in OPERATIONS:
             for backend, _, _ in BACKENDS:
@@ -105,7 +107,7 @@ def render(case, label, results):
         '<text x="27" y="40" font-size="21" font-family="sans-serif" '
         'font-weight="600" fill="#1f3546">Spherical harmonic transform latency</text>',
         f'<text x="27" y="66" font-size="14" font-family="sans-serif" '
-        f'fill="#526478">{escape(label)} · float32 · PySpharm serial · DUCC 4 threads</text>',
+        f'fill="#526478">{escape(label)} · float32 · PySpharm serial · DUCC {1 if case.endswith("-1t") else 4} thread{"s" if not case.endswith("-1t") else ""}</text>',
     ]
     for i, (operation, title) in enumerate(OPERATIONS):
         y0 = 98 + 190 * i
@@ -149,12 +151,14 @@ def render(case, label, results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", type=Path)
+    parser.add_argument("--csv", type=Path, nargs="+", help="CSV files from the same workflow job")
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).parent)
     args = parser.parse_args()
     results = load_measurements(args.csv) if args.csv else SNAPSHOT
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for case, label in CASES:
+        if not args.csv and (case, OPERATIONS[0][0], BACKENDS[0][0]) not in results:
+            continue
         target = args.output_dir / f"timings-{case}.svg"
         target.write_text(render(case, label, results), encoding="utf-8")
         print(target)
