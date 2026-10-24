@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "ducc0/infra/simd.h"
 #include "ducc0/sht/sht.h"
 #include "internal.hpp"
 
@@ -15,7 +14,6 @@ namespace SPHARM_CPP_NAMESPACE
 namespace
 {
 
-template <typename T>
 double coefficient_sign(std::size_t m)
 {
   return (m % 2 != 0) ? -1.0 : 1.0;
@@ -131,7 +129,7 @@ void convert_ducc_to_py(NpArr& array, std::size_t lmax, std::size_t nfield,
                                   static_cast<std::ptrdiff_t>(f) * view.stride(1);
         const T nyquist_factor = (nlon % 2 == 0 && m == nlon / 2) ? T(0.5) : T(1);
         view.data()[at] *=
-            static_cast<T>(coefficient_sign<T>(m) * nyquist_factor / sqrt_2pi);
+            static_cast<T>(coefficient_sign(m) * nyquist_factor / sqrt_2pi);
       }
 }
 
@@ -183,7 +181,7 @@ NpArr spectral_to_grid(const CNpArr& spec, std::size_t nlat, std::size_t nlon,
       {
         const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
         dest(0, idx) =
-            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign<T>(m));
+            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
       }
   }
   std::vector<std::size_t> starts = ducc_mstart(lmax);
@@ -242,7 +240,7 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
       {
         const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
         alm_storage[idx] =
-            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign<T>(m));
+            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
       }
     std::fill(map_storage.begin(), map_storage.end(), T(0));
     if (lmax > 0)
@@ -330,7 +328,7 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
         const double degree = static_cast<double>(l);
         const double lambda = degree * (degree + 1.0);
         const double coefficient_scale =
-            -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign<T>(m);
+            -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign(m);
         const double scale = l == 0 ? 0.0 : coefficient_scale;
         const auto outidx = batched ? idx * nfield + f : idx;
         vout.data()[outidx] = scale_coefficient(alm_storage[nalm + idx], scale);
@@ -378,7 +376,7 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
         if (l == 0)
           continue;
         const double degree = static_cast<double>(l);
-        const double scale = -rsphere * sqrt_2pi * coefficient_sign<T>(m) /
+        const double scale = -rsphere * sqrt_2pi * coefficient_sign(m) /
                              std::sqrt(degree * (degree + 1.0));
         alm_storage[idx] = scale_coefficient(div(0, idx), scale);
         alm_storage[nalm + idx] = scale_coefficient(vort(0, idx), scale);
