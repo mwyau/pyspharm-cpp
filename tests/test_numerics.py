@@ -58,9 +58,7 @@ def test_gaussian_rule_high_resolution(nlat):
         np.testing.assert_allclose(
             lat, np.rad2deg(np.arcsin(nodes[::-1])), rtol=0, atol=2e-11
         )
-        np.testing.assert_allclose(
-            weights, reference_weights[::-1], rtol=0, atol=4e-13
-        )
+        np.testing.assert_allclose(weights, reference_weights[::-1], rtol=0, atol=4e-13)
 
 
 def test_legendre_interpolation_and_poles():

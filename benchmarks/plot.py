@@ -40,6 +40,12 @@ def load_measurements(paths: list[Path]):
         with path.open(newline="", encoding="utf-8") as fp:
             for row in csv.DictReader(fp):
                 key = (row["case"], row["operation"], row["backend"])
+                expected_threads = 1 if row["case"] == "cc-2p5-1t" else 4
+                if int(row["threads"]) != expected_threads:
+                    raise ValueError(
+                        f"Incorrect thread count for {key}: "
+                        f"expected {expected_threads}, got {row['threads']}"
+                    )
                 if key in results:
                     raise ValueError(f"Duplicate measurement {key}")
                 v = float(row["median_ms"])

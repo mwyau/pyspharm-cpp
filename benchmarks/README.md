@@ -75,7 +75,7 @@ Install the project and the optional `pyspharm-syl==1.2.1` and
 From the repository root, run:
 
 ```sh
-python benchmarks/benchmark.py --threads 0 --warmups 2 --repeats 7 \
+python benchmarks/benchmark.py --threads 4 --warmups 2 --repeats 7 \
   --output /path/to/measurements.csv
 # To reproduce the five charts, also run:
 python benchmarks/benchmark.py --cases cc-2p5-1t --threads 1 \
@@ -85,7 +85,8 @@ python benchmarks/plot.py \
   --output-dir benchmarks
 ```
 
-`--threads 0` selects up to eight available CPUs, respecting Linux
-affinity and cgroup quota. Use an explicit thread count for controlled runs.
+The reproduced four-case series explicitly uses four threads. `--threads 0`
+selects up to eight available CPUs, respecting Linux affinity and cgroup
+quota; use an explicit thread count for controlled runs.
 `python benchmarks/plot.py` requires both CSV files from one runner and
 fails if any timing series is missing. Raw CSVs are not tracked. Independent numerical validation is in [`tests/parity/`](../tests/parity).

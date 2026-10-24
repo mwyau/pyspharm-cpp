@@ -66,6 +66,26 @@ jobs:
           uv run --locked --no-sync python benchmarks/benchmark.py \
             --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
             --output "$RUNNER_TEMP/sht-bench/one-thread.csv"
+      - name: Verify all five cases and the measured thread counts
+        run: |
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "sht-bench"
+          four = {"cc-2p5", "cc-0p25", "gl-128", "gl-640"}
+          for filename, cases, threads in (
+              ("four-thread.csv", four, 4),
+              ("one-thread.csv", {"cc-2p5-1t"}, 1),
+          ):
+              with (root / filename).open(newline="", encoding="utf-8") as stream:
+                  rows = list(csv.DictReader(stream))
+              assert len(rows) == len(cases) * 3 * 4, filename
+              assert {row["case"] for row in rows} == cases, filename
+              assert {int(row["threads"]) for row in rows} == {threads}, filename
+              print(f"{filename}: {len(rows)} measurements, {threads} thread(s)")
+          PY
       - name: Plot four precision/backend bars across all five cases
         run: |
           uv run --locked --no-sync python benchmarks/plot.py \
