@@ -417,7 +417,7 @@ def specintrp_many(
     dataspec: numpy.typing.NDArray[numpy.complex64]
     | numpy.typing.NDArray[numpy.complex128],
     legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
-) -> numpy.typing.NDArray[numpy.float64]:
+) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
     """
     Evaluate one scalar spherical harmonic expansion at several points.
 
@@ -434,7 +434,8 @@ def specintrp_many(
     Returns
     -------
     ndarray
-        Float64 interpolated values with shape (npoints,).
+        Interpolated values of shape (npoints,), with float32 or float64
+        precision matching dataspec and legfuncs.
     """
 
 def regrid(
