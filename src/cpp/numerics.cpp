@@ -96,19 +96,26 @@ template <typename Tv>
 void normalize_legendre_scale(Tv& value, std::array<int, Tv::size()>& exponent)
 {
   using T = typename Tv::value_type;
+  const Tv magnitude = abs(value);
+  const auto needs_rescale =
+      (magnitude > Tv(legendre_scale_high<T>())) |
+      ((magnitude != Tv(T(0))) & (magnitude < Tv(legendre_scale_low<T>())));
+  if (!any_of(needs_rescale))
+    return;
+
   Tv factor(T(1));
   for (std::size_t lane = 0; lane < Tv::size(); ++lane)
   {
-    auto magnitude = std::abs(value[lane]);
+    auto lane_magnitude = magnitude[lane];
     int shift = 0;
-    while (magnitude > legendre_scale_high<T>())
+    while (lane_magnitude > legendre_scale_high<T>())
     {
-      magnitude = std::scalbn(magnitude, -legendre_scale_shift<T>());
+      lane_magnitude = std::scalbn(lane_magnitude, -legendre_scale_shift<T>());
       shift -= legendre_scale_shift<T>();
     }
-    while (magnitude != T(0) && magnitude < legendre_scale_low<T>())
+    while (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())
     {
-      magnitude = std::scalbn(magnitude, legendre_scale_shift<T>());
+      lane_magnitude = std::scalbn(lane_magnitude, legendre_scale_shift<T>());
       shift += legendre_scale_shift<T>();
     }
     factor[lane] = std::scalbn(T(1), shift);
@@ -122,36 +129,29 @@ void normalize_legendre_scale(Tv& previous, Tv& current,
                               std::array<int, Tv::size()>& exponent)
 {
   using T = typename Tv::value_type;
-  bool needs_rescale = false;
-  for (std::size_t lane = 0; lane < Tv::size(); ++lane)
-  {
-    const auto magnitude = std::max(std::abs(previous[lane]), std::abs(current[lane]));
-    if (magnitude > legendre_scale_high<T>() ||
-        (magnitude != T(0) && magnitude < legendre_scale_low<T>()))
-    {
-      needs_rescale = true;
-      break;
-    }
-  }
-  if (!needs_rescale)
+  const Tv magnitude = max(abs(previous), abs(current));
+  const auto needs_rescale =
+      (magnitude > Tv(legendre_scale_high<T>())) |
+      ((magnitude != Tv(T(0))) & (magnitude < Tv(legendre_scale_low<T>())));
+  if (!any_of(needs_rescale))
     return;
 
   Tv factor(T(1));
   for (std::size_t lane = 0; lane < Tv::size(); ++lane)
   {
-    auto magnitude = std::max(std::abs(previous[lane]), std::abs(current[lane]));
-    if (magnitude <= legendre_scale_high<T>() &&
-        (magnitude == T(0) || magnitude >= legendre_scale_low<T>()))
+    auto lane_magnitude = magnitude[lane];
+    if (lane_magnitude <= legendre_scale_high<T>() &&
+        (lane_magnitude == T(0) || lane_magnitude >= legendre_scale_low<T>()))
       continue;
     int shift = 0;
-    while (magnitude > legendre_scale_high<T>())
+    while (lane_magnitude > legendre_scale_high<T>())
     {
-      magnitude = std::scalbn(magnitude, -legendre_scale_shift<T>());
+      lane_magnitude = std::scalbn(lane_magnitude, -legendre_scale_shift<T>());
       shift -= legendre_scale_shift<T>();
     }
-    while (magnitude != T(0) && magnitude < legendre_scale_low<T>())
+    while (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())
     {
-      magnitude = std::scalbn(magnitude, legendre_scale_shift<T>());
+      lane_magnitude = std::scalbn(lane_magnitude, legendre_scale_shift<T>());
       shift += legendre_scale_shift<T>();
     }
     if (shift != 0)
@@ -267,6 +267,60 @@ void legendre_many_scalar_row(T x, T s, std::size_t lmax, std::size_t row,
   }
 }
 
+template <typename T, typename Tv, typename Output>
+void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s,
+                                std::size_t lmax, std::size_t start,
+                                std::size_t active_lanes, Output& output)
+{
+  constexpr std::size_t vlen = Tv::size();
+  const Tv xv = DUCC0_NAMESPACE::loadu<Tv>(x.data() + start);
+  const Tv sv = DUCC0_NAMESPACE::loadu<Tv>(s.data() + start);
+  Tv diagonal(static_cast<T>(1.0 / std::sqrt(2.0)));
+  std::array<int, vlen> diagonal_exponent{};
+  for (std::size_t m = 0; m <= lmax; ++m)
+  {
+    const auto base = m * (2 * lmax - m + 3) / 2;
+    const auto store =
+        [&](std::size_t coeff, Tv value, const std::array<int, vlen>& exponent)
+    {
+      for (std::size_t lane = 0; lane < active_lanes; ++lane)
+      {
+        const T lane_value = value[lane];
+        output.data()[(start + lane) * output.stride(0) + coeff * output.stride(1)] =
+            restore_legendre_scale(lane_value, exponent[lane]);
+      }
+    };
+    const Tv pmm = diagonal;
+    store(base, pmm, diagonal_exponent);
+    if (m < lmax)
+    {
+      Tv pm1 = xv * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * pmm;
+      Tv pm2 = pmm;
+      auto exponent = diagonal_exponent;
+      normalize_legendre_scale(pm2, pm1, exponent);
+      store(base + 1, pm1, exponent);
+      for (std::size_t l = m + 2; l <= lmax; ++l)
+      {
+        const double ld = static_cast<double>(l), md = static_cast<double>(m);
+        const double lp = ld + md, lm = ld - md;
+        const T a =
+            static_cast<T>(std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm)));
+        const T b = static_cast<T>(
+            std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) / ((2 * ld - 3) * lp * lm)));
+        const Tv pl = a * xv * pm1 - b * pm2;
+        pm2 = pm1;
+        pm1 = pl;
+        normalize_legendre_scale(pm2, pm1, exponent);
+        store(base + (l - m), pm1, exponent);
+      }
+      const double md = static_cast<double>(m + 1);
+      diagonal =
+          sv * static_cast<T>(std::sqrt((2.0 * md + 1.0) / (2.0 * md))) * diagonal;
+      normalize_legendre_scale(diagonal, diagonal_exponent);
+    }
+  }
+}
+
 template <typename T>
 NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lmax)
 {
@@ -278,7 +332,6 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
   using Tv = DUCC0_NAMESPACE::native_simd<T>;
   constexpr std::size_t vlen = Tv::size();
   const auto remainder = latitudes.size() % vlen;
-  // Pad a tail only when at least half its SIMD lanes contain latitudes.
   const auto padding = remainder >= (vlen + 1) / 2 ? vlen - remainder : 0;
   if (latitudes.size() > std::numeric_limits<std::size_t>::max() - padding)
     throw py::value_error("latitude batch is too large");
@@ -300,55 +353,8 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
     py::gil_scoped_release release;
     for (; padded_size - start >= vlen; start += vlen)
     {
-      const Tv xv = DUCC0_NAMESPACE::loadu<Tv>(x.data() + start);
-      const Tv sv = DUCC0_NAMESPACE::loadu<Tv>(s.data() + start);
-      Tv diagonal(static_cast<T>(1.0 / std::sqrt(2.0)));
-      std::array<int, vlen> diagonal_exponent{};
-      for (std::size_t m = 0; m <= lmax; ++m)
-      {
-        const auto base = m * (2 * lmax - m + 3) / 2;
-        const auto active_lanes = std::min(vlen, latitudes.size() - start);
-        const auto store =
-            [&](std::size_t coeff, Tv value, const std::array<int, vlen>& exponent)
-        {
-          for (std::size_t lane = 0; lane < active_lanes; ++lane)
-          {
-            const T lane_value = value[lane];
-            output
-                .data()[(start + lane) * output.stride(0) + coeff * output.stride(1)] =
-                restore_legendre_scale(lane_value, exponent[lane]);
-          }
-        };
-        const Tv pmm = diagonal;
-        store(base, pmm, diagonal_exponent);
-        if (m < lmax)
-        {
-          Tv pm1 =
-              xv * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * pmm;
-          Tv pm2 = pmm;
-          auto exponent = diagonal_exponent;
-          normalize_legendre_scale(pm2, pm1, exponent);
-          store(base + 1, pm1, exponent);
-          for (std::size_t l = m + 2; l <= lmax; ++l)
-          {
-            const double ld = static_cast<double>(l), md = static_cast<double>(m);
-            const double lp = ld + md, lm = ld - md;
-            const T a =
-                static_cast<T>(std::sqrt(((2 * ld - 1) * (2 * ld + 1)) / (lp * lm)));
-            const T b = static_cast<T>(std::sqrt(((2 * ld + 1) * (lp - 1) * (lm - 1)) /
-                                                 ((2 * ld - 3) * lp * lm)));
-            const Tv pl = a * xv * pm1 - b * pm2;
-            pm2 = pm1;
-            pm1 = pl;
-            normalize_legendre_scale(pm2, pm1, exponent);
-            store(base + (l - m), pm1, exponent);
-          }
-          const double md = static_cast<double>(m + 1);
-          diagonal =
-              sv * static_cast<T>(std::sqrt((2.0 * md + 1) / (2.0 * md))) * diagonal;
-          normalize_legendre_scale(diagonal, diagonal_exponent);
-        }
-      }
+      const auto active_lanes = std::min(vlen, latitudes.size() - start);
+      legendre_many_vector_block<T, Tv>(x, s, lmax, start, active_lanes, output);
     }
     for (; start < latitudes.size(); ++start)
       legendre_many_scalar_row<T>(x[start], s[start], lmax, start, output);
@@ -530,6 +536,75 @@ double spectral_interpolate(double longitude, const CNpArr& spec,
   return result;
 }
 
+template <typename T, typename Tv, typename Coefficients, typename Legendre,
+          typename Output>
+void interpolate_spectral_block(const std::vector<double>& longitudes,
+                                std::size_t ntrunc, const Coefficients& coefficients,
+                                const Legendre& legendre, Output& output,
+                                std::size_t point)
+{
+  constexpr std::size_t vlen = Tv::size();
+  std::array<double, vlen> lon{}, cosine{}, sine{}, cosine_step{}, sine_step{};
+  for (std::size_t lane = 0; lane < vlen; ++lane)
+  {
+    const double reduced_degrees = std::remainder(longitudes[point + lane], 360.0);
+    lon[lane] = reduced_degrees * (pi / 180.0);
+    cosine[lane] = 1.0;
+    cosine_step[lane] = std::cos(lon[lane]);
+    sine_step[lane] = std::sin(lon[lane]);
+  }
+  std::array<T, vlen> cosine_values{}, sine_values{};
+  Tv sum(T(0));
+  for (std::size_t m = 0; m <= ntrunc; ++m)
+  {
+    if (m > 0)
+    {
+      for (std::size_t lane = 0; lane < vlen; ++lane)
+      {
+        if (m % 32 == 0)
+        {
+          const double phase = static_cast<double>(m) * lon[lane];
+          cosine[lane] = std::cos(phase);
+          sine[lane] = std::sin(phase);
+        }
+        else
+        {
+          const double next_cosine =
+              cosine[lane] * cosine_step[lane] - sine[lane] * sine_step[lane];
+          const double next_sine =
+              sine[lane] * cosine_step[lane] + cosine[lane] * sine_step[lane];
+          cosine[lane] = next_cosine;
+          sine[lane] = next_sine;
+        }
+        cosine_values[lane] = static_cast<T>(cosine[lane]);
+        sine_values[lane] = static_cast<T>(sine[lane]);
+      }
+    }
+    Tv sum_re(T(0)), sum_im(T(0));
+    for (std::size_t l = m; l <= ntrunc; ++l)
+    {
+      const auto idx = m * (2 * ntrunc - m + 3) / 2 + (l - m);
+      const auto coeff = coefficients(idx);
+      std::array<T, vlen> pvalues{};
+      for (std::size_t lane = 0; lane < vlen; ++lane)
+        pvalues[lane] = legendre(point + lane, idx);
+      const Tv p = DUCC0_NAMESPACE::loadu<Tv>(pvalues.data());
+      sum_re += p * coeff.real();
+      const T imag_coefficient = (m == 0) ? T(0) : coeff.imag();
+      sum_im += p * imag_coefficient;
+    }
+    if (m == 0)
+      sum += sum_re;
+    else
+    {
+      const Tv cosine = DUCC0_NAMESPACE::loadu<Tv>(cosine_values.data());
+      const Tv sine = DUCC0_NAMESPACE::loadu<Tv>(sine_values.data());
+      sum += T(2) * (sum_re * cosine - sum_im * sine);
+    }
+  }
+  for (std::size_t lane = 0; lane < vlen; ++lane) output(point + lane) = sum[lane];
+}
+
 template <typename T>
 NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
                                 const CNpArr& spec, const CNpArr& legfuncs)
@@ -541,70 +616,22 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
   auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(result);
   using Tv = DUCC0_NAMESPACE::native_simd<T>;
   constexpr std::size_t vlen = Tv::size();
+  const auto remainder = longitudes.size() % vlen;
   std::size_t point = 0;
   {
     py::gil_scoped_release release;
-    for (; point + vlen <= longitudes.size(); point += vlen)
+    for (; longitudes.size() - point >= vlen; point += vlen)
+      interpolate_spectral_block<T, Tv>(longitudes, ntrunc, coefficients, legendre,
+                                        output, point);
+    if constexpr (DUCC0_NAMESPACE::simd_exists<T, 4>)
     {
-      std::array<double, vlen> lon{}, cosine{}, sine{}, cosine_step{}, sine_step{};
-      for (std::size_t lane = 0; lane < vlen; ++lane)
+      if (remainder == 4)
       {
-        const double reduced_degrees = std::remainder(longitudes[point + lane], 360.0);
-        lon[lane] = reduced_degrees * (pi / 180.0);
-        cosine[lane] = 1.0;
-        cosine_step[lane] = std::cos(lon[lane]);
-        sine_step[lane] = std::sin(lon[lane]);
+        using TailTv = typename DUCC0_NAMESPACE::simd_select<T, 4>::type;
+        interpolate_spectral_block<T, TailTv>(longitudes, ntrunc, coefficients,
+                                              legendre, output, point);
+        point += 4;
       }
-      std::array<T, vlen> cosine_values{}, sine_values{};
-      Tv sum(T(0));
-      for (std::size_t m = 0; m <= ntrunc; ++m)
-      {
-        if (m > 0)
-        {
-          for (std::size_t lane = 0; lane < vlen; ++lane)
-          {
-            if (m % 32 == 0)
-            {
-              const double phase = static_cast<double>(m) * lon[lane];
-              cosine[lane] = std::cos(phase);
-              sine[lane] = std::sin(phase);
-            }
-            else
-            {
-              const double next_cosine =
-                  cosine[lane] * cosine_step[lane] - sine[lane] * sine_step[lane];
-              const double next_sine =
-                  sine[lane] * cosine_step[lane] + cosine[lane] * sine_step[lane];
-              cosine[lane] = next_cosine;
-              sine[lane] = next_sine;
-            }
-            cosine_values[lane] = static_cast<T>(cosine[lane]);
-            sine_values[lane] = static_cast<T>(sine[lane]);
-          }
-        }
-        Tv sum_re(T(0)), sum_im(T(0));
-        for (std::size_t l = m; l <= ntrunc; ++l)
-        {
-          const auto idx = m * (2 * ntrunc - m + 3) / 2 + (l - m);
-          const auto coeff = coefficients(idx);
-          std::array<T, vlen> pvalues{};
-          for (std::size_t lane = 0; lane < vlen; ++lane)
-            pvalues[lane] = legendre(point + lane, idx);
-          const Tv p = DUCC0_NAMESPACE::loadu<Tv>(pvalues.data());
-          sum_re += p * coeff.real();
-          const T imag_coefficient = (m == 0) ? T(0) : coeff.imag();
-          sum_im += p * imag_coefficient;
-        }
-        if (m == 0)
-          sum += sum_re;
-        else
-        {
-          const Tv cosine = DUCC0_NAMESPACE::loadu<Tv>(cosine_values.data());
-          const Tv sine = DUCC0_NAMESPACE::loadu<Tv>(sine_values.data());
-          sum += T(2) * (sum_re * cosine - sum_im * sine);
-        }
-      }
-      for (std::size_t lane = 0; lane < vlen; ++lane) output(point + lane) = sum[lane];
     }
     for (; point < longitudes.size(); ++point)
     {
