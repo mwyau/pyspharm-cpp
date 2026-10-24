@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Compare float32 and float64 SHT latencies on five grid cases."""
+"""Measure scalar and wind SHT analysis/synthesis on five grid cases."""
 
 from __future__ import annotations
 
@@ -14,14 +14,20 @@ import statistics
 import time
 from pathlib import Path
 
+# Case name, grid type, longitudes, latitudes, chart label.
 CASES = (
-    ("cc-2p5", "regular", 144, 73),
-    ("cc-2p5-1t", "regular", 144, 73),
-    ("cc-0p25", "regular", 1440, 721),
-    ("gl-128", "gaussian", 256, 128),
-    ("gl-640", "gaussian", 1280, 640),
+    ("cc-2p5", "regular", 144, 73, "Clenshaw–Curtis · 2.5° · 144 × 73"),
+    ("cc-2p5-1t", "regular", 144, 73, "Clenshaw–Curtis · 2.5° · 144 × 73"),
+    ("cc-0p25", "regular", 1440, 721, "Clenshaw–Curtis · 0.25° · 1440 × 721"),
+    ("gl-128", "gaussian", 256, 128, "Gaussian · 128 latitude rings · 256 × 128"),
+    ("gl-640", "gaussian", 1280, 640, "Gaussian · 640 latitude rings · 1280 × 640"),
 )
-OPS = ("scalar_analysis", "scalar_synthesis", "wind_analysis")
+OPERATIONS = (
+    "scalar_analysis",
+    "scalar_synthesis",
+    "wind_analysis",
+    "wind_synthesis",
+)
 
 
 def available_threads() -> int:
@@ -31,7 +37,7 @@ def available_threads() -> int:
     try:
         value, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
         if value != "max":
-            cpus = min(cpus, max(1, math.floor(int(value) / int(period))))
+            cpus = min(cpus, max(1, int(value) // int(period)))
     except (OSError, ValueError):
         pass
     return max(1, min(8, cpus))
@@ -50,15 +56,58 @@ def measure(callback, warmups, repeats):
     return statistics.median(samples), samples[math.ceil(0.9 * repeats) - 1]
 
 
+def spharm_operations(transform, grid, east, north, lmax):
+    # Spectra for synthesis are prepared outside the timed region.
+    scalar = transform.grdtospec(grid, lmax)
+    vorticity, divergence = transform.getvrtdivspec(east, north, lmax)
+    return {
+        "scalar_analysis": lambda: transform.grdtospec(grid, lmax),
+        "scalar_synthesis": lambda: transform.spectogrd(scalar),
+        "wind_analysis": lambda: transform.getvrtdivspec(east, north, lmax),
+        "wind_synthesis": lambda: transform.getuv(vorticity, divergence),
+    }
+
+
+def ducc_operations(ducc0, grid, east, north, gridtype, lmax, threads):
+    geometry = "CC" if gridtype == "regular" else "GL"
+    nlat, nlon = grid.shape
+    scalar_map = grid[None, :, :]
+    wind_map = __import__("numpy").stack((east, north))
+    scalar = ducc0.sht.analysis_2d(
+        map=scalar_map, spin=0, lmax=lmax, geometry=geometry, nthreads=threads
+    )
+    wind = ducc0.sht.analysis_2d(
+        map=wind_map, spin=1, lmax=lmax, geometry=geometry, nthreads=threads
+    )
+
+    def analyze(spin, data):
+        return ducc0.sht.analysis_2d(
+            map=data, spin=spin, lmax=lmax, geometry=geometry, nthreads=threads
+        )
+
+    def synthesize(spin, alms):
+        return ducc0.sht.synthesis_2d(
+            alm=alms, spin=spin, lmax=lmax, geometry=geometry,
+            ntheta=nlat, nphi=nlon, nthreads=threads,
+        )
+
+    return {
+        "scalar_analysis": lambda: analyze(0, scalar_map),
+        "scalar_synthesis": lambda: synthesize(0, scalar),
+        "wind_analysis": lambda: analyze(1, wind_map),
+        "wind_synthesis": lambda: synthesize(1, wind),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument(
-        "--cases", nargs="+",
-        choices=tuple(entry[0] for entry in CASES),
+        "--cases",
+        nargs="+",
+        choices=[case[0] for case in CASES],
         default=["cc-2p5", "cc-0p25", "gl-128", "gl-640"],
-        help="grid cases to benchmark",
     )
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=7)
@@ -68,102 +117,87 @@ def main():
     threads = args.threads or available_threads()
     if "cc-2p5-1t" in args.cases and threads != 1:
         parser.error("cc-2p5-1t requires --threads 1")
-    os.environ["DUCC0_NUM_THREADS"] = str(threads)
-    os.environ["OMP_NUM_THREADS"] = str(threads)
+
+    # pyspharm-cpp reads DUCC0_NUM_THREADS once, at its first transform.
+    for variable in ("DUCC0_NUM_THREADS", "OMP_NUM_THREADS"):
+        os.environ[variable] = str(threads)
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
     import numpy as np
     import ducc0
     import spharm
     import spharm_cpp
 
     metadata = {
-        "threads": threads, "cpus": os.cpu_count(),
-        "quota_cpus": available_threads(), "platform": platform.platform(),
+        "threads": threads,
+        "cpus": os.cpu_count(),
+        "quota_cpus": available_threads(),
+        "platform": platform.platform(),
         "python": platform.python_version(),
         "cpu_info": spharm_cpp.cpu_info(),
         "pyspharm_version": getattr(spharm, "__version__", "unknown"),
         "ducc0_version": ducc0.__version__,
         "pyspharm_cpp_version": spharm_cpp.__version__,
-        "numpy": np.__version__, "warmups": args.warmups,
+        "numpy": np.__version__,
+        "warmups": args.warmups,
         "repeats": args.repeats,
     }
-    print("BENCHMARK_METADATA=" + json.dumps(metadata, default=str), flush=True)
-    columns = ("case", "gridtype", "nlon", "nlat", "ntrunc", "threads",
-               "operation", "backend", "median_ms", "p90_ms")
+    print("BENCHMARK_METADATA=" + json.dumps(metadata), flush=True)
+
+    columns = (
+        "case", "gridtype", "nlon", "nlat", "ntrunc", "threads",
+        "operation", "backend", "median_ms", "p90_ms",
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8", newline="") as fp:
-        writer = csv.DictWriter(fp, fieldnames=columns)
+    with args.output.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
-        for case, gridtype, nlon, nlat in CASES:
+
+        for case, gridtype, nlon, nlat, _ in CASES:
             if case not in args.cases:
                 continue
-            # Common mathematically supported band, avoiding vector Nyquist.
-            lmax = min(nlat - (2 if gridtype == "regular" else 1),
-                       (nlon - 1) // 2)
+            # Use the same recoverable band for scalar and spin-1 transforms.
+            lmax = min(nlat - (2 if gridtype == "regular" else 1), (nlon - 1) // 2)
             rng = np.random.default_rng(20261024)
-            grid = rng.standard_normal((nlat, nlon)).astype(np.float32)
-            east = rng.standard_normal((nlat, nlon)).astype(np.float32)
-            north = rng.standard_normal((nlat, nlon)).astype(np.float32)
-            print(f"BENCHMARK_CASE={case} {nlon}x{nlat} "
-                  f"{gridtype} lmax={lmax}", flush=True)
-            # Match sampled input values when comparing candidate precisions.
-            grid64 = grid.astype(np.float64)
-            east64 = east.astype(np.float64)
-            north64 = north.astype(np.float64)
-            implementations = (
+            grid, east, north = (
+                rng.standard_normal((nlat, nlon)).astype(np.float32)
+                for _ in range(3)
+            )
+            print(f"BENCHMARK_CASE={case} {nlon}x{nlat} {gridtype} lmax={lmax}", flush=True)
+
+            candidates = (
                 ("PySpharm", spharm.Spharmt(nlon, nlat, gridtype=gridtype),
                  grid, east, north),
-                ("pyspharm-cpp", spharm_cpp.Spharmt(
-                    nlon, nlat, gridtype=gridtype, dtype=np.float32),
+                ("pyspharm-cpp",
+                 spharm_cpp.Spharmt(nlon, nlat, gridtype=gridtype, dtype=np.float32),
                  grid, east, north),
-                ("pyspharm-cpp-float64", spharm_cpp.Spharmt(
-                    nlon, nlat, gridtype=gridtype, dtype=np.float64),
-                 grid64, east64, north64),
+                ("pyspharm-cpp-float64",
+                 spharm_cpp.Spharmt(nlon, nlat, gridtype=gridtype, dtype=np.float64),
+                 grid.astype(np.float64), east.astype(np.float64),
+                 north.astype(np.float64)),
             )
-            for backend, sht, scalar, zonal, meridional in implementations:
-                coeff = sht.grdtospec(scalar, lmax)
-                operations = {
-                    "scalar_analysis": lambda: sht.grdtospec(scalar, lmax),
-                    "scalar_synthesis": lambda: sht.spectogrd(coeff),
-                    "wind_analysis": lambda: sht.getvrtdivspec(
-                        zonal, meridional, lmax),
-                }
-                for operation in OPS:
-                    median, p90 = measure(operations[operation],
-                                          args.warmups, args.repeats)
-                    row = dict(case=case, gridtype=gridtype, nlon=nlon,
-                               nlat=nlat, ntrunc=lmax, threads=threads,
-                               operation=operation, backend=backend,
-                               median_ms=f"{median:.6f}", p90_ms=f"{p90:.6f}")
+            measurements = [
+                (backend, spharm_operations(sht, scalar, u, v, lmax))
+                for backend, sht, scalar, u, v in candidates
+            ]
+            measurements.append(
+                ("ducc0", ducc_operations(
+                    ducc0, grid, east, north, gridtype, lmax, threads
+                ))
+            )
+
+            for backend, operations in measurements:
+                for operation in OPERATIONS:
+                    median, p90 = measure(operations[operation], args.warmups, args.repeats)
+                    row = {
+                        "case": case, "gridtype": gridtype, "nlon": nlon,
+                        "nlat": nlat, "ntrunc": lmax, "threads": threads,
+                        "operation": operation, "backend": backend,
+                        "median_ms": f"{median:.6f}", "p90_ms": f"{p90:.6f}",
+                    }
                     writer.writerow(row)
-                    fp.flush()
+                    stream.flush()
                     print("BENCHMARK_ROW=" + json.dumps(row), flush=True)
-            geometry = "CC" if gridtype == "regular" else "GL"
-            alm = ducc0.sht.analysis_2d(
-                map=grid[None, :, :], spin=0, lmax=lmax,
-                geometry=geometry, nthreads=threads)
-            winds = np.stack((east, north))
-            operations = {
-                "scalar_analysis": lambda: ducc0.sht.analysis_2d(
-                    map=grid[None, :, :], spin=0, lmax=lmax,
-                    geometry=geometry, nthreads=threads),
-                "scalar_synthesis": lambda: ducc0.sht.synthesis_2d(
-                    alm=alm, spin=0, lmax=lmax, geometry=geometry,
-                    ntheta=nlat, nphi=nlon, nthreads=threads),
-                "wind_analysis": lambda: ducc0.sht.analysis_2d(
-                    map=winds, spin=1, lmax=lmax,
-                    geometry=geometry, nthreads=threads),
-            }
-            for operation in OPS:
-                median, p90 = measure(operations[operation],
-                                      args.warmups, args.repeats)
-                row = dict(case=case, gridtype=gridtype, nlon=nlon,
-                           nlat=nlat, ntrunc=lmax, threads=threads,
-                           operation=operation, backend="ducc0",
-                           median_ms=f"{median:.6f}", p90_ms=f"{p90:.6f}")
-                writer.writerow(row)
-                fp.flush()
-                print("BENCHMARK_ROW=" + json.dumps(row), flush=True)
 
 
 if __name__ == "__main__":
