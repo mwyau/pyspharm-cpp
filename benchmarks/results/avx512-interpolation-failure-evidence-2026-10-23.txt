@@ -1,0 +1,101 @@
+AVX-512 complex interpolation: failure evidence and correction
+
+## Observed failure
+
+Hosted run 40012569947 used GCC 13.3.0 and reported `x86-64-v4` active. In
+the float64 case at lmax=2048, m=1100, latitude 60 degrees, and coefficient
+0.75-0.25j, the reported value `-1.5641369526414072e-10` matches the
+real-only contribution. The independent full-complex expectation was
+`-1.0863811359287616e-10`. The separate degree-8 failure shows the issue was
+not limited to long phase-recurrence drift.
+
+The installed Legendre API gives the same value in each lane for the
+degree-2048 input:
+
+  Pbar(2048,1100,60 deg) = 1.4143361207048102e-10
+  coefficient real / imag = 0.75 / -0.25
+  sum_re = Pbar * real = 1.0607520905286077e-10
+  sum_im = Pbar * imag = -3.5358403017620256e-11
+
+The following values reconstruct the phase and products from the test's
+longitudes. `full` is `2*(sum_re*cosine - sum_im*sine)`; `real_only` omits the
+imaginary product.
+
+lane  reduced_lon_deg  cosine             sine               sum_re*cosine       sum_im*sine        real_only             full
+0     0.125            -0.737277336810124  0.675590207615660  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641407e-10 -1.086381135928762e-10
+1     0.125            -0.737277336810124  0.675590207615660  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641407e-10 -1.086381135928762e-10
+2     90.125           -0.737277336810075  0.675590207615713  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641304e-10 -1.086381135928621e-10
+3     90.125           -0.737277336810075  0.675590207615713  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641304e-10 -1.086381135928621e-10
+4     -179.875         -0.737277336810134  0.675590207615650  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641427e-10 -1.086381135928789e-10
+5     -179.875         -0.737277336810134  0.675590207615650  -7.820684763207e-11 -2.388779083563e-11 -1.564136952641427e-10 -1.086381135928789e-10
+6     -90.125          -0.737277336810075  -0.675590207615713  -7.820684763207e-11  2.388779083563e-11  -1.564136952641304e-10 -2.041892769353986e-10
+7     -90.125          -0.737277336810075  -0.675590207615713  -7.820684763207e-11  2.388779083563e-11  -1.564136952641304e-10 -2.041892769353986e-10
+
+These data show that the bad result is consistent with loss of the imaginary
+term. The original failing v4 run did not preserve runtime intermediate
+vectors. A later inspection of the full binding's pre-fix GCC 13.3 v4 assembly
+located the code-generation defect in the imaginary accumulation, as detailed
+below; no runtime trace from the original failing process is claimed.
+
+## Correction and verification
+
+Commit 4313d91 keeps the full `DUCC0_NAMESPACE::native_simd<double>` width,
+including eight lanes on v4. It replaces the guarded imaginary update with an
+unconditional vector update whose scalar imaginary factor is zero for m=0.
+The scalar interpolation API and phase convention are unchanged.
+
+The focused Actions run 40020759865 built with GCC 13.3.0. Probe 1 confirmed
+v1, v3, and v4 active in turn on the same AVX-512 host; both the degree-8
+all-eight-distinct-lane regression and degree-2048 complex regression passed
+for each profile. The other four probe hosts reported v4 unavailable. Run
+40019503881 also passed the complete 61-test suite with v4 active.
+
+On the local GCC 15.2.0 host, which supports v1/v3 but not v4, the corrected
+backend object was compiled with `-O3 -fno-fast-math -fno-finite-math-only
+-march=x86-64-v4`. Its interpolation loop uses full-width ZMM arithmetic for
+the real and imaginary accumulators and stores eight output doubles. This is
+code-generation inspection only; it is not a local v4 execution result.
+
+Independent standalone full-eight-lane `std::experimental::simd` tests have
+passed under GCC 14 and Clang on AVX-512 hardware. This investigation does not
+establish a general defect in GCC, libstdc++ or DUCC; no upstream issue has
+been filed and the pinned DUCC source remains unmodified.
+
+## GCC 13.3 full-binding code-generation diagnosis
+
+The pre-fix source at commit `45b780a` contains the guarded vector update:
+
+```cpp
+if (m > 0)
+  sum_im += p * static_cast<double>(coeff.imag());
+```
+
+The complete `spectral_interpolate_many` binding was compiled with GCC 13.3.0
+using `-O3 -fno-fast-math -fno-finite-math-only -march=x86-64-v4`, with DUCC
+0.42.0's `std::experimental::simd` backend. In the eight-lane interpolation
+loop, `%r9` holds the current order `m`. The relevant disassembly is:
+
+```asm
+testq   %r9, %r9
+setne   %al
+kmovb   %eax, %k1
+...
+vmulpd  8(%rdi,%rcx){1to8}, %zmm0, %zmm1{%k1}{z}
+vaddpd  %zmm1, %zmm4, %zmm4
+```
+
+For every positive `m`, `setne` produces `1`; `kmovb` therefore sets only
+mask bit 0. The masked multiply accumulates the imaginary contribution in
+lane 0 and zeroes it in lanes 1–7. This directly identifies the defect in the
+full binding's v4 code generation. In the corrected source, the zero scalar
+factor at `m=0` allows the vector multiply to run unconditionally; the fixed
+GCC 13.3 v4 assembly has no masked imaginary multiply.
+
+The earlier compact four-variant DUCC-view harness compiled for eight lanes
+but emitted no opmask instructions and did not reproduce the defect. It did
+not preserve the full binding's code-generation context, so it was removed
+from CI and the repository. Its GCC 13.3 v3 run passed all four variants, but
+that result did not diagnose v4. Correctness evidence comes from the full
+binding disassembly and installed-package regressions, including the hosted
+v4 full-suite run `40019503881` and the same-host v1/v3/v4 sweep in
+`40020759865`.

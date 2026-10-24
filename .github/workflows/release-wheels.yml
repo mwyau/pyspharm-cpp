@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Release candidate wheels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+            runner_arch: x86_64
+            wheel_platform_arch: x86_64
+            cibw_arch: x86_64
+            profile: multiarch
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+            runner_arch: arm64
+            wheel_platform_arch: aarch64
+            cibw_arch: aarch64
+            profile: portable
+          - target: macos-x86_64
+            runner: macos-15-intel
+            runner_arch: x86_64
+            wheel_platform_arch: x86_64
+            cibw_arch: x86_64
+            macos_deployment_target: "11.0"
+            profile: portable
+          - target: macos-arm64
+            runner: macos-15
+            runner_arch: arm64
+            wheel_platform_arch: arm64
+            cibw_arch: arm64
+            macos_deployment_target: "11.0"
+            profile: portable
+          - target: windows-x86_64
+            runner: windows-2025
+            runner_arch: x86_64
+            wheel_platform_arch: amd64
+            cibw_arch: AMD64
+            profile: portable
+    runs-on: ${{ matrix.runner }}
+    env:
+      CIBW_ARCHS: ${{ matrix.cibw_arch }}
+      CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=11.0
+      CIBW_TEST_REQUIRES: "pytest>=8"
+      CIBW_TEST_COMMAND: >-
+        python -m pytest --ignore="{project}/tests/parity" "{project}/tests"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
+      - name: Install build Python
+        run: uv python install 3.14
+      - name: Verify runner architecture
+        env:
+          EXPECTED_RUNNER_ARCH: ${{ matrix.runner_arch }}
+        run: >-
+          uv run --python 3.14 --no-project python -c
+          "import os, platform; aliases = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'arm64', 'aarch64': 'arm64'}; actual = aliases.get(platform.machine().lower(), platform.machine().lower()); expected = os.environ['EXPECTED_RUNNER_ARCH']; print(f'runner architecture: {platform.machine()} -> {actual}; expected {expected}'); assert actual == expected"
+      - name: Sync locked release builder
+        run: uv sync --locked --python 3.14 --group release --no-install-project
+      - name: Build the CPython 3.11 wheel and test its installed wheel
+        env:
+          CIBW_BUILD: cp311-*
+          CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
+        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/cp311
+      - name: Build the CPython 3.12+ abi3 wheel and test its installed wheel
+        env:
+          CIBW_BUILD: cp312-*
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
+            cmake.define.SPHARM_CPP_STABLE_ABI=ON
+            wheel.py-api=cp312
+        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/abi3
+      - name: Build free-threaded wheels and test their installed wheels
+        env:
+          CIBW_BUILD: cp314t-* cp315t-*
+          CIBW_CONFIG_SETTINGS: cmake.define.SPHARM_CPP_BUILD_PROFILE=${{ matrix.profile }}
+        run: uv run --locked --no-sync cibuildwheel --output-dir wheelhouse/free-threaded
+      - name: Verify wheel matrix, target architecture, and macOS deployment target
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          EXPECTED_WHEEL_ARCH: ${{ matrix.wheel_platform_arch }}
+          MACOS_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
+        run: |
+          uv run --locked --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+
+          wheels = sorted(Path("wheelhouse").rglob("*.whl"))
+          assert wheels, "cibuildwheel produced no wheels"
+          expected_pairs = {
+              ("cp311", "cp311"),
+              ("cp312", "abi3"),
+              ("cp314", "cp314t"),
+              ("cp315", "cp315t"),
+          }
+          target = os.environ["TARGET"]
+          arch = os.environ["EXPECTED_WHEEL_ARCH"]
+          deployment = os.environ.get("MACOS_DEPLOYMENT_TARGET", "")
+          if target.startswith("linux-"):
+              expected_families = {"manylinux", "musllinux"}
+          elif target.startswith("macos-"):
+              expected_families = {"macos"}
+          else:
+              expected_families = {"windows"}
+          expected = {
+              (python_tag, abi_tag, family)
+              for python_tag, abi_tag in expected_pairs
+              for family in expected_families
+          }
+          actual = set()
+          for wheel in wheels:
+              _, python_tag, abi_tag, platform_tag = wheel.stem.rsplit("-", 3)
+              platform_tags = platform_tag.split(".")
+              wheel_families = set()
+              if target.startswith("macos-"):
+                  prefix = f"macosx_{deployment.replace('.', '_')}_"
+                  assert any(
+                      tag.startswith(prefix) and tag.endswith(f"_{arch}")
+                      for tag in platform_tags
+                  ), f"unexpected macOS deployment target or architecture: {wheel.name}"
+                  wheel_families.add("macos")
+              elif target.startswith("linux-"):
+                  for tag in platform_tags:
+                      assert tag.endswith(f"_{arch}"), wheel.name
+                      if tag.startswith("manylinux"):
+                          wheel_families.add("manylinux")
+                      elif tag.startswith("musllinux"):
+                          wheel_families.add("musllinux")
+                      else:
+                          raise AssertionError(f"unexpected Linux wheel tag: {wheel.name}")
+              else:
+                  assert any(tag == f"win_{arch}" for tag in platform_tags), wheel.name
+                  wheel_families.add("windows")
+              assert len(wheel_families) == 1, (
+                  f"mixed platform families in {wheel.name}: {wheel_families}"
+              )
+              actual.add((python_tag, abi_tag, next(iter(wheel_families))))
+          assert len(wheels) == len(expected), (
+              f"expected {len(expected)} wheels, found {len(wheels)}"
+          )
+          assert actual == expected, (
+              f"wheel ABI matrix mismatch: missing={sorted(expected - actual)}, "
+              f"unexpected={sorted(actual - expected)}"
+          )
+          print(f"Validated {len(wheels)} wheel tags for {target}")
+          PY
+      - name: Collect verified wheels for upload
+        shell: bash
+        run: |
+          mkdir -p wheelhouse-artifact
+          find wheelhouse -type f -name '*.whl' -exec cp {} wheelhouse-artifact/ \;
+          expected=4
+          case "${{ matrix.target }}" in
+            linux-*) expected=8 ;;
+          esac
+          test "$(find wheelhouse-artifact -maxdepth 1 -name '*.whl' | wc -l)" -eq "$expected"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: wheels-${{ matrix.target }}
+          path: wheelhouse-artifact/*.whl
+          if-no-files-found: error

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""C++17 spherical harmonic transforms with a PySpharm-compatible API."""
+
+from importlib.metadata import version
+
+from ._spharm_cpp import (
+    Spharmt,
+    cpu_info,
+    gaussian_lats_wts,
+    getgeodesicpts,
+    getspecindx,
+    legendre,
+    legendre_many,
+    regrid,
+    specintrp,
+    specintrp_many,
+)
+
+__version__ = version("pyspharm-cpp")
+
+__all__ = [
+    "Spharmt",
+    "cpu_info",
+    "gaussian_lats_wts",
+    "getgeodesicpts",
+    "getspecindx",
+    "legendre",
+    "legendre_many",
+    "regrid",
+    "specintrp",
+    "specintrp_many",
+]

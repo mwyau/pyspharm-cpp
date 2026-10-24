@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[build-system]
+requires = [
+  "scikit-build-core>=1.1.1",
+  "nanobind>=2.12",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyspharm-cpp"
+version = "0.1.0.dev0"
+description = "C++17 spherical harmonic transforms with a PySpharm-compatible API"
+authors = [{ name = "Albert Yau", email = "albert@mwyau.com" }]
+readme = "README.md"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "third_party/ducc/LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Repository = "https://github.com/mwyau/pyspharm-cpp"
+Documentation = "https://pyspharm-cpp.readthedocs.io/"
+
+[dependency-groups]
+test = ["pytest>=8"]
+build = [
+  "build>=1.2",
+  "cmake>=3.30.3",
+  "ninja>=1.11",
+  "nanobind>=2.12",
+  "scikit-build-core>=1.1.1",
+]
+release = ["cibuildwheel>=3.0", "twine>=6"]
+quality = [
+  "clang-format>=20",
+  "mdformat>=0.7",
+  "mdformat-myst>=0.2",
+  "prek>=0.2",
+  "ruff>=0.14",
+  "ty>=0.0.1",
+  "zizmor>=1.31",
+]
+docs = ["Sphinx>=8.2", "myst-parser>=4", "pydata-sphinx-theme>=0.16"]
+coverage = ["gcovr>=8"]
+validation = [
+  "numpy==1.26.4; python_version == '3.12' and sys_platform == 'linux'",
+  "pyspharm-syl==1.2.1; python_version == '3.12' and sys_platform == 'linux'",
+  "pytest>=8; python_version == '3.12' and sys_platform == 'linux'",
+]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.30.3"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/spharm_cpp"]
+sdist.inclusion-mode = "explicit"
+sdist.include = [
+  "/CMakeLists.txt",
+  "/LICENSE",
+  "/THIRD_PARTY_NOTICES.md",
+  "/README.md",
+  "/pyproject.toml",
+  "/uv.lock",
+  "/CONTRIBUTING.md",
+  "/CHANGELOG.md",
+  "/CITATION.cff",
+  "/src/**",
+  "/docs/**",
+  "/third_party/ducc/LICENSE",
+  "/third_party/ducc/python/multiarch.cc",
+  "/third_party/ducc/python/multiarch.h",
+  "/third_party/ducc/src/ducc0/bindings/pybind_utils.h",
+  "/third_party/ducc/src/ducc0/fft/*.h",
+  "/third_party/ducc/src/ducc0/fft/fft_inst1.cc",
+  "/third_party/ducc/src/ducc0/fft/fft_inst2.cc",
+  "/third_party/ducc/src/ducc0/infra/*.h",
+  "/third_party/ducc/src/ducc0/infra/mav.cc",
+  "/third_party/ducc/src/ducc0/infra/string_utils.cc",
+  "/third_party/ducc/src/ducc0/infra/threading.cc",
+  "/third_party/ducc/src/ducc0/math/*.h",
+  "/third_party/ducc/src/ducc0/math/geom_utils.cc",
+  "/third_party/ducc/src/ducc0/math/gl_integrator.cc",
+  "/third_party/ducc/src/ducc0/math/gridding_kernel.cc",
+  "/third_party/ducc/src/ducc0/nufft/nufft.h",
+  "/third_party/ducc/src/ducc0/nufft/nufft_common.h",
+  "/third_party/ducc/src/ducc0/nufft/spreadinterp.h",
+  "/third_party/ducc/src/ducc0/sht/*.h",
+  "/third_party/ducc/src/ducc0/sht/sht.cc",
+]
+
+[tool.scikit-build.cmake.define]
+SPHARM_CPP_BUILD_PROFILE = "auto"
+
+[tool.uv]
+default-groups = ["test", "build"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = ["third_party", "build", "dist", "release", "benchmarks"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --ignore=tests/parity"

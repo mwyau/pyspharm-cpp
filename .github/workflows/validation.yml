@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: PySpharm parity tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pyspharm-parity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      PYSPHARM_VALIDATION_DIR: ${{ runner.temp }}/pyspharm-validation
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
+      - name: Install CPython 3.12
+        run: uv python install 3.12
+      - name: Prepare validation report directory
+        run: mkdir -p "$PYSPHARM_VALIDATION_DIR"
+      - name: Sync locked validation environment and require binary reference wheels
+        run: >-
+          uv sync --locked --python 3.12 --group build --group test
+          --group validation --no-build-package pyspharm-syl
+      - name: Run the legacy API and numerical parity tests
+        run: |
+          uv run --locked --no-sync python -m pytest -v -s \
+            -o addopts=-ra \
+            --junitxml="$PYSPHARM_VALIDATION_DIR/pytest-cases.xml" \
+            tests/parity
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: pyspharm-validation-${{ github.sha }}
+          path: ${{ runner.temp }}/pyspharm-validation/
+          if-no-files-found: warn

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+Checks: >-
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  clang-analyzer-*,
+  -clang-analyzer-optin.cplusplus.UninitializedObject,
+  performance-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-equals-default,
+  modernize-loop-convert
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|.*/)src/cpp/.*'
+FormatStyle: file

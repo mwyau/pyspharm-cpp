@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+BasedOnStyle: Google
+BreakBeforeBraces: Allman
+BreakStringLiterals: true
+ColumnLimit: 88
+IndentWidth: 2
+SortIncludes: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never

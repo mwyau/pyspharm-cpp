@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pyspharm-cpp"
+type: software
+authors:
+  - family-names: Yau
+    given-names: Albert
+version: 0.1.0.dev0
+abstract: >-
+  A C++17 spherical harmonic transform library with a PySpharm-compatible
+  Python API, built on the unmodified DUCC C++ library.
+repository-code: "https://github.com/mwyau/pyspharm-cpp"
+license: "GPL-2.0-or-later"

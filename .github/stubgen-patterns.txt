@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+spharm_cpp\._spharm_cpp\.__prefix__:
+    # SPDX-License-Identifier: GPL-2.0-or-later

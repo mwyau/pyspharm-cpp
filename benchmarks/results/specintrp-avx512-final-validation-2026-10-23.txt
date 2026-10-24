@@ -1,0 +1,59 @@
+AVX-512 interpolation correction: final validation record
+
+Source: correction in commit 4313d91; current documentation update follows
+commit 9a365f6. The pinned DUCC submodule is unchanged at
+42ce8ab5c5d79e0e2fd9af4a09c2ea4693520e1b.
+
+## Local API matrix
+
+Host: AMD Ryzen 9 5950X, GCC 15.2.0, CPython 3.15.0rc2, NumPy 2.5.4. The
+host supports x86-64-v1 and v3, not v4. The one-off driver
+`/tmp/pyspharm_avx512_matrix.py` exercised the installed `spharm_cpp` API
+under forced v1 and v3 dispatch. For each profile it performed 240
+independent sparse-coefficient checks:
+
+- truncations 8, 127, 511, 1023 and 2048;
+- batch sizes 1, 2, 4, 7, 8, 9, 16 and 17;
+- float32/complex64 and float64/complex128;
+- real-only, imaginary-only and mixed nonzero coefficients;
+- distinct per-point latitudes and longitudes, including large whole-turn
+  periodic offsets;
+- read-only spectra and Legendre arrays, plus strided longitude views.
+
+Expected outputs were computed independently from the sparse coefficient's
+Legendre value and trigonometric phase. For each truncation and precision, the
+mixed batch-of-eight result was also compared lane-by-lane with scalar
+`specintrp` at reduced longitudes. All 240 checks passed under v1 and all 240
+passed under v3.
+
+The complete local Python suite passed 61/61 under forced v1 and 61/61 under
+forced v3 (`DUCC0_NUM_THREADS=2`).
+
+## ASan/UBSan
+
+A fresh multiarch CMake build used GCC 15.2.0 with
+`SPHARM_CPP_ENABLE_SANITIZERS=ON`. With AddressSanitizer and
+UndefinedBehaviorSanitizer active, the full suite passed 61/61 under v1 and
+61/61 under v3. The v4 objects were built but not executed on this AVX2-only
+host. The sanitizer runtime was preloaded with libasan and libstdc++ for
+CPython 3.15 C++ exception interception.
+
+## Hosted v4
+
+Actions run 40020759865 built the multiarch wheel with GCC 13.3.0. On probe 1,
+`spharm_cpp.cpu_info()` confirmed v1, v3 and v4 dispatch on the same host in
+turn. The focused degree-8 all-eight-distinct-lane and degree-2048 complex
+interpolation regressions passed under each profile (four parametrized cases
+per cap). The other four probe hosts lacked v4 and recorded it as unavailable.
+Run 40019503881 independently passed the full 61-test suite with v4 active.
+
+## Limits
+
+The local host and its QEMU TCG do not execute AVX-512. The current v4 object
+was compiled and inspected locally, but runtime validation is the hosted
+GCC 13.3 evidence above. The old failing v4 job did not preserve a per-lane
+runtime trace of its intermediate vectors, so the compiler/library-level
+mechanism is not claimed as proven. The result matched the real-only
+contribution; the source correction removes the conditional imaginary
+accumulation and the fixed kernel passes actual v4 regressions. No DUCC or
+libstdc++ upstream issue was filed, and no four-lane fallback is retained.

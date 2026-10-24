@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Native C++ coverage
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      DUCC0_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: 0.13.5
+      - name: Install Python and locked build, test, and coverage tools
+        run: |
+          uv python install 3.14
+          uv sync --locked --python 3.14 --group build --group test --group coverage --no-install-project
+      - name: Build portable wheel with first-party C++ coverage instrumentation
+        run: >-
+          uv run --locked --no-sync --python 3.14 python -m build
+          --wheel --no-isolation
+          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
+          --config-setting cmake.define.SPHARM_CPP_ENABLE_COVERAGE=ON
+          --config-setting cmake.define.CMAKE_EXPORT_COMPILE_COMMANDS=ON
+          --outdir dist/coverage .
+      - name: Install and test the instrumented wheel outside the checkout
+        run: |
+          wheel_venv="/tmp/pyspharm-cpp-coverage-wheel"
+          uv venv --python 3.14 "$wheel_venv"
+          uv pip install --python "$wheel_venv/bin/python" \
+            dist/coverage/*.whl "pytest>=8"
+          cd /tmp
+          "$wheel_venv/bin/python" -m pytest -q \
+            --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+      - name: Generate first-party C++ coverage reports
+        run: >-
+          uv run --locked --no-sync gcovr --root "$GITHUB_WORKSPACE"
+          --filter '.*src/cpp/.*\.(cpp|hpp)$'
+          --merge-mode-functions=merge-use-line-min
+          --print-summary --lcov coverage.lcov --xml-pretty --output coverage.xml
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-cpp-coverage
+          path: |
+            coverage.lcov
+            coverage.xml
+          if-no-files-found: error
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          files: coverage.lcov
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true

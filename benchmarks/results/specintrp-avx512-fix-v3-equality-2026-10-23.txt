@@ -1,0 +1,19 @@
+Comparison: preserved multiarch wheel builds for ba9a133 safe checkpoint vs 4313d91 corrected kernel
+Runtime profile on this comparison host: x86-64-v3 (host cannot execute v4)
+Python: 3.15.0rc2; NumPy: 2.5.4
+Input generation per (lmax,batch): nalm=(lmax+1)*(lmax+2)//2; rng=np.random.default_rng(20261023 + lmax*100 + batch); latitudes=np.linspace(-80.0,80.0,batch,dtype=np.float64); longitudes=rng.uniform(-200.0,200.0,batch).astype(np.float64); coefficients=rng.standard_normal(nalm)+1j*rng.standard_normal(nalm); legendre=spharm_cpp.legendre_many(latitudes,lmax,dtype=np.float64); output=spharm_cpp.specintrp_many(longitudes,coefficients,legendre). Each build generated the same deterministic arrays.
+safe_checkpoint_wheel_sha256: ee70ce203c14011c35035507e3f5c9362679bf671fab653c2cb115dfd1c72c1f
+corrected_wheel_sha256: 6623ba34981223372faf2e253ce4e4033acca6fd42be1a1c1b7e68e0e0100d32
+lmax,batch,legendre_array_equal,output_array_equal,max_abs_output_difference
+127,1,True,True,0
+127,4,True,True,0
+127,8,True,True,0
+127,16,True,True,0
+511,1,True,True,0
+511,4,True,True,0
+511,8,True,True,0
+511,16,True,True,0
+1023,1,True,True,0
+1023,4,True,True,0
+1023,8,True,True,0
+1023,16,True,True,0
