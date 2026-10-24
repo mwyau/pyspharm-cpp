@@ -4,7 +4,7 @@ import numpy.typing
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 class Spharmt:
-"""
+    """
     Scalar and vector spherical harmonic transforms on latitude-longitude grids.
 
     Grid maps are ordered north to south and eastward in longitude.
@@ -26,7 +26,7 @@ class Spharmt:
         *,
         dtype: object | None = None,
     ) -> None:
-"""
+        """
         Create a transform on a regular or Gaussian latitude-longitude grid.
 
         Parameters
@@ -72,7 +72,7 @@ class Spharmt:
         | numpy.typing.NDArray[numpy.float64],
         ntrunc: int | None = None,
     ) -> numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128]:
-"""
+        """
         Analyze gridded scalar fields into spherical harmonic coefficients.
 
         Parameters
@@ -101,7 +101,7 @@ class Spharmt:
         dataspec: numpy.typing.NDArray[numpy.complex64]
         | numpy.typing.NDArray[numpy.complex128],
     ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
-"""
+        """
         Synthesize scalar fields from triangular spherical harmonic coefficients.
 
         Parameters
@@ -128,7 +128,7 @@ class Spharmt:
         numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128],
         numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128],
     ]:
-"""
+        """
         Analyze eastward and northward winds into relative vorticity and divergence.
 
         Parameters
@@ -162,7 +162,7 @@ class Spharmt:
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
     ]:
-"""
+        """
         Synthesize eastward and northward winds from vorticity and divergence.
 
         Parameters
@@ -191,7 +191,7 @@ class Spharmt:
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
     ]:
-"""
+        """
         Compute the eastward and northward gradient of a scalar field.
 
         Parameters
@@ -222,7 +222,7 @@ class Spharmt:
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
         numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
     ]:
-"""
+        """
         Compute streamfunction and velocity potential from wind components.
 
         Parameters
@@ -252,7 +252,7 @@ class Spharmt:
         smooth: numpy.typing.NDArray[numpy.float32]
         | numpy.typing.NDArray[numpy.float64],
     ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
-"""
+        """
         Apply an isotropic spectral filter to one or more scalar maps.
 
         Parameters
@@ -273,7 +273,7 @@ class Spharmt:
 def gaussian_lats_wts(
     nlat: int,
 ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
-"""
+    """
     Return Gauss-Legendre latitudes and quadrature weights.
 
     Parameters
@@ -292,7 +292,7 @@ def gaussian_lats_wts(
 def getspecindx(
     ntrunc: int,
 ) -> tuple[numpy.typing.NDArray[numpy.intp], numpy.typing.NDArray[numpy.intp]]:
-"""
+    """
     Return longitudinal orders and degrees of packed spectral coefficients.
 
     Parameters
@@ -310,7 +310,7 @@ def getspecindx(
 def legendre(
     lat: float, ntrunc: int, *, dtype: object | None = None
 ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
-"""
+    """
     Evaluate normalized associated Legendre functions at one latitude.
 
     Parameters
@@ -341,7 +341,7 @@ def legendre_many(
     *,
     dtype: object | None = None,
 ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
-"""
+    """
     Evaluate normalized associated Legendre functions at several latitudes.
 
     Parameters
@@ -366,7 +366,7 @@ def getgeodesicpts(
     numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
     numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
 ]:
-"""
+    """
     Return the vertices of a subdivided icosahedral geodesic grid.
 
     Parameters
@@ -390,7 +390,7 @@ def specintrp(
     | numpy.typing.NDArray[numpy.complex128],
     legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
 ) -> float:
-"""
+    """
     Evaluate a scalar spherical harmonic expansion at one point.
 
     Parameters
@@ -418,7 +418,7 @@ def specintrp_many(
     | numpy.typing.NDArray[numpy.complex128],
     legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64],
 ) -> numpy.typing.NDArray[numpy.float64]:
-"""
+    """
     Evaluate one scalar spherical harmonic expansion at several points.
 
     Parameters
@@ -446,7 +446,7 @@ def regrid(
     | numpy.typing.NDArray[numpy.float64]
     | None = None,
 ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
-"""
+    """
     Regrid scalar fields by spherical harmonic analysis and synthesis.
 
     Parameters
@@ -473,7 +473,7 @@ def regrid(
     """
 
 def cpu_info() -> dict[str, object]:
-"""
+    """
     Return detected processor features and spherical transform dispatch metadata.
 
     Returns
