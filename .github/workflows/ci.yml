@@ -90,6 +90,12 @@ jobs:
                 tests/test_numerics.py::test_batched_interpolation_complex_coefficient_all_eight_lanes
             done
           fi
+      - name: Upload tested ${{ matrix.profile }} wheel
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ci-wheel-${{ matrix.profile }}-linux-x86_64
+          path: dist/${{ matrix.profile }}/*.whl
+          if-no-files-found: error
 
   stable-abi-build:
     name: Build abi3 wheel
@@ -208,6 +214,12 @@ jobs:
           /tmp/pyspharm-cpp-pip-env/bin/python -c "import spharm_cpp; print(spharm_cpp.__version__, spharm_cpp.cpu_info())"
           /tmp/pyspharm-cpp-pip-env/bin/python -m pytest -q \
             --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+      - name: Upload tested source distribution
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ci-sdist
+          path: dist/sdist/*.tar.gz
+          if-no-files-found: error
 
   quality:
     name: Check code quality
@@ -359,3 +371,9 @@ jobs:
             "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); print(spharm_cpp.cpu_info())"
           "$wheel_venv/bin/python" -m pytest -q \
             --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests"
+      - name: Upload tested free-threaded wheel
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ci-wheel-free-threaded-${{ matrix.python-version }}-linux-x86_64
+          path: dist/free-threaded/*.whl
+          if-no-files-found: error

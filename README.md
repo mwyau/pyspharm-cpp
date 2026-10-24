@@ -51,7 +51,7 @@ np.testing.assert_allclose(reconstructed, field, atol=2e-12, rtol=2e-12)
 
 - **Backend:** ducc0 replaces the SPHEREPACK transforms.
 - **Precision:** float64/complex128 by default; float32/complex64 can be selected with `dtype=np.float32`.
-- **Legendre functions:** `legfunc="computed"` is available; `"stored"` is not.
+- **Legendre functions:** `legfunc="computed"` is the default. Stored Legendre functions (`legfunc="stored"`) are not supported.
 - **Truncation:** Clenshaw–Curtis analysis supports degrees through `min(nlat-2, nlon//2)`; Gaussian analysis through `min(nlat-1, nlon//2)`. Vector analysis excludes the even-longitude Nyquist order.
 - **Other differences:** zero truncation, geodesic coordinate precision, index dtype, and mixed-precision regridding are documented in the [PySpharm comparison](docs/pyspharm-compatibility.md).
 
