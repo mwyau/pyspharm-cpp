@@ -36,6 +36,34 @@ def test_gaussian_rule_and_spectral_indices():
     ]
 
 
+
+@pytest.mark.parametrize("nlat", [64, 128, 640, 2048])
+def test_gaussian_rule_high_resolution(nlat):
+    lat, weights = spharm.gaussian_lats_wts(nlat)
+    assert lat.dtype == weights.dtype == np.dtype(np.float64)
+    assert np.all(np.isfinite(lat)) and np.all(np.isfinite(weights))
+    assert np.all(np.diff(lat) < 0)
+    assert np.all(weights > 0)
+    np.testing.assert_allclose(lat, -lat[::-1], rtol=0, atol=3e-13)
+    np.testing.assert_allclose(weights, weights[::-1], rtol=0, atol=3e-15)
+
+    # Independent polynomial moments, exact for Gauss-Legendre rules at nlat >= 3.
+    x = np.sin(np.deg2rad(lat))
+    for power in (0, 2, 4):
+        np.testing.assert_allclose(
+            np.dot(weights, x**power), 2.0 / (power + 1), rtol=0, atol=5e-13
+        )
+
+    if nlat <= 128:
+        nodes, reference_weights = np.polynomial.legendre.leggauss(nlat)
+        np.testing.assert_allclose(
+            lat, np.rad2deg(np.arcsin(nodes[::-1])), rtol=0, atol=2e-11
+        )
+        np.testing.assert_allclose(
+            weights, reference_weights[::-1], rtol=0, atol=4e-13
+        )
+
+
 def test_legendre_interpolation_and_poles():
     for dtype, cdtype, tol in [
         (np.float32, np.complex64, 5e-6),

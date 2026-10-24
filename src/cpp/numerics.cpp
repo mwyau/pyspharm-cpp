@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "ducc0/infra/simd.h"
+#include "ducc0/math/gl_integrator.h"
 #include "internal.hpp"
 
 namespace SPHARM_CPP_NAMESPACE
@@ -283,52 +284,6 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
             static_cast<T>((sign < 0 && l % 2 != 0 ? -1.0 : 1.0) *
                            std::sqrt((2.0 * static_cast<double>(l) + 1.0) / 2.0));
     }
-  return result;
-}
-
-struct GaussianRule
-{
-  std::vector<double> latitudes;
-  std::vector<double> weights;
-};
-
-GaussianRule gaussian_rule(std::size_t n)
-{
-  if (n == 0)
-    throw py::value_error("nlat must be positive");
-  GaussianRule result{std::vector<double>(n), std::vector<double>(n)};
-  const std::size_t half = (n + 1) / 2;
-  for (std::size_t i = 0; i < half; ++i)
-  {
-    double z =
-        std::cos(pi * (static_cast<double>(i) + 0.75) / (static_cast<double>(n) + 0.5));
-    double pp = 0;
-    for (int iter = 0; iter < 64; ++iter)
-    {
-      double p1 = 1.0, p2 = 0.0;
-      for (std::size_t j = 1; j <= n; ++j)
-      {
-        const double jd = static_cast<double>(j);
-        const double p3 = p2;
-        p2 = p1;
-        p1 = ((2.0 * jd - 1.0) * z * p2 - (jd - 1.0) * p3) / jd;
-      }
-      pp = static_cast<double>(n) * (z * p1 - p2) / (z * z - 1.0);
-      const double next = z - p1 / pp;
-      if (std::abs(next - z) <= 4 * std::numeric_limits<double>::epsilon())
-      {
-        z = next;
-        break;
-      }
-      z = next;
-    }
-    const double weight = 2.0 / ((1.0 - z * z) * pp * pp);
-    const double north = std::asin(z) * 180.0 / pi;
-    result.latitudes[i] = north;
-    result.latitudes[n - 1 - i] = -north;
-    result.weights[i] = weight;
-    result.weights[n - 1 - i] = weight;
-  }
   return result;
 }
 
@@ -606,13 +561,25 @@ void bind_numerics(py::module_& m)
       "gaussian_lats_wts",
       [](std::size_t nlat)
       {
-        auto rule = gaussian_rule(nlat);
+        if (nlat == 0)
+          throw py::value_error("nlat must be positive");
+        const DUCC0_NAMESPACE::GL_Integrator integrator(nlat);
+        const auto theta = integrator.thetas();
+        const auto weights = integrator.weights();
         NpArr lats = new_array<double>({nlat});
         NpArr wts = new_array<double>({nlat});
         auto la = DUCC0_NAMESPACE::detail_pybind::to_vfmav<double>(lats);
         auto wa = DUCC0_NAMESPACE::detail_pybind::to_vfmav<double>(wts);
-        std::copy(rule.latitudes.begin(), rule.latitudes.end(), la.data());
-        std::copy(rule.weights.begin(), rule.weights.end(), wa.data());
+        // DUCC stores theta south-to-north; the public API uses north-to-south.
+        for (std::size_t i = 0; i < (nlat + 1) / 2; ++i)
+        {
+          const auto opposite = nlat - 1 - i;
+          const double latitude = 90.0 - theta[opposite] * (180.0 / pi);
+          la.data()[i] = latitude;
+          la.data()[opposite] = -latitude;
+          wa.data()[i] = weights[i];
+          wa.data()[opposite] = weights[i];
+        }
         return py::make_tuple(lats, wts);
       },
       "nlat"_a,
