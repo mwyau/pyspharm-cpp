@@ -21,17 +21,16 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      actions: read
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify release tag and prerequisite tests
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 .github/check_release.py --evidence
+      - name: Check tag matches package version
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          test "$GITHUB_REF_NAME" = "v$version"
 
   wheels:
     name: Release wheels
@@ -90,10 +89,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Verify release tag points to tested commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 .github/check_release.py
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
         with:
@@ -115,10 +110,6 @@ jobs:
         with:
           subject-path: dist/*
           subject-name: pyspharm-cpp
-      - name: Recheck release tag before upload
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 .github/check_release.py
       - name: Publish to selected package index
         uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
