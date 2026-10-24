@@ -457,8 +457,8 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
   const auto ntrunc = truncation_from_count(spec.shape(0));
   auto coefficients = DUCC0_NAMESPACE::detail_pybind::to_cfmav<std::complex<T>>(spec);
   auto legendre = DUCC0_NAMESPACE::detail_pybind::to_cfmav<T>(legfuncs);
-  NpArr result = new_array<double>({longitudes.size()});
-  auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<double>(result);
+  NpArr result = new_array<T>({longitudes.size()});
+  auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(result);
   using Tv = DUCC0_NAMESPACE::native_simd<double>;
   constexpr std::size_t vlen = Tv::size();
   std::size_t point = 0;
@@ -522,7 +522,8 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
         else
           sum += 2.0 * (sum_re * cosine - sum_im * sine);
       }
-      DUCC0_NAMESPACE::storeu(sum, output.data() + point);
+      for (std::size_t lane = 0; lane < vlen; ++lane)
+        output(point + lane) = static_cast<T>(sum[lane]);
     }
     for (; point < longitudes.size(); ++point)
     {
@@ -547,7 +548,7 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
         else
           sum += 2.0 * (sum_re * cosine - sum_im * sine);
       }
-      output(point) = sum;
+      output(point) = static_cast<T>(sum);
     }
   }
   return result;
@@ -852,7 +853,7 @@ float
       },
       "longitudes"_a, "dataspec"_a, "legfuncs"_a,
       py::sig(
-          R"(def specintrp_many(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64])"),
+          R"(def specintrp_many(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex64] | numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
       R"doc(Evaluate one scalar spherical harmonic expansion at several points.
 
 Parameters
@@ -868,7 +869,8 @@ legfuncs : ndarray
 Returns
 -------
 ndarray
-    Float64 interpolated values with shape (npoints,).)doc");
+    Interpolated values of shape (npoints,), with float32 or float64
+    precision matching dataspec and legfuncs.)doc");
 }
 
 }  // namespace SPHARM_CPP_NAMESPACE
