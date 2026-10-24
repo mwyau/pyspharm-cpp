@@ -105,7 +105,6 @@ void validate_map_shape(const CNpArr& map, std::size_t nlat,
     throw py::value_error("grid data must have shape (nlat, nlon[, nfields])");
   if (map.ndim() == 3 && map.shape(2) == 0)
     throw py::value_error("the number of fields must be positive");
-
 }
 
 }  // namespace
