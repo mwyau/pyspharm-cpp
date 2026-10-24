@@ -3,6 +3,9 @@ name: Measure SHT benchmarks
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/measure-benchmarks.yml"
 
 permissions:
   contents: read
@@ -29,15 +32,29 @@ jobs:
           nproc
           lscpu | grep -E "Model name|CPU\(s\):|Flags:"
           cat /sys/fs/cgroup/cpu.max || true
-      - name: Measure the four grid configurations
+      - name: Require AVX-512 dispatch
+        run: |
+          uv run --locked --no-sync python - <<'PY'
+          import spharm_cpp
+          info = spharm_cpp.cpu_info()
+          print("CPU_DISPATCH=", info, flush=True)
+          if info.get("active_profile") != "x86-64-v4":
+              raise SystemExit("AVX-512 v4 unavailable on this runner; rerun the job")
+          PY
+      - name: Measure four grids (4 threads)
         run: |
           mkdir -p "$RUNNER_TEMP/sht-bench"
           uv run --locked --no-sync python benchmarks/benchmark.py \
-            --threads 0 --warmups 2 --repeats 7 \
-            --output "$RUNNER_TEMP/sht-bench/measurements.csv"
+            --threads 4 --warmups 2 --repeats 7 \
+            --output "$RUNNER_TEMP/sht-bench/four-thread.csv"
+      - name: Measure 2.5-degree regular grid (1 thread)
+        run: |
+          uv run --locked --no-sync python benchmarks/benchmark.py \
+            --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
+            --output "$RUNNER_TEMP/sht-bench/one-thread.csv"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: four-grid-sht-bench-${{ github.sha }}
+          name: five-grid-sht-bench-${{ github.sha }}
           path: ${{ runner.temp }}/sht-bench/
           if-no-files-found: warn

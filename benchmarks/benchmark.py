@@ -16,6 +16,7 @@ from pathlib import Path
 
 CASES = (
     ("cc-2p5", "regular", 144, 73),
+    ("cc-2p5-1t", "regular", 144, 73),
     ("cc-0p25", "regular", 1440, 721),
     ("gl-128", "gaussian", 256, 128),
     ("gl-640", "gaussian", 1280, 640),
@@ -53,12 +54,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=0)
+    parser.add_argument(
+        "--cases", nargs="+",
+        choices=tuple(entry[0] for entry in CASES),
+        default=["cc-2p5", "cc-0p25", "gl-128", "gl-640"],
+        help="grid cases to benchmark",
+    )
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=7)
     args = parser.parse_args()
     if args.threads < 0 or args.warmups < 1 or args.repeats < 3:
         parser.error("threads >= 0; warmups >= 1; repeats >= 3")
     threads = args.threads or available_threads()
+    if "cc-2p5-1t" in args.cases and threads != 1:
+        parser.error("cc-2p5-1t requires --threads 1")
     os.environ["DUCC0_NUM_THREADS"] = str(threads)
     os.environ["OMP_NUM_THREADS"] = str(threads)
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -86,6 +95,8 @@ def main():
         writer = csv.DictWriter(fp, fieldnames=columns)
         writer.writeheader()
         for case, gridtype, nlon, nlat in CASES:
+            if case not in args.cases:
+                continue
             # Common mathematically supported band, avoiding vector Nyquist.
             lmax = min(nlat - (2 if gridtype == "regular" else 1),
                        (nlon - 1) // 2)
