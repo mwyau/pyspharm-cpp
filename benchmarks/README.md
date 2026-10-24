@@ -102,6 +102,10 @@ python benchmarks/plot.py \
 The reproduced four-case series explicitly uses four threads. `--threads 0`
 selects up to eight available CPUs, respecting Linux affinity and cgroup
 quota; use an explicit thread count for controlled runs.
+
+Measurements for `legendre_many`, `specintrp_many`, and batched transform
+threading are summarized in [SIMD and batched transform measurements](simd-batch-threading.md).
+
 The plotting script also accepts the committed combined CSV:
 
 ```sh

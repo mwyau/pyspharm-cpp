@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+import os
+import subprocess
 import sys
 import sysconfig
+import textwrap
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -145,3 +148,93 @@ def test_concurrent_public_operations_match_sequential_references():
                     )
             else:
                 assert actual == reference
+
+
+def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
+    script = textwrap.dedent(
+        """
+        import sys
+        import numpy as np
+        import spharm_cpp as spharm
+
+        rng = np.random.default_rng(1701)
+        ntrunc = 128
+        npoints = 65
+        latitudes = np.linspace(-89.0, 89.0, npoints)
+        longitudes = np.linspace(-1440.0, 1440.0, npoints)
+        output = {}
+        for suffix, dtype, cdtype in (
+            ("32", np.float32, np.complex64),
+            ("64", np.float64, np.complex128),
+        ):
+            legendre = spharm.legendre_many(latitudes, ntrunc, dtype=dtype)
+            ncoeff = legendre.shape[1]
+            spectrum = (
+                rng.standard_normal(ncoeff) + 1j * rng.standard_normal(ncoeff)
+            ).astype(cdtype)
+            output[f"legendre_{suffix}"] = legendre
+            output[f"interpolation_{suffix}"] = spharm.specintrp_many(
+                longitudes, spectrum, legendre
+            )
+
+        lmax = 60
+        for suffix, dtype in (("32", np.float32), ("64", np.float64)):
+            transform = spharm.Spharmt(128, 64, gridtype="gaussian", dtype=dtype)
+            grid = rng.standard_normal((64, 128, 4)).astype(dtype)
+            east = rng.standard_normal((64, 128, 4)).astype(dtype)
+            north = rng.standard_normal((64, 128, 4)).astype(dtype)
+            spectrum = transform.grdtospec(grid, lmax)
+            vort, div = transform.getvrtdivspec(east, north, lmax)
+            output[f"sht_analysis_{suffix}"] = spectrum
+            output[f"sht_synthesis_{suffix}"] = transform.spectogrd(spectrum)
+            output[f"sht_vorticity_{suffix}"] = vort
+            output[f"sht_divergence_{suffix}"] = div
+            output[f"sht_winds_{suffix}"] = np.stack(transform.getuv(vort, div))
+        np.savez(sys.argv[1], **output)
+        """
+    )
+    configurations = (
+        ("default", None, None),
+        ("ducc-four", "4", "1"),
+        ("omp-four", None, "4"),
+        ("all-threads", "0", "1"),
+    )
+    output_paths = {}
+    for name, ducc_threads, omp_threads in configurations:
+        env = os.environ.copy()
+        if ducc_threads is None:
+            env.pop("DUCC0_NUM_THREADS", None)
+        else:
+            env["DUCC0_NUM_THREADS"] = ducc_threads
+        if omp_threads is None:
+            env.pop("OMP_NUM_THREADS", None)
+        else:
+            env["OMP_NUM_THREADS"] = omp_threads
+        output_path = tmp_path / f"threaded-{name}.npz"
+        completed = subprocess.run(
+            [sys.executable, "-c", script, str(output_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+        assert completed.returncode == 0, (
+            f"{name} subprocess failed:\n{completed.stdout}\n{completed.stderr}"
+        )
+        output_paths[name] = output_path
+
+    with np.load(output_paths["default"]) as reference:
+        for name in ("ducc-four", "omp-four", "all-threads"):
+            with np.load(output_paths[name]) as actual:
+                for key in reference.files:
+                    if key.startswith("sht_"):
+                        tolerance = 3e-6 if key.endswith("32") else 3e-12
+                        np.testing.assert_allclose(
+                            actual[key],
+                            reference[key],
+                            rtol=tolerance,
+                            atol=tolerance,
+                        )
+                    else:
+                        np.testing.assert_array_equal(actual[key], reference[key])

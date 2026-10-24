@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <nanobind/nanobind.h>
 
+#include <algorithm>
 #include <array>
-#include <charconv>
-#include <cstdlib>
-#include <cstring>
 
 #include "ducc0/sht/sht.h"
 #include "internal.hpp"
@@ -59,24 +57,35 @@ struct TransformSetup
   }
 };
 
-std::size_t transform_nthreads()
+struct FieldExecutionPlan
 {
-  static const std::size_t configured = []
+  std::size_t outer_threads;
+  std::size_t inner_threads;
+};
+
+FieldExecutionPlan field_execution_plan(std::size_t nfield, std::size_t nlat,
+                                        std::size_t nlon)
+{
+  const auto capacity = configured_nthreads();
+  constexpr std::size_t min_pixels = 8192;
+  const bool enough_pixels =
+      nlon != 0 && nlat >= min_pixels / nlon + (min_pixels % nlon != 0);
+  if (nfield >= 4 && capacity > 1 && enough_pixels)
+    return {std::min(nfield, capacity), 1};
+  return {1, capacity};
+}
+
+template <typename Func>
+void for_each_field_range(std::size_t nfield, const FieldExecutionPlan& plan,
+                          Func&& func)
+{
+  if (plan.outer_threads == 1)
   {
-    const char* value = std::getenv("DUCC0_NUM_THREADS");
-    if (!value)
-      value = std::getenv("OMP_NUM_THREADS");
-    if (!value)
-      return std::size_t(1);
-    const char* end = value + std::strlen(value);
-    std::size_t parsed = 0;
-    const auto result = std::from_chars(value, end, parsed);
-    if (result.ec != std::errc{} || result.ptr != end)
-      throw std::runtime_error(
-          "DUCC0_NUM_THREADS/OMP_NUM_THREADS must be a nonnegative integer");
-    return parsed;
-  }();
-  return configured;
+    func(0, 0, nfield);
+    return;
+  }
+  DUCC0_NAMESPACE::execParallel(0, nfield, plan.outer_threads,
+                                std::forward<Func>(func));
 }
 
 template <typename T>
@@ -135,23 +144,16 @@ DUCC0_NAMESPACE::vmav<std::complex<T>, 2> as_ducc_alms(NpArr& output, std::size_
 }
 
 template <typename T>
-void convert_ducc_to_py(NpArr& array, std::size_t lmax, std::size_t nfield,
-                        std::size_t nlon)
+void convert_ducc_to_py(DUCC0_NAMESPACE::vmav<std::complex<T>, 2>& alms,
+                        std::size_t lmax, std::size_t nlon)
 {
-  auto view = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(array);
-  for (std::size_t f = 0; f < nfield; ++f)
-    for (std::size_t m = 0; m <= lmax; ++m)
-      for (std::size_t l = m; l <= lmax; ++l)
-      {
-        const std::size_t idx = m * (2 * lmax - m + 3) / 2 + (l - m);
-        const auto at = array.ndim() == 1
-                            ? static_cast<std::ptrdiff_t>(idx)
-                            : static_cast<std::ptrdiff_t>(idx) * view.stride(0) +
-                                  static_cast<std::ptrdiff_t>(f) * view.stride(1);
-        const T nyquist_factor = (nlon % 2 == 0 && m == nlon / 2) ? T(0.5) : T(1);
-        view.data()[at] *=
-            static_cast<T>(coefficient_sign(m) * nyquist_factor / sqrt_2pi);
-      }
+  for (std::size_t m = 0; m <= lmax; ++m)
+    for (std::size_t l = m; l <= lmax; ++l)
+    {
+      const std::size_t idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+      const T nyquist_factor = (nlon % 2 == 0 && m == nlon / 2) ? T(0.5) : T(1);
+      alms(0, idx) *= static_cast<T>(coefficient_sign(m) * nyquist_factor / sqrt_2pi);
+    }
 }
 
 template <typename T>
@@ -165,18 +167,31 @@ NpArr grid_to_spectral(const CNpArr& grid, std::size_t nlat, std::size_t nlon,
   const TransformSetup setup(lmax, nlat);
   const auto mstart = setup.mstart();
   const auto rfactor = setup.rfactor();
+  std::vector<DUCC0_NAMESPACE::vmav<std::complex<T>, 2>> alms;
+  std::vector<DUCC0_NAMESPACE::cmav<T, 3>> maps;
+  alms.reserve(nfield);
+  maps.reserve(nfield);
   for (std::size_t f = 0; f < nfield; ++f)
   {
-    auto alms = as_ducc_alms<T>(result, nalm, f, grid.ndim() == 3);
-    auto maps = as_ducc_map<T>(grid, nlat, nlon, f);
-    {
-      py::gil_scoped_release release;
-      DUCC0_NAMESPACE::analysis_2d(alms, maps, 0, lmax, mstart, 1,
-                                   gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
-                                   transform_nthreads());
-    }
+    alms.push_back(as_ducc_alms<T>(result, nalm, f, grid.ndim() == 3));
+    maps.push_back(as_ducc_map<T>(grid, nlat, nlon, f));
   }
-  convert_ducc_to_py<T>(result, lmax, nfield, nlon);
+  const auto plan = field_execution_plan(nfield, nlat, nlon);
+  {
+    py::gil_scoped_release release;
+    for_each_field_range(nfield, plan,
+                         [&](std::size_t, std::size_t lo, std::size_t hi)
+                         {
+                           for (std::size_t f = lo; f < hi; ++f)
+                           {
+                             DUCC0_NAMESPACE::analysis_2d(
+                                 alms[f], maps[f], 0, lmax, mstart, 1,
+                                 gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
+                                 plan.inner_threads);
+                             convert_ducc_to_py<T>(alms[f], lmax, nlon);
+                           }
+                         });
+  }
   return result;
 }
 
@@ -189,31 +204,44 @@ NpArr spectral_to_grid(const CNpArr& spec, std::size_t nlat, std::size_t nlon,
   const std::size_t nalm = coefficient_count(lmax);
   NpArr result =
       batched ? new_array<T>({nlat, nlon, nfield}) : new_array<T>({nlat, nlon});
-  NpArr normalized = new_array<std::complex<T>>({nalm, nfield});
+  std::vector<DUCC0_NAMESPACE::cmav<std::complex<T>, 2>> sources;
+  std::vector<DUCC0_NAMESPACE::vmav<T, 3>> maps;
+  sources.reserve(nfield);
+  maps.reserve(nfield);
   for (std::size_t f = 0; f < nfield; ++f)
   {
-    auto source = as_ducc_alms<T>(spec, nalm, f);
-    auto dest = as_ducc_alms<T>(normalized, nalm, f, true);
-    for (std::size_t m = 0; m <= lmax; ++m)
-      for (std::size_t l = m; l <= lmax; ++l)
-      {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
-        dest(0, idx) = source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
-      }
+    sources.push_back(as_ducc_alms<T>(spec, nalm, f));
+    maps.push_back(as_ducc_map<T>(result, nlat, nlon, f, batched));
   }
   const TransformSetup setup(lmax, nlat);
   const auto mstart = setup.mstart();
   const auto rfactor = setup.rfactor();
-  for (std::size_t f = 0; f < nfield; ++f)
+  const auto plan = field_execution_plan(nfield, nlat, nlon);
+  const std::array<std::size_t, 2> alm_shape{1, nalm};
+  std::vector<std::vector<std::complex<T>>> workspace(
+      plan.outer_threads, std::vector<std::complex<T>>(nalm));
   {
-    auto dest = as_ducc_alms<T>(normalized, nalm, f, true);
-    auto maps = as_ducc_map<T>(result, nlat, nlon, f, batched);
-    {
-      py::gil_scoped_release release;
-      DUCC0_NAMESPACE::synthesis_2d(dest, maps, 0, lmax, mstart, 1,
-                                    gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
-                                    transform_nthreads(), DUCC0_NAMESPACE::STANDARD);
-    }
+    py::gil_scoped_release release;
+    for_each_field_range(
+        nfield, plan,
+        [&](std::size_t thread, std::size_t lo, std::size_t hi)
+        {
+          auto& storage = workspace[thread];
+          DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alms(storage.data(), alm_shape);
+          for (std::size_t f = lo; f < hi; ++f)
+          {
+            for (std::size_t m = 0; m <= lmax; ++m)
+              for (std::size_t l = m; l <= lmax; ++l)
+              {
+                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                storage[idx] =
+                    sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
+              }
+            DUCC0_NAMESPACE::synthesis_2d(
+                alms, maps[f], 0, lmax, mstart, 1, gridtype == "regular" ? "CC" : "GL",
+                0.0, rfactor, plan.inner_threads, DUCC0_NAMESPACE::STANDARD);
+          }
+        });
   }
   return result;
 }
@@ -234,45 +262,65 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
   auto eout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(east);
   auto nout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(north);
   const std::size_t npix = nlat * nlon;
-  std::vector<T> map_storage(2 * npix);
-  std::vector<std::complex<T>> alm_storage(nalm);
+  std::vector<DUCC0_NAMESPACE::cmav<std::complex<T>, 2>> sources;
+  sources.reserve(nfield);
+  for (std::size_t f = 0; f < nfield; ++f)
+    sources.push_back(as_ducc_alms<T>(spec, nalm, f));
   const TransformSetup setup(lmax, nlat);
   const auto mstart = setup.mstart();
   const auto rfactor = setup.rfactor();
+  const auto plan = field_execution_plan(nfield, nlat, nlon);
   const std::array<std::size_t, 2> alm_shape{1, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
                                                  static_cast<std::ptrdiff_t>(nlon), 1};
-  for (std::size_t f = 0; f < nfield; ++f)
+  struct Workspace
   {
-    auto source = as_ducc_alms<T>(spec, nalm, f);
-    for (std::size_t m = 0; m <= lmax; ++m)
-      for (std::size_t l = m; l <= lmax; ++l)
-      {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
-        alm_storage[idx] =
-            source(0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
-      }
-    std::fill(map_storage.begin(), map_storage.end(), T(0));
-    if (lmax > 0)
-    {
-      DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alm(alm_storage.data(), alm_shape);
-      DUCC0_NAMESPACE::vmav<T, 3> map(map_storage.data(), map_shape, map_stride);
-      py::gil_scoped_release release;
-      DUCC0_NAMESPACE::synthesis_2d(alm, map, 1, lmax, mstart, 1,
-                                    gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
-                                    transform_nthreads(), DUCC0_NAMESPACE::DERIV1);
-    }
-    for (std::size_t j = 0; j < nlat; ++j)
-      for (std::size_t i = 0; i < nlon; ++i)
-      {
-        const auto pyidx = batched ? j * nlon * nfield + i * nfield + f : j * nlon + i;
-        const auto pix = j * nlon + i;
-        eout.data()[pyidx] =
-            static_cast<T>(static_cast<double>(map_storage[npix + pix]) / rsphere);
-        nout.data()[pyidx] =
-            static_cast<T>(-static_cast<double>(map_storage[pix]) / rsphere);
-      }
+    std::vector<T> maps;
+    std::vector<std::complex<T>> alms;
+
+    Workspace(std::size_t npix, std::size_t nalm) : maps(2 * npix), alms(nalm) {}
+  };
+  std::vector<Workspace> workspace;
+  workspace.reserve(plan.outer_threads);
+  for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
+    workspace.emplace_back(npix, nalm);
+  {
+    py::gil_scoped_release release;
+    for_each_field_range(
+        nfield, plan,
+        [&](std::size_t thread, std::size_t lo, std::size_t hi)
+        {
+          auto& scratch = workspace[thread];
+          DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alm(scratch.alms.data(), alm_shape);
+          DUCC0_NAMESPACE::vmav<T, 3> map(scratch.maps.data(), map_shape, map_stride);
+          for (std::size_t f = lo; f < hi; ++f)
+          {
+            for (std::size_t m = 0; m <= lmax; ++m)
+              for (std::size_t l = m; l <= lmax; ++l)
+              {
+                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                scratch.alms[idx] =
+                    sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
+              }
+            std::fill(scratch.maps.begin(), scratch.maps.end(), T(0));
+            if (lmax > 0)
+              DUCC0_NAMESPACE::synthesis_2d(
+                  alm, map, 1, lmax, mstart, 1, gridtype == "regular" ? "CC" : "GL",
+                  0.0, rfactor, plan.inner_threads, DUCC0_NAMESPACE::DERIV1);
+            for (std::size_t j = 0; j < nlat; ++j)
+              for (std::size_t i = 0; i < nlon; ++i)
+              {
+                const auto pyidx =
+                    batched ? j * nlon * nfield + i * nfield + f : j * nlon + i;
+                const auto pix = j * nlon + i;
+                eout.data()[pyidx] = static_cast<T>(
+                    static_cast<double>(scratch.maps[npix + pix]) / rsphere);
+                nout.data()[pyidx] =
+                    static_cast<T>(-static_cast<double>(scratch.maps[pix]) / rsphere);
+              }
+          }
+        });
   }
   return {east, north};
 }
@@ -293,55 +341,71 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
   auto vout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(vort);
   auto dout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(div);
   const std::size_t npix = nlat * nlon;
-  std::vector<T> map_storage(2 * npix);
-  std::vector<std::complex<T>> alm_storage(2 * nalm);
+  std::vector<DUCC0_NAMESPACE::cmav<T, 3>> umaps;
+  std::vector<DUCC0_NAMESPACE::cmav<T, 3>> vmaps;
+  umaps.reserve(nfield);
+  vmaps.reserve(nfield);
+  for (std::size_t f = 0; f < nfield; ++f)
+  {
+    umaps.push_back(as_ducc_map<T>(ugrid, nlat, nlon, f));
+    vmaps.push_back(as_ducc_map<T>(vgrid, nlat, nlon, f));
+  }
   const TransformSetup setup(lmax, nlat);
   const auto mstart = setup.mstart();
   const auto rfactor = setup.rfactor();
+  const auto plan = field_execution_plan(nfield, nlat, nlon);
   const std::array<std::size_t, 2> alm_shape{2, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
                                                  static_cast<std::ptrdiff_t>(nlon), 1};
-  for (std::size_t f = 0; f < nfield; ++f)
+  struct Workspace
   {
-    const auto us = DUCC0_NAMESPACE::detail_pybind::copy_strides<T, false>(ugrid);
-    const auto vs = DUCC0_NAMESPACE::detail_pybind::copy_strides<T, false>(vgrid);
-    const auto* uptr = reinterpret_cast<const T*>(ugrid.data());
-    const auto* vptr = reinterpret_cast<const T*>(vgrid.data());
-    for (std::size_t j = 0; j < nlat; ++j)
-      for (std::size_t i = 0; i < nlon; ++i)
-      {
-        const auto uidx = static_cast<std::ptrdiff_t>(j) * us[0] +
-                          static_cast<std::ptrdiff_t>(i) * us[1] +
-                          (batched ? static_cast<std::ptrdiff_t>(f) * us[2] : 0);
-        const auto vidx = static_cast<std::ptrdiff_t>(j) * vs[0] +
-                          static_cast<std::ptrdiff_t>(i) * vs[1] +
-                          (batched ? static_cast<std::ptrdiff_t>(f) * vs[2] : 0);
-        map_storage[j * nlon + i] = -vptr[vidx];
-        map_storage[npix + j * nlon + i] = uptr[uidx];
-      }
-    if (lmax > 0)
-    {
-      DUCC0_NAMESPACE::vmav<std::complex<T>, 2> alms(alm_storage.data(), alm_shape);
-      DUCC0_NAMESPACE::cmav<T, 3> maps(map_storage.data(), map_shape, map_stride);
-      py::gil_scoped_release release;
-      DUCC0_NAMESPACE::analysis_2d(alms, maps, 1, lmax, mstart, 1,
-                                   gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
-                                   transform_nthreads());
-    }
-    for (std::size_t m = 0; m <= lmax; ++m)
-      for (std::size_t l = m; l <= lmax; ++l)
-      {
-        const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
-        const double degree = static_cast<double>(l);
-        const double lambda = degree * (degree + 1.0);
-        const double coefficient_scale =
-            -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign(m);
-        const double scale = l == 0 ? 0.0 : coefficient_scale;
-        const auto outidx = batched ? idx * nfield + f : idx;
-        vout.data()[outidx] = scale_coefficient(alm_storage[nalm + idx], scale);
-        dout.data()[outidx] = scale_coefficient(alm_storage[idx], scale);
-      }
+    std::vector<T> maps;
+    std::vector<std::complex<T>> alms;
+
+    Workspace(std::size_t npix, std::size_t nalm) : maps(2 * npix), alms(2 * nalm) {}
+  };
+  std::vector<Workspace> workspace;
+  workspace.reserve(plan.outer_threads);
+  for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
+    workspace.emplace_back(npix, nalm);
+  {
+    py::gil_scoped_release release;
+    for_each_field_range(
+        nfield, plan,
+        [&](std::size_t thread, std::size_t lo, std::size_t hi)
+        {
+          auto& scratch = workspace[thread];
+          DUCC0_NAMESPACE::vmav<std::complex<T>, 2> alms(scratch.alms.data(),
+                                                         alm_shape);
+          DUCC0_NAMESPACE::cmav<T, 3> maps(scratch.maps.data(), map_shape, map_stride);
+          for (std::size_t f = lo; f < hi; ++f)
+          {
+            for (std::size_t j = 0; j < nlat; ++j)
+              for (std::size_t i = 0; i < nlon; ++i)
+              {
+                scratch.maps[j * nlon + i] = -vmaps[f](0, j, i);
+                scratch.maps[npix + j * nlon + i] = umaps[f](0, j, i);
+              }
+            if (lmax > 0)
+              DUCC0_NAMESPACE::analysis_2d(alms, maps, 1, lmax, mstart, 1,
+                                           gridtype == "regular" ? "CC" : "GL", 0.0,
+                                           rfactor, plan.inner_threads);
+            for (std::size_t m = 0; m <= lmax; ++m)
+              for (std::size_t l = m; l <= lmax; ++l)
+              {
+                const auto idx = m * (2 * lmax - m + 3) / 2 + (l - m);
+                const double degree = static_cast<double>(l);
+                const double lambda = degree * (degree + 1.0);
+                const double coefficient_scale =
+                    -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign(m);
+                const double scale = l == 0 ? 0.0 : coefficient_scale;
+                const auto outidx = batched ? idx * nfield + f : idx;
+                vout.data()[outidx] = scale_coefficient(alms(1, idx), scale);
+                dout.data()[outidx] = scale_coefficient(alms(0, idx), scale);
+              }
+          }
+        });
   }
   return {vort, div};
 }
@@ -394,7 +458,7 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
       py::gil_scoped_release release;
       DUCC0_NAMESPACE::synthesis_2d(alms, maps, 1, lmax, mstart, 1,
                                     gridtype == "regular" ? "CC" : "GL", 0.0, rfactor,
-                                    transform_nthreads(), DUCC0_NAMESPACE::STANDARD);
+                                    configured_nthreads(), DUCC0_NAMESPACE::STANDARD);
     }
     for (std::size_t j = 0; j < nlat; ++j)
       for (std::size_t i = 0; i < nlon; ++i)
