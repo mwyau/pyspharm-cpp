@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
+import gc
 import math
 
 import numpy as np
@@ -259,10 +260,67 @@ def test_batched_noncontiguous_scalar_and_wind_transforms(dtype, cdtype, atol):
     vrt[0] = 0
     div[0] = 0
     vrt = vrt[:, ::-1]
+    vrt.setflags(write=False)
+    div.setflags(write=False)
     u, v = t.getuv(vrt, div)
+    assert u.shape == v.shape == (9, 16, 2)
+    assert u.flags.c_contiguous and v.flags.c_contiguous
+    assert not np.shares_memory(u, v)
     vrt2, div2 = t.getvrtdivspec(u, v, 5)
     np.testing.assert_allclose(vrt2, vrt, rtol=atol, atol=atol)
     np.testing.assert_allclose(div2, div, rtol=atol, atol=atol)
+    expected_u = u.copy()
+    del v
+    gc.collect()
+    np.testing.assert_array_equal(u, expected_u)
+
+
+@pytest.mark.parametrize(
+    "dtype, cdtype, atol",
+    [
+        (np.float32, np.complex64, 2e-4),
+        (np.float64, np.complex128, 2e-12),
+    ],
+)
+@pytest.mark.parametrize("gridtype", ["regular", "gaussian"])
+def test_large_batched_wind_synthesis_direct_outputs(dtype, cdtype, atol, gridtype):
+    nlat, nlon, nfield, lmax = 128, 256, 4, 5
+    transform = spharm.Spharmt(nlon, nlat, gridtype=gridtype, dtype=dtype)
+    rng = np.random.default_rng(128256)
+    vrt = (rng.normal(size=(21, nfield)) + 1j * rng.normal(size=(21, nfield))).astype(
+        cdtype
+    )
+    div = (rng.normal(size=(21, nfield)) + 1j * rng.normal(size=(21, nfield))).astype(
+        cdtype
+    )
+    vrt[: lmax + 1] = vrt[: lmax + 1].real
+    div[: lmax + 1] = div[: lmax + 1].real
+    vrt[0] = 0
+    div[0] = 0
+    vrt.setflags(write=False)
+    div.setflags(write=False)
+
+    u, v = transform.getuv(vrt, div)
+    assert u.shape == v.shape == (nlat, nlon, nfield)
+    assert u.flags.c_contiguous and v.flags.c_contiguous
+    assert u.flags.writeable and v.flags.writeable
+    assert not np.shares_memory(u, v)
+    for field in range(nfield):
+        expected_u, expected_v = transform.getuv(vrt[:, field], div[:, field])
+        np.testing.assert_allclose(u[:, :, field], expected_u, rtol=atol, atol=atol)
+        np.testing.assert_allclose(v[:, :, field], expected_v, rtol=atol, atol=atol)
+    recovered_vrt, recovered_div = transform.getvrtdivspec(u, v, lmax)
+    np.testing.assert_allclose(recovered_vrt, vrt, rtol=atol, atol=atol)
+    np.testing.assert_allclose(recovered_div, div, rtol=atol, atol=atol)
+
+    expected_v = v.copy()
+    del u
+    gc.collect()
+    np.testing.assert_array_equal(v, expected_v)
+
+    zero_spectrum = np.zeros((1, nfield), dtype=cdtype)
+    zero_u, zero_v = transform.getuv(zero_spectrum, zero_spectrum)
+    assert np.count_nonzero(zero_u) == np.count_nonzero(zero_v) == 0
 
 
 @pytest.mark.parametrize(
