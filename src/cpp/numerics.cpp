@@ -23,6 +23,20 @@ namespace SPHARM_CPP_NAMESPACE
 {
 using namespace nanobind::literals;
 
+#if defined(__clang__)
+#define SPHARM_FP_CONTRACT_OFF _Pragma("clang fp contract(off)")
+#define SPHARM_FP_CONTRACT_ON _Pragma("clang fp contract(on)")
+#define SPHARM_FP_CONTRACT_ATTR
+#elif defined(__GNUC__)
+#define SPHARM_FP_CONTRACT_OFF
+#define SPHARM_FP_CONTRACT_ON
+#define SPHARM_FP_CONTRACT_ATTR __attribute__((optimize("fp-contract=off")))
+#else
+#define SPHARM_FP_CONTRACT_OFF
+#define SPHARM_FP_CONTRACT_ON
+#define SPHARM_FP_CONTRACT_ATTR
+#endif
+
 namespace
 {
 
@@ -93,6 +107,31 @@ T restore_legendre_scale(T value, int exponent)
   return exponent == 0 ? value : std::scalbn(value, exponent);
 }
 
+template <typename T>
+T legendre_m0_near_pole_value(std::size_t l, T x, T x_delta)
+{
+  // When binary32 rounds sin(latitude) to +/-1, the forward recurrence for
+  // m=0 loses accuracy through cancellation. Evaluate P_l near the endpoint
+  // from its Taylor series; all recurrence operations still use T.
+  T polynomial = T(1), term = T(1);
+  for (std::size_t k = 1; k <= l; ++k)
+  {
+    const double kd = static_cast<double>(k), ld = static_cast<double>(l);
+    const T factor = static_cast<T>(((ld + kd) * (ld - kd + 1.0)) / (2.0 * kd * kd));
+    const T next_term = term * (-x_delta * factor);
+    const T next_polynomial = polynomial + next_term;
+    if (next_polynomial == polynomial)
+      break;
+    term = next_term;
+    polynomial = next_polynomial;
+  }
+  T value = static_cast<T>(std::sqrt((2.0 * static_cast<double>(l) + 1.0) / 2.0)) *
+            polynomial;
+  if (x < T(0) && l % 2 != 0)
+    value = -value;
+  return value;
+}
+
 template <typename Tv>
 void normalize_legendre_scale(Tv& value, std::array<int, Tv::size()>& exponent)
 {
@@ -103,26 +142,14 @@ void normalize_legendre_scale(Tv& value, std::array<int, Tv::size()>& exponent)
       ((magnitude != Tv(T(0))) & (magnitude < Tv(legendre_scale_low<T>())));
   if (!any_of(needs_rescale))
     return;
-
-  Tv factor(T(1));
   for (std::size_t lane = 0; lane < Tv::size(); ++lane)
   {
-    auto lane_magnitude = magnitude[lane];
-    int shift = 0;
-    while (lane_magnitude > legendre_scale_high<T>())
-    {
-      lane_magnitude = std::scalbn(lane_magnitude, -legendre_scale_shift<T>());
-      shift -= legendre_scale_shift<T>();
-    }
-    while (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())
-    {
-      lane_magnitude = std::scalbn(lane_magnitude, legendre_scale_shift<T>());
-      shift += legendre_scale_shift<T>();
-    }
-    factor[lane] = std::scalbn(T(1), shift);
-    exponent[lane] -= shift;
+    if (!needs_rescale[lane])
+      continue;
+    T lane_value = value[lane];
+    normalize_legendre_scale(lane_value, exponent[lane]);
+    value[lane] = lane_value;
   }
-  value *= factor;
 }
 
 template <typename Tv>
@@ -136,33 +163,15 @@ void normalize_legendre_scale(Tv& previous, Tv& current,
       ((magnitude != Tv(T(0))) & (magnitude < Tv(legendre_scale_low<T>())));
   if (!any_of(needs_rescale))
     return;
-
-  Tv factor(T(1));
   for (std::size_t lane = 0; lane < Tv::size(); ++lane)
   {
-    auto lane_magnitude = magnitude[lane];
-    if (lane_magnitude <= legendre_scale_high<T>() &&
-        (lane_magnitude == T(0) || lane_magnitude >= legendre_scale_low<T>()))
+    if (!needs_rescale[lane])
       continue;
-    int shift = 0;
-    while (lane_magnitude > legendre_scale_high<T>())
-    {
-      lane_magnitude = std::scalbn(lane_magnitude, -legendre_scale_shift<T>());
-      shift -= legendre_scale_shift<T>();
-    }
-    while (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())
-    {
-      lane_magnitude = std::scalbn(lane_magnitude, legendre_scale_shift<T>());
-      shift += legendre_scale_shift<T>();
-    }
-    if (shift != 0)
-    {
-      factor[lane] = std::scalbn(T(1), shift);
-      exponent[lane] -= shift;
-    }
+    T lane_previous = previous[lane], lane_current = current[lane];
+    normalize_legendre_scale(lane_previous, lane_current, exponent[lane]);
+    previous[lane] = lane_previous;
+    current[lane] = lane_current;
   }
-  previous *= factor;
-  current *= factor;
 }
 
 std::pair<double, double> legendre_recurrence_coefficients(std::size_t l, std::size_t m)
@@ -175,8 +184,10 @@ std::pair<double, double> legendre_recurrence_coefficients(std::size_t l, std::s
   return {a, b};
 }
 
+SPHARM_FP_CONTRACT_OFF
 template <typename T, typename Store>
-void legendre_scalar_kernel(T x, T s, std::size_t lmax, Store&& store)
+SPHARM_FP_CONTRACT_ATTR void legendre_scalar_kernel(T x, T s, T x_delta,
+                                                    std::size_t lmax, Store&& store)
 {
   T diagonal = static_cast<T>(1.0 / std::sqrt(2.0));
   int diagonal_exponent = 0;
@@ -187,15 +198,17 @@ void legendre_scalar_kernel(T x, T s, std::size_t lmax, Store&& store)
     if (m < lmax)
     {
       T previous = diagonal;
-      T current =
-          x * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * diagonal;
+      const T seed_factor =
+          static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0));
+      T current = x * seed_factor * diagonal;
       int exponent = diagonal_exponent;
       normalize_legendre_scale(previous, current, exponent);
       store(base + 1, restore_legendre_scale(current, exponent));
       for (std::size_t l = m + 2; l <= lmax; ++l)
       {
         const auto [a, b] = legendre_recurrence_coefficients(l, m);
-        const T next = static_cast<T>(a) * x * current - static_cast<T>(b) * previous;
+        const T a_t = static_cast<T>(a), b_t = static_cast<T>(b);
+        const T next = a_t * x * current - b_t * previous;
         previous = current;
         current = next;
         normalize_legendre_scale(previous, current, exponent);
@@ -207,7 +220,11 @@ void legendre_scalar_kernel(T x, T s, std::size_t lmax, Store&& store)
       normalize_legendre_scale(diagonal, diagonal_exponent);
     }
   }
+  if (x_delta != T(0))
+    for (std::size_t l = 0; l <= lmax; ++l)
+      store(l, legendre_m0_near_pole_value(l, x, x_delta));
 }
+SPHARM_FP_CONTRACT_ON
 
 template <typename T>
 NpArr legendre_values(double latitude, std::size_t lmax)
@@ -227,9 +244,17 @@ NpArr legendre_values(double latitude, std::size_t lmax)
     return result;
   }
   const double phi = latitude * pi / 180.0;
-  const auto store = [&](std::size_t coeff, double value)
+  const double sin_phi = std::sin(phi), cos_phi = std::cos(phi);
+  const T x = static_cast<T>(sin_phi), s = static_cast<T>(cos_phi);
+  const T x_delta =
+      std::abs(x) == T(1)
+          ? static_cast<T>((cos_phi * cos_phi) / (1.0 + std::abs(sin_phi)))
+          : T(0);
+  const auto store = [&](std::size_t coeff, T value)
   { values.data()[coeff] = static_cast<T>(value); };
-  legendre_scalar_kernel(std::sin(phi), std::cos(phi), lmax, store);
+  // Convert the shared double-precision angle setup to the selected
+  // computation type before starting the recurrence.
+  legendre_scalar_kernel<T>(x, s, x_delta, lmax, store);
   return result;
 }
 
@@ -257,7 +282,7 @@ NpArr scalar_legendre_binding(double latitude, std::int64_t ntrunc, py::object d
 }
 
 template <typename T, typename Output>
-void legendre_many_scalar_row(T x, T s, std::size_t lmax, std::size_t row,
+void legendre_many_scalar_row(T x, T s, T x_delta, std::size_t lmax, std::size_t row,
                               Output& output)
 {
   const auto row_offset = static_cast<std::ptrdiff_t>(row) * output.stride(0);
@@ -266,13 +291,14 @@ void legendre_many_scalar_row(T x, T s, std::size_t lmax, std::size_t row,
     output.data()[row_offset + static_cast<std::ptrdiff_t>(coeff) * output.stride(1)] =
         value;
   };
-  legendre_scalar_kernel(x, s, lmax, store);
+  legendre_scalar_kernel(x, s, x_delta, lmax, store);
 }
 
+SPHARM_FP_CONTRACT_OFF
 template <typename T, typename Tv, typename Output>
-void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s,
-                                std::size_t lmax, std::size_t start,
-                                std::size_t active_lanes, Output& output)
+SPHARM_FP_CONTRACT_ATTR void legendre_many_vector_block(
+    const std::vector<T>& x, const std::vector<T>& s, const std::vector<T>& x_delta,
+    std::size_t lmax, std::size_t start, std::size_t active_lanes, Output& output)
 {
   constexpr std::size_t vlen = Tv::size();
   const Tv xv = DUCC0_NAMESPACE::loadu<Tv>(x.data() + start);
@@ -296,7 +322,9 @@ void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s
     store(base, pmm, diagonal_exponent);
     if (m < lmax)
     {
-      Tv pm1 = xv * static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0)) * pmm;
+      const T seed_factor =
+          static_cast<T>(std::sqrt(2.0 * static_cast<double>(m) + 3.0));
+      Tv pm1 = xv * seed_factor * pmm;
       Tv pm2 = pmm;
       auto exponent = diagonal_exponent;
       normalize_legendre_scale(pm2, pm1, exponent);
@@ -304,7 +332,8 @@ void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s
       for (std::size_t l = m + 2; l <= lmax; ++l)
       {
         const auto [a, b] = legendre_recurrence_coefficients(l, m);
-        const Tv pl = static_cast<T>(a) * xv * pm1 - static_cast<T>(b) * pm2;
+        const T a_t = static_cast<T>(a), b_t = static_cast<T>(b);
+        const Tv pl = a_t * xv * pm1 - b_t * pm2;
         pm2 = pm1;
         pm1 = pl;
         normalize_legendre_scale(pm2, pm1, exponent);
@@ -316,7 +345,13 @@ void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s
       normalize_legendre_scale(diagonal, diagonal_exponent);
     }
   }
+  for (std::size_t lane = 0; lane < active_lanes; ++lane)
+    if (x_delta[start + lane] != T(0))
+      for (std::size_t l = 0; l <= lmax; ++l)
+        output.data()[(start + lane) * output.stride(0) + l * output.stride(1)] =
+            legendre_m0_near_pole_value(l, x[start + lane], x_delta[start + lane]);
 }
+SPHARM_FP_CONTRACT_ON
 
 template <typename T>
 NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lmax)
@@ -333,16 +368,18 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
   if (latitudes.size() > std::numeric_limits<std::size_t>::max() - padding)
     throw py::value_error("latitude batch is too large");
   const auto padded_size = latitudes.size() + padding;
-  std::vector<T> x(padded_size, T(0)), s(padded_size, T(1));
+  std::vector<T> x(padded_size, T(0)), s(padded_size, T(1)), x_delta(padded_size, T(0));
   for (std::size_t i = 0; i < latitudes.size(); ++i)
   {
     const auto lat = latitudes[i];
     if (!std::isfinite(lat) || lat < -90.0 || lat > 90.0)
       throw py::value_error("latitudes must be finite and between -90 and 90 degrees");
     const double phi = lat * pi / 180.0;
-    x[i] =
-        static_cast<T>((lat == 90.0) ? 1.0 : ((lat == -90.0) ? -1.0 : std::sin(phi)));
-    s[i] = static_cast<T>((lat == 90.0 || lat == -90.0) ? 0.0 : std::cos(phi));
+    const double sin_phi = std::sin(phi), cos_phi = std::cos(phi);
+    x[i] = static_cast<T>((lat == 90.0) ? 1.0 : ((lat == -90.0) ? -1.0 : sin_phi));
+    s[i] = static_cast<T>((lat == 90.0 || lat == -90.0) ? 0.0 : cos_phi);
+    if (lat != 90.0 && lat != -90.0 && std::abs(x[i]) == T(1))
+      x_delta[i] = static_cast<T>((cos_phi * cos_phi) / (1.0 + std::abs(sin_phi)));
   }
 
   const auto vector_batches = padded_size / vlen;
@@ -352,7 +389,8 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
     {
       const auto start = batch * vlen;
       const auto active_lanes = std::min(vlen, latitudes.size() - start);
-      legendre_many_vector_block<T, Tv>(x, s, lmax, start, active_lanes, output);
+      legendre_many_vector_block<T, Tv>(x, s, x_delta, lmax, start, active_lanes,
+                                        output);
     }
   };
   {
@@ -371,7 +409,8 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
     auto start = std::min(vector_batches * vlen, latitudes.size());
     for (; start < latitudes.size(); ++start)
     {
-      legendre_many_scalar_row<T>(x[start], s[start], lmax, start, output);
+      legendre_many_scalar_row<T>(x[start], s[start], x_delta[start], lmax, start,
+                                  output);
     }
   }
   for (std::size_t row = 0; row < latitudes.size(); ++row)
@@ -514,66 +553,51 @@ std::pair<std::vector<T>, std::vector<T>> geodesic_points(std::size_t edge_point
   return {latitudes, longitudes};
 }
 
-template <typename T>
-double spectral_interpolate(double longitude, const CNpArr& spec,
-                            const CNpArr& legfuncs)
+template <typename T, typename Value>
+Value broadcast_spectral_value(T value)
 {
-  if (spec.ndim() != 1 || legfuncs.ndim() != 1)
-    throw py::value_error("dataspec and legfuncs must be rank-one arrays");
-  if (spec.shape(0) == 0 || legfuncs.shape(0) == 0)
-    throw py::value_error("dataspec and legfuncs must not be empty");
-  const auto ntrunc = truncation_from_count(spec.shape(0));
-  if (truncation_from_count(legfuncs.shape(0)) != ntrunc)
-    throw py::value_error(
-        "dataspec and legfuncs imply inconsistent spectral truncations");
-  const auto ss =
-      DUCC0_NAMESPACE::detail_pybind::copy_strides<std::complex<T>, false>(spec);
-  const auto ps = DUCC0_NAMESPACE::detail_pybind::copy_strides<T, false>(legfuncs);
-  const auto* coeff = reinterpret_cast<const std::complex<T>*>(spec.data());
-  const auto* pbar = reinterpret_cast<const T*>(legfuncs.data());
-  const double reduced_degrees = std::remainder(longitude, 360.0);
-  const double lon = reduced_degrees * (pi / 180.0);
-  T result = T(0);
-  for (std::size_t m = 0; m <= ntrunc; ++m)
-  {
-    const T c = static_cast<T>(std::cos(static_cast<double>(m) * lon));
-    const T s = static_cast<T>(std::sin(static_cast<double>(m) * lon));
-    for (std::size_t l = m; l <= ntrunc; ++l)
-    {
-      const auto idx = packed_coefficient_index(ntrunc, m, l);
-      const auto co = coeff[static_cast<std::ptrdiff_t>(idx) * ss[0]];
-      const T pl = pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]];
-      result += pl * (m == 0 ? co.real() : T(2) * (co.real() * c - co.imag() * s));
-    }
-  }
-  return static_cast<double>(result);
+  if constexpr (std::is_same_v<Value, T>)
+    return value;
+  else
+    return Value(value);
 }
 
-template <typename T, typename Tv, typename Coefficients, typename Legendre,
-          typename Output>
-void interpolate_spectral_block(const std::vector<double>& longitudes,
-                                std::size_t ntrunc, const Coefficients& coefficients,
-                                const Legendre& legendre, Output& output,
-                                std::size_t point)
+template <typename T, typename Value, std::size_t N>
+Value spectral_value_from_lanes(const std::array<T, N>& values)
 {
-  constexpr std::size_t vlen = Tv::size();
-  std::array<double, vlen> lon{}, cosine{}, sine{}, cosine_step{}, sine_step{};
-  for (std::size_t lane = 0; lane < vlen; ++lane)
+  if constexpr (std::is_same_v<Value, T>)
+    return values[0];
+  else
+    return DUCC0_NAMESPACE::loadu<Value>(values.data());
+}
+
+// The scalar API and the point-lane SIMD path share this order and rounding
+// sequence. Angle reduction, phase recurrence, and trigonometry use binary64;
+// coefficient recurrence and accumulation stay in the selected native type.
+SPHARM_FP_CONTRACT_OFF
+template <typename T, typename Value, std::size_t N, typename LongitudeAt,
+          typename CoefficientAt, typename LegendreAt, typename Store>
+SPHARM_FP_CONTRACT_ATTR void interpolate_spectral_lanes(
+    std::size_t ntrunc, std::size_t point, const LongitudeAt& longitude_at,
+    const CoefficientAt& coefficient_at, const LegendreAt& legendre_at, Store&& store)
+{
+  std::array<double, N> lon{}, cosine{}, sine{}, cosine_step{}, sine_step{};
+  for (std::size_t lane = 0; lane < N; ++lane)
   {
-    const double reduced_degrees = std::remainder(longitudes[point + lane], 360.0);
+    const double reduced_degrees = std::remainder(longitude_at(point + lane), 360.0);
     lon[lane] = reduced_degrees * (pi / 180.0);
     cosine[lane] = 1.0;
     cosine_step[lane] = std::cos(lon[lane]);
     sine_step[lane] = std::sin(lon[lane]);
   }
-  std::array<T, vlen> cosine_values{}, sine_values{};
+  std::array<T, N> cosine_values{}, sine_values{};
   constexpr std::size_t phase_reset_interval = 32;
-  Tv sum(T(0));
+  Value sum(T(0));
   for (std::size_t m = 0; m <= ntrunc; ++m)
   {
     if (m > 0)
     {
-      for (std::size_t lane = 0; lane < vlen; ++lane)
+      for (std::size_t lane = 0; lane < N; ++lane)
       {
         if (m % phase_reset_interval == 0)
         {
@@ -594,29 +618,92 @@ void interpolate_spectral_block(const std::vector<double>& longitudes,
         sine_values[lane] = static_cast<T>(sine[lane]);
       }
     }
-    Tv sum_re(T(0)), sum_im(T(0));
+    Value sum_re(T(0)), sum_im(T(0));
     for (std::size_t l = m; l <= ntrunc; ++l)
     {
       const auto idx = packed_coefficient_index(ntrunc, m, l);
-      const auto coeff = coefficients(idx);
-      std::array<T, vlen> pvalues{};
-      for (std::size_t lane = 0; lane < vlen; ++lane)
-        pvalues[lane] = legendre(point + lane, idx);
-      const Tv p = DUCC0_NAMESPACE::loadu<Tv>(pvalues.data());
-      sum_re += p * coeff.real();
+      const auto coeff = coefficient_at(idx);
+      const Value p = legendre_at(point, idx);
+      sum_re = sum_re + p * broadcast_spectral_value<T, Value>(coeff.real());
       const T imag_coefficient = (m == 0) ? T(0) : coeff.imag();
-      sum_im += p * imag_coefficient;
+      sum_im = sum_im + p * broadcast_spectral_value<T, Value>(imag_coefficient);
     }
     if (m == 0)
-      sum += sum_re;
+      sum = sum + sum_re;
     else
     {
-      const Tv cosine = DUCC0_NAMESPACE::loadu<Tv>(cosine_values.data());
-      const Tv sine = DUCC0_NAMESPACE::loadu<Tv>(sine_values.data());
-      sum += T(2) * (sum_re * cosine - sum_im * sine);
+      const Value cosine_value = spectral_value_from_lanes<T, Value>(cosine_values);
+      const Value sine_value = spectral_value_from_lanes<T, Value>(sine_values);
+      sum = sum + broadcast_spectral_value<T, Value>(T(2)) *
+                      (sum_re * cosine_value - sum_im * sine_value);
     }
   }
-  for (std::size_t lane = 0; lane < vlen; ++lane) output(point + lane) = sum[lane];
+  store(sum);
+}
+SPHARM_FP_CONTRACT_ON
+
+template <typename T, typename CoefficientAt, typename LegendreAt>
+T interpolate_spectral_point(double longitude, std::size_t ntrunc,
+                             const CoefficientAt& coefficient_at,
+                             const LegendreAt& legendre_at)
+{
+  const std::array<double, 1> longitudes{longitude};
+  const auto longitude_at = [&](std::size_t point) { return longitudes[point]; };
+  T result = T(0);
+  interpolate_spectral_lanes<T, T, 1>(
+      ntrunc, 0, longitude_at, coefficient_at, [&](std::size_t, std::size_t idx)
+      { return legendre_at(idx); }, [&](T value) { result = value; });
+  return result;
+}
+
+template <typename T>
+double spectral_interpolate(double longitude, const CNpArr& spec,
+                            const CNpArr& legfuncs)
+{
+  if (spec.ndim() != 1 || legfuncs.ndim() != 1)
+    throw py::value_error("dataspec and legfuncs must be rank-one arrays");
+  if (spec.shape(0) == 0 || legfuncs.shape(0) == 0)
+    throw py::value_error("dataspec and legfuncs must not be empty");
+  const auto ntrunc = truncation_from_count(spec.shape(0));
+  if (truncation_from_count(legfuncs.shape(0)) != ntrunc)
+    throw py::value_error(
+        "dataspec and legfuncs imply inconsistent spectral truncations");
+  const auto ss =
+      DUCC0_NAMESPACE::detail_pybind::copy_strides<std::complex<T>, false>(spec);
+  const auto ps = DUCC0_NAMESPACE::detail_pybind::copy_strides<T, false>(legfuncs);
+  const auto* coeff = reinterpret_cast<const std::complex<T>*>(spec.data());
+  const auto* pbar = reinterpret_cast<const T*>(legfuncs.data());
+  const auto coefficient_at = [&](std::size_t idx)
+  { return coeff[static_cast<std::ptrdiff_t>(idx) * ss[0]]; };
+  const auto legendre_at = [&](std::size_t idx)
+  { return pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]]; };
+  return static_cast<double>(
+      interpolate_spectral_point<T>(longitude, ntrunc, coefficient_at, legendre_at));
+}
+
+template <typename T, typename Tv, typename Coefficients, typename Legendre,
+          typename Output>
+void interpolate_spectral_block(const std::vector<double>& longitudes,
+                                std::size_t ntrunc, const Coefficients& coefficients,
+                                const Legendre& legendre, Output& output,
+                                std::size_t point)
+{
+  constexpr std::size_t vlen = Tv::size();
+  const auto coefficient_at = [&](std::size_t idx) { return coefficients(idx); };
+  const auto legendre_at = [&](std::size_t row, std::size_t idx)
+  {
+    std::array<T, vlen> values{};
+    for (std::size_t lane = 0; lane < vlen; ++lane)
+      values[lane] = legendre(row + lane, idx);
+    return DUCC0_NAMESPACE::loadu<Tv>(values.data());
+  };
+  const auto store = [&](Tv values)
+  {
+    for (std::size_t lane = 0; lane < vlen; ++lane) output(point + lane) = values[lane];
+  };
+  interpolate_spectral_lanes<T, Tv, vlen>(
+      ntrunc, point, [&](std::size_t index) { return longitudes[index]; },
+      coefficient_at, legendre_at, store);
 }
 
 template <typename T>
@@ -672,30 +759,10 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
     std::size_t point = native_batches * vlen + (four_lane_tail ? 4 : 0);
     for (; point < longitudes.size(); ++point)
     {
-      T sum = T(0);
-      const double lon = std::remainder(longitudes[point], 360.0) * pi / 180.0;
-      for (std::size_t m = 0; m <= ntrunc; ++m)
-      {
-        const double cosine = std::cos(static_cast<double>(m) * lon);
-        const double sine = std::sin(static_cast<double>(m) * lon);
-        const T cosine_t = static_cast<T>(cosine);
-        const T sine_t = static_cast<T>(sine);
-        T sum_re = T(0), sum_im = T(0);
-        for (std::size_t l = m; l <= ntrunc; ++l)
-        {
-          const auto idx = packed_coefficient_index(ntrunc, m, l);
-          const auto coeff = coefficients(idx);
-          const T p = legendre(point, idx);
-          sum_re += p * coeff.real();
-          if (m > 0)
-            sum_im += p * coeff.imag();
-        }
-        if (m == 0)
-          sum += sum_re;
-        else
-          sum += T(2) * (sum_re * cosine_t - sum_im * sine_t);
-      }
-      output(point) = sum;
+      const auto coefficient_at = [&](std::size_t idx) { return coefficients(idx); };
+      const auto legendre_at = [&](std::size_t idx) { return legendre(point, idx); };
+      output(point) = interpolate_spectral_point<T>(longitudes[point], ntrunc,
+                                                    coefficient_at, legendre_at);
     }
   }
   return result;
@@ -842,7 +909,9 @@ ndarray
 Notes
 -----
 The normalization excludes the Condon-Shortley phase. In particular,
-the degree-zero value is 1 / sqrt(2).)doc");
+the degree-zero value is 1 / sqrt(2). The recurrence uses the selected
+native precision. For a fixed dtype and build profile, this result is
+bitwise identical to the corresponding row of a batched call.)doc");
 
   m.def(
       "legendre",
@@ -880,7 +949,8 @@ Returns
 -------
 ndarray
     Real array of shape (npoints, ncoeff), using the same
-    normalization and packing as legendre.)doc");
+    normalization and packing as legendre. Each row is bitwise identical
+    to its scalar result for the selected dtype and build profile.)doc");
 
   m.def(
       "getgeodesicpts",
@@ -894,16 +964,13 @@ ndarray
             py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
         if (name == "float32")
         {
-          auto result = geodesic_points<double>(static_cast<std::size_t>(m));
+          auto result = geodesic_points<float>(static_cast<std::size_t>(m));
           NpArr latitudes = new_array<float>({result.first.size()});
           NpArr longitudes = new_array<float>({result.second.size()});
           auto lat = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(latitudes);
           auto lon = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(longitudes);
-          for (std::size_t i = 0; i < result.first.size(); ++i)
-          {
-            lat.data()[i] = static_cast<float>(result.first[i]);
-            lon.data()[i] = static_cast<float>(result.second[i]);
-          }
+          std::copy(result.first.begin(), result.first.end(), lat.data());
+          std::copy(result.second.begin(), result.second.end(), lon.data());
           return py::make_tuple(latitudes, longitudes);
         }
         if (name == "float64")
@@ -936,7 +1003,8 @@ Returns
 -------
 (latitudes, longitudes) : tuple of ndarray
     Coordinate arrays in degrees with 10 * (m - 1)**2 + 2 points.
-    Coordinates are computed in float64 before optional conversion.)doc");
+    Geometry is computed in the selected precision: float64 by default
+    or float32 when requested.)doc");
 
   m.def(
       "specintrp",
@@ -981,7 +1049,10 @@ Returns
 -------
 float
     Real interpolated value at the specified longitude and
-    latitude represented by legfuncs.)doc");
+    latitude represented by legfuncs. Accumulation uses the coefficient
+    precision. The binary64 phase recurrence resets every 32 orders;
+    batched results are bitwise identical at the same dtype and within the
+    same build profile.)doc");
 
   m.def(
       "specintrp", &spectral_interpolate_many_binding<float>, "longitudes"_a,
@@ -1005,7 +1076,10 @@ Returns
 -------
 ndarray
     Float32 interpolated values of shape (npoints,). The longitude array
-    may use float32 or float64; its dtype does not determine output precision.)doc");
+    may use float32 or float64; its dtype does not determine output precision.
+    Accumulation uses binary32 and the binary64 phase recurrence resets every
+    32 orders. Each value is bitwise identical to its scalar result within
+    the same build profile.)doc");
 
   m.def(
       "specintrp", &spectral_interpolate_many_binding<double>, "longitudes"_a,
@@ -1029,7 +1103,10 @@ Returns
 -------
 ndarray
     Float64 interpolated values of shape (npoints,). The longitude array
-    may use float32 or float64; its dtype does not determine output precision.)doc");
+    may use float32 or float64; its dtype does not determine output precision.
+    Accumulation uses binary64 and the phase recurrence resets every 32
+    orders. Each value is bitwise identical to its scalar result within the
+    same build profile.)doc");
 }
 
 }  // namespace SPHARM_CPP_NAMESPACE

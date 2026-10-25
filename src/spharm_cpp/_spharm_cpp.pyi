@@ -335,7 +335,9 @@ def legendre(
     Notes
     -----
     The normalization excludes the Condon-Shortley phase. In particular,
-    the degree-zero value is 1 / sqrt(2).
+    the degree-zero value is 1 / sqrt(2). The recurrence uses the selected
+    native precision. For a fixed dtype and build profile, this result is
+    bitwise identical to the corresponding row of a batched call.
     """
 
 @overload
@@ -362,7 +364,8 @@ def legendre(
     -------
     ndarray
         Real array of shape (npoints, ncoeff), using the same
-        normalization and packing as legendre.
+        normalization and packing as legendre. Each row is bitwise identical
+        to its scalar result for the selected dtype and build profile.
     """
 
 def getgeodesicpts(
@@ -386,7 +389,8 @@ def getgeodesicpts(
     -------
     (latitudes, longitudes) : tuple of ndarray
         Coordinate arrays in degrees with 10 * (m - 1)**2 + 2 points.
-        Coordinates are computed in float64 before optional conversion.
+        Geometry is computed in the selected precision: float64 by default
+        or float32 when requested.
     """
 
 @overload
@@ -414,7 +418,10 @@ def specintrp(
     -------
     float
         Real interpolated value at the specified longitude and
-        latitude represented by legfuncs.
+        latitude represented by legfuncs. Accumulation uses the coefficient
+        precision. The binary64 phase recurrence resets every 32 orders;
+        batched results are bitwise identical at the same dtype and within the
+        same build profile.
     """
 
 @overload
@@ -443,6 +450,9 @@ def specintrp(
     ndarray
         Float32 interpolated values of shape (npoints,). The longitude array
         may use float32 or float64; its dtype does not determine output precision.
+        Accumulation uses binary32 and the binary64 phase recurrence resets every
+        32 orders. Each value is bitwise identical to its scalar result within
+        the same build profile.
     """
 
 @overload
@@ -471,6 +481,9 @@ def specintrp(
     ndarray
         Float64 interpolated values of shape (npoints,). The longitude array
         may use float32 or float64; its dtype does not determine output precision.
+        Accumulation uses binary64 and the phase recurrence resets every 32
+        orders. Each value is bitwise identical to its scalar result within the
+        same build profile.
     """
 
 def regrid(
