@@ -283,8 +283,14 @@ def test_batched_noncontiguous_scalar_and_wind_transforms(dtype, cdtype, atol):
     ],
 )
 @pytest.mark.parametrize("gridtype", ["regular", "gaussian"])
-def test_large_batched_wind_synthesis_direct_outputs(dtype, cdtype, atol, gridtype):
-    nlat, nlon, nfield, lmax = 128, 256, 4, 5
+@pytest.mark.parametrize(
+    "nlat, nlon, nfield",
+    [(9, 16, 1), (9, 16, 2), (128, 256, 4)],
+)
+def test_batched_wind_synthesis_direct_outputs(
+    dtype, cdtype, atol, gridtype, nlat, nlon, nfield
+):
+    lmax = 5
     transform = spharm.Spharmt(nlon, nlat, gridtype=gridtype, dtype=dtype)
     rng = np.random.default_rng(128256)
     vrt = (rng.normal(size=(21, nfield)) + 1j * rng.normal(size=(21, nfield))).astype(
@@ -320,6 +326,20 @@ def test_large_batched_wind_synthesis_direct_outputs(dtype, cdtype, atol, gridty
 
     zero_spectrum = np.zeros((1, nfield), dtype=cdtype)
     zero_u, zero_v = transform.getuv(zero_spectrum, zero_spectrum)
+    assert np.count_nonzero(zero_u) == np.count_nonzero(zero_v) == 0
+
+    # Unbatched views use the same backing storage but remain independent arrays.
+    single_u, single_v = transform.getuv(vrt[:, 0], div[:, 0])
+    assert single_u.shape == single_v.shape == (nlat, nlon)
+    assert single_u.flags.c_contiguous and single_v.flags.c_contiguous
+    assert single_u.flags.writeable and single_v.flags.writeable
+    assert not np.shares_memory(single_u, single_v)
+    expected_single_u = single_u.copy()
+    del single_v
+    gc.collect()
+    np.testing.assert_array_equal(single_u, expected_single_u)
+    zero_u, zero_v = transform.getuv(zero_spectrum[:, 0], zero_spectrum[:, 0])
+    assert zero_u.shape == zero_v.shape == (nlat, nlon)
     assert np.count_nonzero(zero_u) == np.count_nonzero(zero_v) == 0
 
 
