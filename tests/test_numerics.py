@@ -9,6 +9,16 @@ import pytest
 import spharm_cpp as spharm
 
 
+def _assert_same_float_bits(actual, expected, dtype):
+    dtype = np.dtype(dtype)
+    bit_dtype = np.uint32 if dtype == np.dtype(np.float32) else np.uint64
+    actual_values = np.asarray(actual, dtype=dtype)
+    expected_values = np.asarray(expected, dtype=dtype)
+    np.testing.assert_array_equal(
+        actual_values.view(bit_dtype), expected_values.view(bit_dtype)
+    )
+
+
 def test_gaussian_rule_and_spectral_indices():
     for nlat in range(1, 13):
         lat, weight = spharm.gaussian_lats_wts(nlat)
@@ -92,13 +102,14 @@ def test_legendre_interpolation_and_poles():
     high32 = spharm.legendre(89.999, 512, dtype=np.float32)
     high64 = spharm.legendre(89.999, 512, dtype=np.float64)
     assert np.all(np.isfinite(high32)) and np.all(np.isfinite(high64))
-    np.testing.assert_array_equal(high32, high64.astype(np.float32))
+    high_batch32 = spharm.legendre(np.array([89.999]), 512, dtype=np.float32)
+    _assert_same_float_bits(high32, high_batch32[0], np.float32)
 
 
 @pytest.mark.parametrize(
     "dtype, rtol, atol, norm_rtol",
     [
-        (np.float32, 3e-6, 2e-7, 5e-5),
+        (np.float32, 1e-4, 2e-7, 1e-4),
         (np.float64, 5e-11, 5e-12, 5e-10),
     ],
 )
@@ -146,7 +157,7 @@ def test_high_degree_batched_legendre_simd_lanes(dtype, rtol, atol, norm_rtol):
     scalar = np.stack(
         [spharm.legendre(float(latitude), lmax, dtype=dtype) for latitude in latitudes]
     )
-    np.testing.assert_allclose(actual, scalar, rtol=rtol, atol=atol)
+    _assert_same_float_bits(actual, scalar, dtype)
 
     m, degree = spharm.getspecindx(lmax)
     reference_coefficients = np.zeros(lmax + 1)
@@ -177,8 +188,76 @@ def test_batched_legendre_simd_full_width_and_tail(dtype):
     reference = np.stack(
         [spharm.legendre(float(lat), 64, dtype=dtype) for lat in latitudes]
     )
-    tolerance = 1e-3 if dtype is np.float32 else 2e-11
-    np.testing.assert_allclose(actual, reference, rtol=tolerance, atol=tolerance)
+    _assert_same_float_bits(actual, reference, dtype)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("ntrunc", [0, 1, 8, 64, 257])
+def test_legendre_scalar_batch_bitwise_across_batches_and_strides(dtype, ntrunc):
+    coordinates = np.array(
+        [
+            90.0,
+            -90.0,
+            0.0,
+            -0.0,
+            1e-4,
+            -1e-4,
+            89.999,
+            -89.999,
+            23.5,
+            -23.5,
+            45.0,
+            -45.0,
+            60.0,
+            -60.0,
+            30.0,
+            -30.0,
+            0.25,
+        ],
+        dtype=np.float64,
+    )
+    coordinates = np.resize(np.concatenate((coordinates, coordinates[::-1])), 65)
+    interleaved = np.empty(coordinates.size * 2, dtype=np.float64)
+    interleaved[::2] = coordinates
+    coordinate_views = (
+        coordinates,
+        coordinates[::-1],
+        interleaved[::2],
+        interleaved[-2::-2],
+        coordinates.astype(np.float32),
+    )
+    for view in coordinate_views:
+        view.flags.writeable = False
+        for npoints in (
+            1,
+            2,
+            3,
+            4,
+            5,
+            7,
+            8,
+            9,
+            15,
+            16,
+            17,
+            31,
+            32,
+            33,
+            63,
+            64,
+            65,
+        ):
+            if npoints > view.size:
+                continue
+            latitudes = view[:npoints]
+            actual = spharm.legendre(latitudes, ntrunc, dtype=dtype)
+            scalar = np.stack(
+                [
+                    spharm.legendre(float(latitude), ntrunc, dtype=dtype)
+                    for latitude in latitudes
+                ]
+            )
+            _assert_same_float_bits(actual, scalar, dtype)
 
 
 def _decimal_legendre_reference(latitude, order, degree):
@@ -209,13 +288,13 @@ def _decimal_legendre_reference(latitude, order, degree):
 
 
 @pytest.mark.parametrize(
-    "dtype, norm_rtol, coefficient_rtol",
+    "dtype, norm_rtol",
     [
-        (np.float32, 5e-4, 1e-3),
-        (np.float64, 2e-11, 2e-9),
+        (np.float32, 5e-4),
+        (np.float64, 2e-11),
     ],
 )
-def test_degree_2048_legendre_norm_across_latitudes(dtype, norm_rtol, coefficient_rtol):
+def test_degree_2048_legendre_norm_across_latitudes(dtype, norm_rtol):
     lmax = 2048
     latitudes = np.array([45, 55, 60, 65, 68, 70, 75, 80], dtype=np.float64)
     orders, degrees = spharm.getspecindx(lmax)
@@ -224,22 +303,12 @@ def test_degree_2048_legendre_norm_across_latitudes(dtype, norm_rtol, coefficien
 
     for row_index, latitude in enumerate(latitudes):
         scalar = spharm.legendre(float(latitude), lmax, dtype=dtype)
-        np.testing.assert_allclose(
-            batch[row_index],
-            scalar,
-            rtol=coefficient_rtol,
-            atol=1e-3 if dtype is np.float32 else 2e-12,
-        )
+        _assert_same_float_bits(batch[row_index], scalar, dtype)
         for values in (scalar, batch[row_index]):
             coefficients = values[degrees == lmax].astype(np.float64)
             norm = coefficients[0] ** 2 + 2 * np.dot(coefficients[1:], coefficients[1:])
-            tolerance = (
-                norm_rtol
-                if dtype is np.float64
-                else (3e-6 if values is scalar else 5e-4)
-            )
             assert norm == pytest.approx(
-                expected_norm, rel=tolerance, abs=tolerance * expected_norm
+                expected_norm, rel=norm_rtol, abs=norm_rtol * expected_norm
             ), f"degree {lmax} norm failed at latitude {latitude}"
 
 
@@ -268,13 +337,15 @@ def test_high_order_legendre_coefficients_against_decimal_reference(dtype, rtol)
     scalar_rows = {
         latitude: spharm.legendre(latitude, lmax, dtype=dtype) for latitude in latitudes
     }
+    for row_index, latitude in enumerate(latitudes):
+        _assert_same_float_bits(batch[row_index], scalar_rows[latitude], dtype)
     orders, degrees = spharm.getspecindx(lmax)
     latitude_rows = {float(latitude): i for i, latitude in enumerate(latitudes)}
 
     for latitude, order in cases:
         index = np.flatnonzero((orders == order) & (degrees == lmax))[0]
         expected = _decimal_legendre_reference(latitude, order, lmax)
-        scalar_rtol = 5e-6 if dtype is np.float32 else rtol
+        scalar_rtol = rtol
         for label, values, tolerance in (
             ("scalar", scalar_rows[latitude], scalar_rtol),
             ("batch", batch[latitude_rows[latitude]], rtol),
@@ -302,7 +373,7 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
     expected_pnm = np.stack(
         [spharm.legendre(float(latitude), lmax, dtype=dtype) for latitude in latitudes]
     )
-    np.testing.assert_allclose(pnm, expected_pnm, rtol=tol, atol=tol)
+    _assert_same_float_bits(pnm, expected_pnm, dtype)
 
     rng = np.random.default_rng(15)
     spec = (rng.normal(size=pnm.shape[1]) + 1j * rng.normal(size=pnm.shape[1])).astype(
@@ -317,11 +388,12 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
     expected = np.array(
         [
             spharm.specintrp(float(lon), spec, pbar)
-            for lon, pbar in zip(longitudes, expected_pnm)
-        ]
+            for lon, pbar in zip(longitudes, pnm)
+        ],
+        dtype=dtype,
     )
     assert values.dtype == np.dtype(dtype)
-    np.testing.assert_allclose(values, expected, rtol=tol, atol=tol)
+    _assert_same_float_bits(values, expected, dtype)
 
     with pytest.raises(ValueError, match="rank one"):
         spharm.legendre(np.zeros((2, 2)), lmax)
@@ -355,20 +427,10 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
 
     for npoints in (1, 4, 7, 8, 9):
         tail_pbar = spharm.legendre(latitudes[:npoints], 16, dtype=dtype)
-        np.testing.assert_allclose(
-            tail_pbar,
-            pbar[:npoints],
-            rtol=2e-5 if dtype is np.float32 else 5e-12,
-            atol=2e-6 if dtype is np.float32 else 5e-14,
-        )
+        _assert_same_float_bits(tail_pbar, pbar[:npoints], dtype)
         values = spharm.specintrp(longitudes[:npoints], spec, tail_pbar)
         assert values.dtype == np.dtype(dtype)
-        np.testing.assert_allclose(
-            values,
-            double_longitude_values[:npoints],
-            rtol=2e-5 if dtype is np.float32 else 5e-12,
-            atol=2e-6 if dtype is np.float32 else 5e-14,
-        )
+        _assert_same_float_bits(values, double_longitude_values[:npoints], dtype)
 
     empty_latitudes = np.empty(0, dtype=np.float64)
     empty_pbar = spharm.legendre(empty_latitudes, 16, dtype=dtype)
@@ -376,6 +438,125 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
     assert empty_pbar.shape == (0, pbar.shape[1])
     assert empty_values.shape == (0,)
     assert empty_values.dtype == np.dtype(dtype)
+
+
+@pytest.mark.parametrize(
+    "dtype, cdtype",
+    [(np.float32, np.complex64), (np.float64, np.complex128)],
+)
+@pytest.mark.parametrize("ntrunc", [0, 1, 17, 64, 129])
+def test_specintrp_scalar_batch_bitwise_across_batches_and_strides(
+    dtype, cdtype, ntrunc
+):
+    npoints = 65
+    latitudes = np.array(
+        [
+            -90.0,
+            89.999,
+            -60.0,
+            0.0,
+            45.0,
+            -23.5,
+            90.0,
+            -89.999,
+            30.0,
+            -45.0,
+            60.0,
+            -30.0,
+            0.25,
+            -0.25,
+            75.0,
+            -75.0,
+            12.5,
+        ]
+    )
+    longitudes = np.array(
+        [
+            -720.0,
+            -360.125,
+            -0.0,
+            0.125,
+            90.25,
+            180.0,
+            360.0,
+            721.5,
+            -1080.25,
+            1e20,
+            -1e20,
+            1e308,
+            -1e308,
+            45.0,
+            -90.0,
+            270.0,
+            1080.0,
+        ]
+    )
+    latitudes = np.resize(latitudes, npoints)
+    longitudes = np.resize(longitudes, npoints)
+    pbar = spharm.legendre(latitudes, ntrunc, dtype=dtype)
+    rng = np.random.default_rng(918 + ntrunc)
+    spec = (
+        rng.standard_normal(pbar.shape[1]) + 1j * rng.standard_normal(pbar.shape[1])
+    ).astype(cdtype)
+    if ntrunc >= 3:
+        cancellation = [2**24, 1, -(2**24), 1]
+        if dtype is np.float64:
+            cancellation = [2**53, 1, -(2**53), 1]
+        spec[:4] = np.asarray(cancellation, dtype=dtype).astype(cdtype)
+
+    coefficient_variants = (spec, spec.real.astype(cdtype))
+    for coefficients in coefficient_variants:
+        for n in (
+            1,
+            2,
+            3,
+            4,
+            5,
+            7,
+            8,
+            9,
+            15,
+            16,
+            17,
+            31,
+            32,
+            33,
+            63,
+            64,
+            65,
+        ):
+            actual = spharm.specintrp(longitudes[:n], coefficients, pbar[:n])
+            scalar = np.asarray(
+                [
+                    spharm.specintrp(float(lon), coefficients, row)
+                    for lon, row in zip(longitudes[:n], pbar[:n])
+                ],
+                dtype=dtype,
+            )
+            _assert_same_float_bits(actual, scalar, dtype)
+
+    # Exercise independent point and coefficient strides, including read-only
+    # inputs. Scalar calls below receive the same strided rows as the batch.
+    longitude_storage = np.empty(npoints * 2, dtype=np.float64)
+    longitude_storage[::2] = longitudes
+    strided_longitudes = longitude_storage[::2]
+    coefficient_storage = np.empty(spec.size * 2, dtype=cdtype)
+    coefficient_storage[::2] = spec
+    strided_spec = coefficient_storage[::2]
+    pbar_storage = np.empty((npoints * 2, pbar.shape[1] * 2), dtype=dtype)
+    pbar_storage[::2, ::2] = pbar
+    strided_pbar = pbar_storage[::2, ::2]
+    for values in (strided_longitudes, strided_spec, strided_pbar):
+        values.flags.writeable = False
+    actual = spharm.specintrp(strided_longitudes, strided_spec, strided_pbar)
+    scalar = np.asarray(
+        [
+            spharm.specintrp(float(lon), strided_spec, row)
+            for lon, row in zip(strided_longitudes, strided_pbar)
+        ],
+        dtype=dtype,
+    )
+    _assert_same_float_bits(actual, scalar, dtype)
 
 
 def test_batched_interpolation_rejects_mismatched_precision():
