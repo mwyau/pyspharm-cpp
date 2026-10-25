@@ -27,7 +27,7 @@ jobs:
           ref: ${{ github.sha }}
           submodules: recursive
           persist-credentials: false
-      - uses: conda-incubator/setup-miniconda@v4
+      - uses: conda-incubator/setup-miniconda@v4.1.0
         with:
           environment-file: .github/conda/pyspharm.yml
           activate-environment: pyspharm-reference
