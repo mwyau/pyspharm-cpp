@@ -615,13 +615,19 @@ def test_spectral_indices_match_numpy_native_reference_order():
 
 @pytest.mark.contract("getgeodesicpts")
 @pytest.mark.approved_difference("geodesic_float64_default")
-def test_geodesic_float32_order_and_double_precision_geometry():
+def test_geodesic_float32_native_geometry_and_order():
     for m in (1, 2, 3, 4, 6, 10, 20):
         expected_lat, expected_lon = parity.REFERENCE.getgeodesicpts(m)
         actual_lat, actual_lon = cpp.getgeodesicpts(m, dtype=np.float32)
         assert actual_lat.shape == actual_lon.shape == (10 * (m - 1) ** 2 + 2,)
         assert actual_lat.dtype == actual_lon.dtype == np.float32
         assert expected_lat.shape == expected_lon.shape == actual_lat.shape
+        assert (actual_lat[0], actual_lat[1], actual_lon[0], actual_lon[1]) == (
+            90,
+            -90,
+            0,
+            0,
+        )
         longitude_delta = (
             actual_lon.astype(np.float64) - expected_lon + 180
         ) % 360 - 180
@@ -633,6 +639,14 @@ def test_geodesic_float32_order_and_double_precision_geometry():
             rtol=0,
             atol=7e-5,
         )
+        phi = np.deg2rad(actual_lat.astype(np.float64))
+        lam = np.deg2rad(actual_lon.astype(np.float64))
+        xyz_norm = np.sqrt(
+            (np.cos(phi) * np.cos(lam)) ** 2
+            + (np.cos(phi) * np.sin(lam)) ** 2
+            + np.sin(phi) ** 2
+        )
+        np.testing.assert_allclose(xyz_norm, 1.0, rtol=0, atol=2e-7)
         parity.assert_close(
             "getgeodesicpts_longitude_float32",
             "float32",
@@ -669,11 +683,6 @@ def test_geodesic_float32_order_and_double_precision_geometry():
         + np.sin(phi) ** 2
     )
     np.testing.assert_allclose(xyz_norm, 1.0, rtol=0, atol=3e-16)
-    for m in (1, 2, 3, 4, 6, 10, 20):
-        lat64, lon64 = cpp.getgeodesicpts(m)
-        lat32, lon32 = cpp.getgeodesicpts(m, dtype=np.float32)
-        np.testing.assert_array_equal(lat32, lat64.astype(np.float32))
-        np.testing.assert_array_equal(lon32, lon64.astype(np.float32))
     with pytest.raises(TypeError, match="float32 or numpy.float64"):
         cpp.getgeodesicpts(2, dtype=np.int32)
     with pytest.raises(TypeError):
@@ -1379,7 +1388,9 @@ def test_overloaded_batch_inputs_preserve_batch_and_coefficient_axes():
     latitudes = np.asarray([-53.0, 0.0, 62.0], dtype=np.float64)
     batched_pbar = cpp.legendre(latitudes, ntrunc)
     scalar_pbar = np.stack([cpp.legendre(float(lat), ntrunc) for lat in latitudes])
-    np.testing.assert_allclose(batched_pbar, scalar_pbar, rtol=0, atol=2e-14)
+    np.testing.assert_array_equal(
+        batched_pbar.view(np.uint64), scalar_pbar.view(np.uint64)
+    )
     spectrum = np.zeros((ntrunc + 1) * (ntrunc + 2) // 2, dtype=np.complex128)
     spectrum[: ntrunc + 1] = np.arange(ntrunc + 1)
     longitudes = np.asarray([-20.0, 45.0, 365.0])
@@ -1388,9 +1399,10 @@ def test_overloaded_batch_inputs_preserve_batch_and_coefficient_axes():
         [
             cpp.specintrp(lon, spectrum, row)
             for lon, row in zip(longitudes, batched_pbar)
-        ]
+        ],
+        dtype=values.dtype,
     )
-    np.testing.assert_allclose(values, repeated, rtol=0, atol=2e-13)
+    np.testing.assert_array_equal(values.view(np.uint64), repeated.view(np.uint64))
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:

@@ -28,14 +28,33 @@ def test_auxiliary_overloads_replace_many_exports():
     assert not hasattr(spharm._spharm_cpp, "specintrp_many")
 
 
-@pytest.mark.parametrize("m", [1, 2, 4, 10])
-def test_geodesic_float32_is_rounded_float64(m):
+@pytest.mark.parametrize("m", [1, 2, 4, 10, 20])
+def test_geodesic_precision_and_ordering(m):
     latitude64, longitude64 = spharm.getgeodesicpts(m)
     latitude32, longitude32 = spharm.getgeodesicpts(m, dtype=np.float32)
+    expected_count = 10 * (m - 1) ** 2 + 2
+    assert latitude64.shape == longitude64.shape == (expected_count,)
+    assert latitude32.shape == longitude32.shape == (expected_count,)
     assert latitude64.dtype == longitude64.dtype == np.float64
     assert latitude32.dtype == longitude32.dtype == np.float32
-    np.testing.assert_array_equal(latitude32, latitude64.astype(np.float32))
-    np.testing.assert_array_equal(longitude32, longitude64.astype(np.float32))
+    for latitude, longitude, tolerance in (
+        (latitude64, longitude64, 4e-16),
+        (latitude32, longitude32, 2e-7),
+    ):
+        assert (latitude[0], latitude[1], longitude[0], longitude[1]) == (
+            90,
+            -90,
+            0,
+            0,
+        )
+        phi = np.deg2rad(latitude.astype(np.float64))
+        lam = np.deg2rad(longitude.astype(np.float64))
+        xyz_norm = np.sqrt(
+            (np.cos(phi) * np.cos(lam)) ** 2
+            + (np.cos(phi) * np.sin(lam)) ** 2
+            + np.sin(phi) ** 2
+        )
+        np.testing.assert_allclose(xyz_norm, 1.0, rtol=0, atol=tolerance)
 
 
 def test_constructor_and_regular_analysis_limit():

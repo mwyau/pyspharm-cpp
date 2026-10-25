@@ -43,8 +43,8 @@ APPROVED_DIFFERENCES = {
         "Rank-one coefficient outputs retain a consistent shape at ntrunc=0."
     ),
     "geodesic_float64_default": (
-        "getgeodesicpts defaults to double-precision geometry and float64 "
-        "coordinates; dtype=numpy.float32 casts the computed coordinates to float32."
+        "getgeodesicpts defaults to float64 geometry and coordinates; "
+        "dtype=numpy.float32 selects native float32 geometry and coordinates."
     ),
     "regrid_native_precision_conversion": (
         "Regridding may analyze and synthesize at different supported native "
