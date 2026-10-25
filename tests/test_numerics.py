@@ -617,9 +617,7 @@ def test_scalar_interpolation_reduces_large_finite_longitudes():
             "lon",
         ),
         (
-            lambda: spharm.specintrp(
-                0, np.empty(0, dtype=np.complex128), np.ones(3)
-            ),
+            lambda: spharm.specintrp(0, np.empty(0, dtype=np.complex128), np.ones(3)),
             "empty",
         ),
         (
