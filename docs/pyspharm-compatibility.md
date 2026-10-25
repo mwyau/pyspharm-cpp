@@ -25,7 +25,7 @@ Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dat
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                   |
 | Legendre evaluation               | Stored Legendre functions (`legfunc="stored"`) are not supported.                            |
-| Coordinate-array overloads        | `legendre` and `specintrp` accept batched points in addition to scalar inputs.                |
+| Coordinate-array overloads        | `legendre` and `specintrp` accept batched points in addition to scalar inputs.               |
 | Instance representation           | `Spharmt.__repr__` includes additional diagnostic information.                               |
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
