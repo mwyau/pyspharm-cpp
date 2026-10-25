@@ -233,6 +233,29 @@ NpArr legendre_values(double latitude, std::size_t lmax)
   return result;
 }
 
+std::string legendre_dtype_name(py::object dtype)
+{
+  if (dtype.is_none())
+    dtype = py::module_::import_("numpy").attr("float64");
+  auto name = py::cast<std::string>(
+      py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
+  if (name != "float32" && name != "float64")
+    throw py::type_error("dtype must be numpy.float32 or numpy.float64");
+  return name;
+}
+
+NpArr scalar_legendre_binding(double latitude, std::int64_t ntrunc, py::object dtype)
+{
+  if (ntrunc < 0)
+    throw py::value_error("ntrunc must be nonnegative");
+  if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0)
+    throw py::value_error("lat must be finite and between -90 and 90 degrees");
+  const auto name = legendre_dtype_name(dtype);
+  if (name == "float32")
+    return legendre_values<float>(latitude, static_cast<std::size_t>(ntrunc));
+  return legendre_values<double>(latitude, static_cast<std::size_t>(ntrunc));
+}
+
 template <typename T, typename Output>
 void legendre_many_scalar_row(T x, T s, std::size_t lmax, std::size_t row,
                               Output& output)
@@ -681,13 +704,21 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
 }
 
 template <typename T>
-NpArr spectral_interpolate_many_binding(
+py::object spectral_interpolate_many_binding(
     const CNpArr& longitude_array,
     const DUCC0_NAMESPACE::detail_pybind::CNpArrT<std::complex<T>>& spec_array,
     const DUCC0_NAMESPACE::detail_pybind::CNpArrT<T>& legfuncs_array)
 {
   CNpArr spec(spec_array);
   CNpArr legfuncs(legfuncs_array);
+  if (longitude_array.ndim() == 0)
+  {
+    const auto longitude =
+        py::cast<double>(CNpArr(longitude_array).cast().attr("item")());
+    if (!std::isfinite(longitude))
+      throw py::value_error("lon must be finite");
+    return py::float_(spectral_interpolate<T>(longitude, spec, legfuncs));
+  }
   auto longitudes = real_vector(longitude_array, "longitudes");
   if (spec.ndim() != 1 || legfuncs.ndim() != 2)
     throw py::value_error("dataspec must be rank one and legfuncs rank two");
@@ -699,7 +730,7 @@ NpArr spectral_interpolate_many_binding(
   for (const auto longitude : longitudes)
     if (!std::isfinite(longitude))
       throw py::value_error("longitudes must be finite");
-  return spectral_interpolate_many<T>(longitudes, spec, legfuncs);
+  return py::object(spectral_interpolate_many<T>(longitudes, spec, legfuncs).cast());
 }
 
 }  // namespace
@@ -788,24 +819,9 @@ Returns
     Order m is the outer index and degree l runs from m to ntrunc.)doc");
 
   m.def(
-      "legendre",
-      [](double latitude, std::int64_t ntrunc, py::object dtype)
-      {
-        if (ntrunc < 0)
-          throw py::value_error("ntrunc must be nonnegative");
-        if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0)
-          throw py::value_error("lat must be finite and between -90 and 90 degrees");
-        if (dtype.is_none())
-          dtype = py::module_::import_("numpy").attr("float64");
-        auto name = py::cast<std::string>(
-            py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
-        if (name == "float32")
-          return legendre_values<float>(latitude, static_cast<std::size_t>(ntrunc));
-        if (name == "float64")
-          return legendre_values<double>(latitude, static_cast<std::size_t>(ntrunc));
-        throw py::type_error("dtype must be numpy.float32 or numpy.float64");
-      },
-      "lat"_a, "ntrunc"_a, py::kw_only(), "dtype"_a = py::none(),
+      "legendre", [](double latitude, std::int64_t ntrunc, py::object dtype)
+      { return scalar_legendre_binding(latitude, ntrunc, dtype); }, "lat"_a, "ntrunc"_a,
+      py::kw_only(), "dtype"_a = py::none(),
       py::sig(
           R"(def legendre(lat: float, ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
       R"doc(Evaluate normalized associated Legendre functions at one latitude.
@@ -831,27 +847,26 @@ The normalization excludes the Condon-Shortley phase. In particular,
 the degree-zero value is 1 / sqrt(2).)doc");
 
   m.def(
-      "legendre_many",
+      "legendre",
       [](const CNpArr& latitude_array, std::int64_t ntrunc, py::object dtype)
       {
+        if (latitude_array.ndim() == 0)
+          return scalar_legendre_binding(
+              py::cast<double>(CNpArr(latitude_array).cast().attr("item")()), ntrunc,
+              dtype);
         if (ntrunc < 0)
           throw py::value_error("ntrunc must be nonnegative");
         auto latitudes = real_vector(latitude_array, "latitudes");
-        if (dtype.is_none())
-          dtype = py::module_::import_("numpy").attr("float64");
-        auto name = py::cast<std::string>(
-            py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
+        const auto name = legendre_dtype_name(dtype);
         if (name == "float32")
           return legendre_many_values<float>(latitudes,
                                              static_cast<std::size_t>(ntrunc));
-        if (name == "float64")
-          return legendre_many_values<double>(latitudes,
-                                              static_cast<std::size_t>(ntrunc));
-        throw py::type_error("dtype must be numpy.float32 or numpy.float64");
+        return legendre_many_values<double>(latitudes,
+                                            static_cast<std::size_t>(ntrunc));
       },
       "latitudes"_a, "ntrunc"_a, py::kw_only(), "dtype"_a = py::none(),
       py::sig(
-          R"(def legendre_many(latitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
+          R"(def legendre(latitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
       R"doc(Evaluate normalized associated Legendre functions at several latitudes.
 
 Parameters
@@ -971,10 +986,10 @@ float
     latitude represented by legfuncs.)doc");
 
   m.def(
-      "specintrp_many", &spectral_interpolate_many_binding<float>, "longitudes"_a,
+      "specintrp", &spectral_interpolate_many_binding<float>, "longitudes"_a,
       "dataspec"_a.noconvert(), "legfuncs"_a.noconvert(),
       py::sig(
-          R"(def specintrp_many(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex64], legfuncs: numpy.typing.NDArray[numpy.float32]) -> numpy.typing.NDArray[numpy.float32])"),
+          R"(def specintrp(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex64], legfuncs: numpy.typing.NDArray[numpy.float32]) -> numpy.typing.NDArray[numpy.float32])"),
       R"doc(Evaluate one scalar spherical harmonic expansion at several points.
 
 Parameters
@@ -985,7 +1000,8 @@ dataspec : ndarray
     One-dimensional complex64 coefficients in triangular packing.
 legfuncs : ndarray
     Associated Legendre values of shape (npoints, ncoeff), e.g.,
-    from legendre_many. Use float32 values with complex64 coefficients.
+    from legendre(latitudes, ntrunc, dtype=numpy.float32). Use float32
+    values with complex64 coefficients.
 
 Returns
 -------
@@ -994,10 +1010,10 @@ ndarray
     may use float32 or float64; its dtype does not determine output precision.)doc");
 
   m.def(
-      "specintrp_many", &spectral_interpolate_many_binding<double>, "longitudes"_a,
+      "specintrp", &spectral_interpolate_many_binding<double>, "longitudes"_a,
       "dataspec"_a.noconvert(), "legfuncs"_a.noconvert(),
       py::sig(
-          R"(def specintrp_many(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64])"),
+          R"(def specintrp(longitudes: numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64], dataspec: numpy.typing.NDArray[numpy.complex128], legfuncs: numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64])"),
       R"doc(Evaluate one scalar spherical harmonic expansion at several points.
 
 Parameters
@@ -1008,7 +1024,8 @@ dataspec : ndarray
     One-dimensional complex128 coefficients in triangular packing.
 legfuncs : ndarray
     Associated Legendre values of shape (npoints, ncoeff), e.g.,
-    from legendre_many. Use float64 values with complex128 coefficients.
+    from legendre(latitudes, ntrunc, dtype=numpy.float64). Use float64
+    values with complex128 coefficients.
 
 Returns
 -------

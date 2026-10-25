@@ -31,7 +31,7 @@ The associated Legendre functions exclude the Condon–Shortley phase and use th
 P_{lm}(\sin\phi),
 ```
 
-where latitude {math}`\phi` is in radians in this formula and {math}`P_{lm}` excludes the Condon–Shortley phase. In particular, {math}`\bar P_{00}=1/\sqrt{2}`. The public `legendre` and `legendre_many` functions accept latitudes in **degrees**.
+where latitude {math}`\phi` is in radians in this formula and {math}`P_{lm}` excludes the Condon–Shortley phase. In particular, {math}`\bar P_{00}=1/\sqrt{2}`. `legendre` accepts scalar or one-dimensional array latitudes in **degrees**.
 
 For real fields, positive orders contribute twice the real part of the complex harmonic. At `m=0` the spectral coefficient is real.
 
@@ -62,13 +62,13 @@ For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitu
 
 `Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` calculates coordinates in float64 and optionally returns float32 values.
 
-`legendre_many` evaluates its associated Legendre recurrence at the requested precision. `specintrp_many` accepts float32 Legendre values with complex64 coefficients or float64 Legendre values with complex128 coefficients; its output follows that pair regardless of the longitude-array dtype.
+For array latitudes, `legendre` evaluates the associated Legendre recurrence at the requested precision and returns shape `(npoints, ncoeff)`. `specintrp` accepts scalar longitude and rank-one Legendre values for a Python `float` result, or one-dimensional longitude and rank-two Legendre arrays for batched interpolation. Batched interpolation accepts float32 Legendre values with complex64 coefficients or float64 Legendre values with complex128 coefficients; its output follows that pair regardless of the longitude-array dtype.
 
-At high spectral truncation, float32 recurrence and summation roundoff produce larger differences from float64-intermediate calculations. In tests, `legendre_many` differed from the scalar float32 result by at most 2.6e-2 absolute at `ntrunc=1024` near 89.999° latitude, where the coefficient magnitude was about 29.5. At `ntrunc=2048`, the degree norm differed by at most 3.5e-4 relative across eight tested latitudes. These results describe the tested inputs and do not bound other latitudes or spectra. For high-degree calculations sensitive to float32 roundoff, prefer float64.
+At high spectral truncation, float32 recurrence and summation roundoff produce larger differences from float64-intermediate calculations. In tests, batched `legendre` differed from the scalar float32 result by at most 2.6e-2 absolute at `ntrunc=1024` near 89.999° latitude, where the coefficient magnitude was about 29.5. At `ntrunc=2048`, the degree norm differed by at most 3.5e-4 relative across eight tested latitudes. These results describe the tested inputs and do not bound other latitudes or spectra. For high-degree calculations sensitive to float32 roundoff, prefer float64.
 
 `rsphere` is a positive radius in the user's length units. Scalar transforms are independent of radius; gradients divide by radius, and wind-derived vorticity and divergence use spherical derivatives. Component order is eastward (`u`) then northward (`v`).
 
-`getuv` returns eastward and northward wind; `getvrtdivspec` returns vorticity then divergence spectra; `getpsichi` returns streamfunction then velocity potential. Longitude arguments for `specintrp` and `specintrp_many` are in degrees.
+`getuv` returns eastward and northward wind; `getvrtdivspec` returns vorticity then divergence spectra; `getpsichi` returns streamfunction then velocity potential. Longitude arguments for `specintrp` are in degrees.
 
 ## Thread selection
 

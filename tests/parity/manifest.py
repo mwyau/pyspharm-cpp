@@ -17,16 +17,11 @@ LEGACY_CONTRACTS = {
     "gaussian_lats_wts": "Gaussian latitudes and quadrature weights",
     "getspecindx": "triangular coefficient indices and dtype",
     "getgeodesicpts": "ordered geodesic coordinates and precision",
-    "legendre": "normalized associated Legendre values",
-    "specintrp": "single-longitude spectral interpolation",
+    "legendre": "normalized associated Legendre values for scalar and batched latitudes",
+    "specintrp": "spectral interpolation at a scalar point or across batched points",
 }
 
 ADDITIVE_CONTRACTS = {
-    "legendre_many": (
-        "batched Legendre evaluation matches scalar calls within "
-        "dtype-specific tolerances"
-    ),
-    "specintrp_many": "batched interpolation equals scalar calls with matched precision",
     "cpu_info": "DUCC CPU metadata schema and value types",
     "Spharmt.dtype": "selected map and coefficient precision",
 }

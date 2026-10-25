@@ -40,12 +40,12 @@ These choices were measured on a Ryzen 9 5950X with the Linux x86-64-v3
 profile (2 warmups, 7 timing repetitions). They are not general speedup
 guarantees, particularly for ARM64, where batch scheduling is unmeasured.
 
-- Use point-lane SIMD for `specintrp_many`. Coefficient-lane SIMD was
+- Use point-lane SIMD for array inputs to `specintrp`. Coefficient-lane SIMD was
   approximately 4.7× slower in float32 and 6.4× slower in float64.
   Point-lane SIMD improved selected float32 cases by about 1.6–1.7×;
   float64 results were mixed. Keep native-width SIMD plus a scalar tail
-  for `legendre_many`: a four-lane tail slowed small batches.
-- Parallelize `legendre_many` and `specintrp_many` only when there are at
+  for array inputs to `legendre`: a four-lane tail slowed small batches.
+- Parallelize array inputs to `legendre` and `specintrp` only when there are at
   least four SIMD batches. Small inputs did not benefit from thread
   scheduling; larger cases improved by up to 3.39× with four threads.
 - For scalar analysis/synthesis and wind analysis, parallelize across

@@ -15,10 +15,9 @@ The tests cover the following interfaces, including batched inputs where applica
 | `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
 | `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
-| `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
-| `legendre_many`, `specintrp_many`                    | Batched results against scalar operations using precision-specific tolerances                |
+| `legendre`, `specintrp`                              | Normalization, phase, polar behavior, longitude, and batched results against scalar calls    |
 
-Direct PySpharm comparisons cover the shared API. The additional `legendre_many` and `specintrp_many` functions are compared with scalar calls.
+Direct PySpharm comparisons cover the scalar functions. Batched inputs are compared with repeated scalar calls using precision-specific tolerances.
 
 ## Differences
 

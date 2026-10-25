@@ -770,7 +770,7 @@ def test_scalar_spectral_interpolation_matches_reference_at_lon_and_lat_points()
             assert isinstance(expected, float)
             assert isinstance(actual, float)
             parity.assert_close(
-                "specintrp_float32",
+                "specintrp_scalar_float32",
                 "float32",
                 np.asarray(actual),
                 np.asarray(expected),
@@ -779,16 +779,16 @@ def test_scalar_spectral_interpolation_matches_reference_at_lon_and_lat_points()
             )
 
 
-@pytest.mark.contract("legendre_many")
-def test_legendre_many_matches_repeated_reference_scalar_calls():
+@pytest.mark.contract("legendre")
+def test_batched_legendre_matches_repeated_reference_scalar_calls():
     latitudes = np.asarray([-90.0, -33.25, 0.0, 41.5, 90.0], dtype=np.float32)
     ntrunc = 32
     expected = np.stack(
         [parity.REFERENCE.legendre(float(latitude), ntrunc) for latitude in latitudes]
     )
-    actual = cpp.legendre_many(latitudes, ntrunc, dtype=np.float32)
+    actual = cpp.legendre(latitudes, ntrunc, dtype=np.float32)
     parity.assert_close(
-        "legendre_many_float32",
+        "legendre_batched_float32",
         "float32",
         actual,
         expected,
@@ -797,8 +797,8 @@ def test_legendre_many_matches_repeated_reference_scalar_calls():
     )
 
 
-@pytest.mark.contract("specintrp_many")
-def test_specintrp_many_matches_repeated_reference_scalar_calls():
+@pytest.mark.contract("specintrp")
+def test_batched_specintrp_matches_repeated_reference_scalar_calls():
     ntrunc = 8
     nalm = (ntrunc + 1) * (ntrunc + 2) // 2
     rng = np.random.default_rng(912)
@@ -818,10 +818,10 @@ def test_specintrp_many_matches_repeated_reference_scalar_calls():
             for lon, pbar in zip(longitudes, legendre_rows)
         ]
     )
-    actual = cpp.specintrp_many(longitudes, spec, legendre_rows)
+    actual = cpp.specintrp(longitudes, spec, legendre_rows)
     assert actual.dtype == np.float32
     parity.assert_close(
-        "specintrp_many_float32",
+        "specintrp_batched_float32",
         "float32",
         actual,
         expected,
@@ -1372,18 +1372,18 @@ def test_even_longitude_scalar_nyquist_matches_spherepack_and_analytic_samples(
         )
 
 
-@pytest.mark.contract("legendre_many")
-@pytest.mark.contract("specintrp_many")
-def test_additive_batch_apis_preserve_batch_and_coefficient_axes():
+@pytest.mark.contract("legendre")
+@pytest.mark.contract("specintrp")
+def test_overloaded_batch_inputs_preserve_batch_and_coefficient_axes():
     ntrunc = 5
     latitudes = np.asarray([-53.0, 0.0, 62.0], dtype=np.float64)
-    batched_pbar = cpp.legendre_many(latitudes, ntrunc)
+    batched_pbar = cpp.legendre(latitudes, ntrunc)
     scalar_pbar = np.stack([cpp.legendre(float(lat), ntrunc) for lat in latitudes])
     np.testing.assert_allclose(batched_pbar, scalar_pbar, rtol=0, atol=2e-14)
     spectrum = np.zeros((ntrunc + 1) * (ntrunc + 2) // 2, dtype=np.complex128)
     spectrum[: ntrunc + 1] = np.arange(ntrunc + 1)
     longitudes = np.asarray([-20.0, 45.0, 365.0])
-    values = cpp.specintrp_many(longitudes, spectrum, batched_pbar)
+    values = cpp.specintrp(longitudes, spectrum, batched_pbar)
     repeated = np.asarray(
         [
             cpp.specintrp(lon, spectrum, row)

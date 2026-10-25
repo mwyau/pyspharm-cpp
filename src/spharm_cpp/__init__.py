@@ -11,10 +11,8 @@ from ._spharm_cpp import (
     getgeodesicpts,
     getspecindx,
     legendre,
-    legendre_many,
     regrid,
     specintrp,
-    specintrp_many,
 )
 
 __version__ = version("pyspharm-cpp")
@@ -26,8 +24,6 @@ __all__ = [
     "getgeodesicpts",
     "getspecindx",
     "legendre",
-    "legendre_many",
     "regrid",
     "specintrp",
-    "specintrp_many",
 ]

@@ -310,6 +310,7 @@ def getspecindx(
         Order m is the outer index and degree l runs from m to ntrunc.
     """
 
+@overload
 def legendre(
     lat: float, ntrunc: int, *, dtype: object | None = None
 ) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64]:
@@ -337,7 +338,8 @@ def legendre(
     the degree-zero value is 1 / sqrt(2).
     """
 
-def legendre_many(
+@overload
+def legendre(
     latitudes: numpy.typing.NDArray[numpy.float32]
     | numpy.typing.NDArray[numpy.float64],
     ntrunc: int,
@@ -387,6 +389,7 @@ def getgeodesicpts(
         Coordinates are computed in float64 before optional conversion.
     """
 
+@overload
 def specintrp(
     lon: float,
     dataspec: numpy.typing.NDArray[numpy.complex64]
@@ -415,7 +418,7 @@ def specintrp(
     """
 
 @overload
-def specintrp_many(
+def specintrp(
     longitudes: numpy.typing.NDArray[numpy.float32]
     | numpy.typing.NDArray[numpy.float64],
     dataspec: numpy.typing.NDArray[numpy.complex64],
@@ -432,7 +435,8 @@ def specintrp_many(
         One-dimensional complex64 coefficients in triangular packing.
     legfuncs : ndarray
         Associated Legendre values of shape (npoints, ncoeff), e.g.,
-        from legendre_many. Use float32 values with complex64 coefficients.
+        from legendre(latitudes, ntrunc, dtype=numpy.float32). Use float32
+        values with complex64 coefficients.
 
     Returns
     -------
@@ -442,7 +446,7 @@ def specintrp_many(
     """
 
 @overload
-def specintrp_many(
+def specintrp(
     longitudes: numpy.typing.NDArray[numpy.float32]
     | numpy.typing.NDArray[numpy.float64],
     dataspec: numpy.typing.NDArray[numpy.complex128],
@@ -459,7 +463,8 @@ def specintrp_many(
         One-dimensional complex128 coefficients in triangular packing.
     legfuncs : ndarray
         Associated Legendre values of shape (npoints, ncoeff), e.g.,
-        from legendre_many. Use float64 values with complex128 coefficients.
+        from legendre(latitudes, ntrunc, dtype=numpy.float64). Use float64
+        values with complex128 coefficients.
 
     Returns
     -------

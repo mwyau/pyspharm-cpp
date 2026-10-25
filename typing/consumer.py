@@ -14,10 +14,8 @@ from spharm_cpp import (
     getgeodesicpts,
     getspecindx,
     legendre,
-    legendre_many,
     regrid,
     specintrp,
-    specintrp_many,
 )
 
 
@@ -36,20 +34,20 @@ def exercise_public_types() -> None:
     latitudes, weights = gaussian_lats_wts(8)
     zonal_indices, degrees = getspecindx(3)
     one_latitude = legendre(20.0, 3, dtype=np.float64)
-    latitude_batch = legendre_many(np.array([-30.0, 0.0, 30.0], dtype=np.float64), 3)
+    latitude_batch = legendre(np.array([-30.0, 0.0, 30.0], dtype=np.float64), 3)
     latitude_batch32 = cast(
         NDArray[np.float32],
-        legendre_many(np.array([-30.0, 30.0], dtype=np.float32), 3, dtype=np.float32),
+        legendre(np.array([-30.0, 30.0], dtype=np.float32), 3, dtype=np.float32),
     )
     point_latitudes, point_longitudes = getgeodesicpts(2)
     interpolated = specintrp(0.0, spectrum, one_latitude)
-    interpolated_many = specintrp_many(
+    interpolated_many = specintrp(
         np.array([0.0, 90.0], dtype=np.float64),
         spectrum,
         np.stack([one_latitude, one_latitude]),
     )
     spectrum32: NDArray[np.complex64] = np.zeros(10, dtype=np.complex64)
-    interpolated_many32 = specintrp_many(
+    interpolated_many32 = specintrp(
         np.array([0.0, 90.0], dtype=np.float64), spectrum32, latitude_batch32
     )
     diagnostics = cpu_info()

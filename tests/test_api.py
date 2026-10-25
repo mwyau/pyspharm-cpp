@@ -19,6 +19,15 @@ def test_installed_distribution_metadata():
     assert dist.requires[0].lower().startswith("numpy")
 
 
+def test_auxiliary_overloads_replace_many_exports():
+    assert "legendre" in spharm.__all__
+    assert "specintrp" in spharm.__all__
+    assert not hasattr(spharm, "legendre_many")
+    assert not hasattr(spharm, "specintrp_many")
+    assert not hasattr(spharm._spharm_cpp, "legendre_many")
+    assert not hasattr(spharm._spharm_cpp, "specintrp_many")
+
+
 @pytest.mark.parametrize("m", [1, 2, 4, 10])
 def test_geodesic_float32_is_rounded_float64(m):
     latitude64, longitude64 = spharm.getgeodesicpts(m)
@@ -74,7 +83,7 @@ def test_transform_and_utility_results_own_their_storage():
     np.testing.assert_array_equal(grid, grid_reference)
 
     latitudes = np.array([-60.0, 0.0, 60.0])
-    pnm = spharm.legendre_many(latitudes, 8)
+    pnm = spharm.legendre(latitudes, 8)
     pnm_reference = pnm.copy()
     assert not np.shares_memory(pnm, latitudes)
     latitudes[:] = 90
@@ -82,7 +91,7 @@ def test_transform_and_utility_results_own_their_storage():
 
     coefficients = np.arange(pnm.shape[1], dtype=np.float64).astype(np.complex128)
     longitudes = np.array([10.0, 90.0, 230.0])
-    values = spharm.specintrp_many(longitudes, coefficients, pnm)
+    values = spharm.specintrp(longitudes, coefficients, pnm)
     values_reference = values.copy()
     assert not np.shares_memory(values, longitudes)
     assert not np.shares_memory(values, coefficients)

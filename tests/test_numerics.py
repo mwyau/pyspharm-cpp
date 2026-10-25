@@ -86,9 +86,9 @@ def test_legendre_interpolation_and_poles():
             pnm = spharm.legendre(float(lat), lmax, dtype=dtype)
             for i in (0, 4, 11):
                 lon = i * 360.0 / t.nlon
-                assert spharm.specintrp(lon, spec, pnm) == pytest.approx(
-                    grid[j, i], abs=tol * 4, rel=tol * 4
-                )
+                value = spharm.specintrp(np.float64(lon), spec, pnm)
+                assert isinstance(value, float)
+                assert value == pytest.approx(grid[j, i], abs=tol * 4, rel=tol * 4)
     high32 = spharm.legendre(89.999, 512, dtype=np.float32)
     high64 = spharm.legendre(89.999, 512, dtype=np.float64)
     assert np.all(np.isfinite(high32)) and np.all(np.isfinite(high64))
@@ -142,7 +142,7 @@ def test_high_degree_legendre_against_independent_clenshaw(
 def test_high_degree_batched_legendre_simd_lanes(dtype, rtol, atol, norm_rtol):
     lmax = 1024
     latitudes = np.array([-90.0, -89.999, -45.0, 0.0, 22.5, 35.0, 89.999, 90.0])
-    actual = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    actual = spharm.legendre(latitudes, lmax, dtype=dtype)
     scalar = np.stack(
         [spharm.legendre(float(latitude), lmax, dtype=dtype) for latitude in latitudes]
     )
@@ -173,7 +173,7 @@ def test_high_degree_batched_legendre_simd_lanes(dtype, rtol, atol, norm_rtol):
 def test_batched_legendre_simd_full_width_and_tail(dtype):
     latitudes = np.linspace(-89.9, 89.9, 19)
     latitudes[0], latitudes[-1] = -90.0, 90.0
-    actual = spharm.legendre_many(latitudes, 64, dtype=dtype)
+    actual = spharm.legendre(latitudes, 64, dtype=dtype)
     reference = np.stack(
         [spharm.legendre(float(lat), 64, dtype=dtype) for lat in latitudes]
     )
@@ -219,7 +219,7 @@ def test_degree_2048_legendre_norm_across_latitudes(dtype, norm_rtol, coefficien
     lmax = 2048
     latitudes = np.array([45, 55, 60, 65, 68, 70, 75, 80], dtype=np.float64)
     orders, degrees = spharm.getspecindx(lmax)
-    batch = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    batch = spharm.legendre(latitudes, lmax, dtype=dtype)
     expected_norm = (2 * lmax + 1) / 2
 
     for row_index, latitude in enumerate(latitudes):
@@ -264,7 +264,7 @@ def test_high_order_legendre_coefficients_against_decimal_reference(dtype, rtol)
         (89.999, 2),
     ]
     latitudes = np.array(sorted({latitude for latitude, _ in cases}))
-    batch = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    batch = spharm.legendre(latitudes, lmax, dtype=dtype)
     scalar_rows = {
         latitude: spharm.legendre(latitude, lmax, dtype=dtype) for latitude in latitudes
     }
@@ -296,7 +296,7 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
     latitude_storage = np.array([-90, -65, -20, 0, 35, 71, 90], dtype=np.float64)
     latitudes = latitude_storage[::2]
     latitudes.flags.writeable = False
-    pnm = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    pnm = spharm.legendre(latitudes, lmax, dtype=dtype)
     assert pnm.shape == (4, (lmax + 1) * (lmax + 2) // 2)
     assert pnm.dtype == np.dtype(dtype)
     expected_pnm = np.stack(
@@ -313,7 +313,7 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
         [-30, 0, 45, 120, 211, 360, 405, 720], dtype=np.float64
     )
     longitudes = longitude_storage[::2]
-    values = spharm.specintrp_many(longitudes, spec, pnm)
+    values = spharm.specintrp(longitudes, spec, pnm)
     expected = np.array(
         [
             spharm.specintrp(float(lon), spec, pbar)
@@ -324,9 +324,13 @@ def test_batched_legendre_and_spectral_interpolation(dtype, cdtype, tol):
     np.testing.assert_allclose(values, expected, rtol=tol, atol=tol)
 
     with pytest.raises(ValueError, match="rank one"):
-        spharm.legendre_many(np.zeros((2, 2)), lmax)
+        spharm.legendre(np.zeros((2, 2)), lmax)
     with pytest.raises(ValueError, match="shape"):
-        spharm.specintrp_many(longitudes, spec, pnm[:-1])
+        spharm.specintrp(longitudes, spec, pnm[:-1])
+    with pytest.raises(ValueError, match="rank one"):
+        spharm.specintrp(longitudes.reshape(2, 2), spec, pnm)
+    with pytest.raises(ValueError, match="rank two"):
+        spharm.specintrp(longitudes, spec, pnm[0])
 
 
 @pytest.mark.parametrize(
@@ -337,29 +341,27 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
     rng = np.random.default_rng(72)
     latitudes = np.linspace(-60.0, 60.0, 9)
     longitudes = np.array([-360, -135, 0, 20, 90, 180, 360, 405, 720], dtype=np.float64)
-    pbar = spharm.legendre_many(latitudes, 16, dtype=dtype)
+    pbar = spharm.legendre(latitudes, 16, dtype=dtype)
     spec = (
         rng.standard_normal(pbar.shape[1]) + 1j * rng.standard_normal(pbar.shape[1])
     ).astype(cdtype)
     spec[0] = spec[0].real
 
-    double_longitude_values = spharm.specintrp_many(longitudes, spec, pbar)
-    float_longitude_values = spharm.specintrp_many(
-        longitudes.astype(np.float32), spec, pbar
-    )
+    double_longitude_values = spharm.specintrp(longitudes, spec, pbar)
+    float_longitude_values = spharm.specintrp(longitudes.astype(np.float32), spec, pbar)
     assert double_longitude_values.dtype == np.dtype(dtype)
     assert float_longitude_values.dtype == np.dtype(dtype)
     np.testing.assert_array_equal(float_longitude_values, double_longitude_values)
 
     for npoints in (1, 4, 7, 8, 9):
-        tail_pbar = spharm.legendre_many(latitudes[:npoints], 16, dtype=dtype)
+        tail_pbar = spharm.legendre(latitudes[:npoints], 16, dtype=dtype)
         np.testing.assert_allclose(
             tail_pbar,
             pbar[:npoints],
             rtol=2e-5 if dtype is np.float32 else 5e-12,
             atol=2e-6 if dtype is np.float32 else 5e-14,
         )
-        values = spharm.specintrp_many(longitudes[:npoints], spec, tail_pbar)
+        values = spharm.specintrp(longitudes[:npoints], spec, tail_pbar)
         assert values.dtype == np.dtype(dtype)
         np.testing.assert_allclose(
             values,
@@ -369,10 +371,8 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
         )
 
     empty_latitudes = np.empty(0, dtype=np.float64)
-    empty_pbar = spharm.legendre_many(empty_latitudes, 16, dtype=dtype)
-    empty_values = spharm.specintrp_many(
-        np.empty(0, dtype=np.float64), spec, empty_pbar
-    )
+    empty_pbar = spharm.legendre(empty_latitudes, 16, dtype=dtype)
+    empty_values = spharm.specintrp(np.empty(0, dtype=np.float64), spec, empty_pbar)
     assert empty_pbar.shape == (0, pbar.shape[1])
     assert empty_values.shape == (0,)
     assert empty_values.dtype == np.dtype(dtype)
@@ -380,15 +380,15 @@ def test_batched_interpolation_precision_and_simd_tails(dtype, cdtype):
 
 def test_batched_interpolation_rejects_mismatched_precision():
     longitudes = np.array([0.0, 45.0])
-    legendre32 = spharm.legendre_many(np.array([20.0, -35.0]), 4, dtype=np.float32)
+    legendre32 = spharm.legendre(np.array([20.0, -35.0]), 4, dtype=np.float32)
     legendre64 = legendre32.astype(np.float64)
     spec32 = np.ones(15, dtype=np.complex64)
     spec64 = np.ones(15, dtype=np.complex128)
 
     with pytest.raises(TypeError):
-        spharm.specintrp_many(longitudes, spec32, legendre64)
+        spharm.specintrp(longitudes, spec32, legendre64)
     with pytest.raises(TypeError):
-        spharm.specintrp_many(longitudes, spec64, legendre32)
+        spharm.specintrp(longitudes, spec64, legendre32)
 
 
 @pytest.mark.parametrize(
@@ -402,12 +402,12 @@ def test_batched_interpolation_strided_inputs(dtype, cdtype):
     latitudes = np.linspace(-55.0, 55.0, npoints)
     longitude_storage = np.linspace(-180.0, 180.0, npoints * 2)
     longitudes = longitude_storage[::2]
-    pbar = spharm.legendre_many(latitudes, ntrunc, dtype=dtype)
+    pbar = spharm.legendre(latitudes, ntrunc, dtype=dtype)
     spec = (
         rng.standard_normal(pbar.shape[1]) + 1j * rng.standard_normal(pbar.shape[1])
     ).astype(cdtype)
     spec[0] = spec[0].real
-    expected = spharm.specintrp_many(longitudes, spec, pbar)
+    expected = spharm.specintrp(longitudes, spec, pbar)
 
     spec_storage = np.empty(spec.size * 2, dtype=cdtype)
     spec_storage[::2] = spec
@@ -416,20 +416,18 @@ def test_batched_interpolation_strided_inputs(dtype, cdtype):
     coefficient_storage = np.empty((npoints, pbar.shape[1] * 2), dtype=dtype)
     coefficient_storage[:, ::2] = pbar
     coefficient_view = coefficient_storage[:, ::2]
-    strided_coefficients = spharm.specintrp_many(
-        longitudes, spec_view, coefficient_view
-    )
+    strided_coefficients = spharm.specintrp(longitudes, spec_view, coefficient_view)
 
     point_storage = np.empty((npoints * 2, pbar.shape[1]), dtype=dtype)
     point_storage[::2] = pbar
     point_view = point_storage[::2]
-    strided_points = spharm.specintrp_many(longitudes, spec_view, point_view)
+    strided_points = spharm.specintrp(longitudes, spec_view, point_view)
 
     negative_spec_storage = spec[::-1].copy()
     negative_pbar_storage = pbar[:, ::-1].copy()
     for values in (longitudes, spec_view, coefficient_view, point_view):
         values.flags.writeable = False
-    reversed_coefficients = spharm.specintrp_many(
+    reversed_coefficients = spharm.specintrp(
         longitudes, negative_spec_storage[::-1], negative_pbar_storage[:, ::-1]
     )
     for actual in (strided_coefficients, strided_points, reversed_coefficients):
@@ -451,12 +449,12 @@ def test_batched_interpolation_complex_coefficient_all_eight_lanes(dtype, cdtype
     index = order * (2 * lmax - order + 3) // 2 + (degree - order)
     latitudes = np.array([-83.0, -61.0, -38.0, -11.0, 17.0, 42.0, 66.0, 88.0])
     longitudes = np.array([-30.0, 0.0, 45.0, 120.0, 211.0, 360.0, 405.0, 720.0])
-    pbar = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    pbar = spharm.legendre(latitudes, lmax, dtype=dtype)
     coefficient = 0.75 - 0.25j
     spec = np.zeros(pbar.shape[1], dtype=cdtype)
     spec[index] = coefficient
 
-    values = spharm.specintrp_many(longitudes, spec, pbar)
+    values = spharm.specintrp(longitudes, spec, pbar)
     assert values.dtype == np.dtype(dtype)
     phase = np.deg2rad(order * longitudes)
     expected = (
@@ -492,7 +490,7 @@ def test_batched_interpolation_high_order_phase_and_periodicity(dtype, cdtype, r
         ]
     )
     latitudes = np.full(longitudes.shape, 60.0)
-    pbar = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    pbar = spharm.legendre(latitudes, lmax, dtype=dtype)
     spec = np.zeros(nalm, dtype=cdtype)
 
     def exact_phase_radians(longitude):
@@ -508,7 +506,7 @@ def test_batched_interpolation_high_order_phase_and_periodicity(dtype, cdtype, r
     phases = list(map(exact_phase_radians, longitudes))
     for test_coefficient in (0.75 - 0.25j, 0.0 + 0.25j, 0.75 + 0.0j):
         spec[high_index] = test_coefficient
-        values = spharm.specintrp_many(longitudes, spec, pbar)
+        values = spharm.specintrp(longitudes, spec, pbar)
         coefficient = complex(spec[high_index])
         expected = np.array(
             [
@@ -531,9 +529,7 @@ def test_batched_interpolation_high_order_phase_and_periodicity(dtype, cdtype, r
     expected = mixed_expected
     spec[high_index] = 0.75 - 0.25j
     tail_indices = np.array([1, 2, 6])
-    tail_values = spharm.specintrp_many(
-        longitudes[tail_indices], spec, pbar[tail_indices]
-    )
+    tail_values = spharm.specintrp(longitudes[tail_indices], spec, pbar[tail_indices])
     np.testing.assert_allclose(
         tail_values, expected[tail_indices], rtol=rtol, atol=1e-20
     )
@@ -550,14 +546,14 @@ def test_batched_interpolation_high_order_phase_and_periodicity(dtype, cdtype, r
     del pbar
     latitudes = np.array([45.0, 65.0, 68.0, 70.0, 75.0, 80.0, -60.0, 89.999])
     longitudes = np.array([0.0, 90.0, 180.0, 360.0, -90.0, 720.0, -360.0, 1080.0])
-    pbar = spharm.legendre_many(latitudes, lmax, dtype=dtype)
+    pbar = spharm.legendre(latitudes, lmax, dtype=dtype)
     near_pole_m = 17
     near_pole_index = near_pole_m * (2 * lmax - near_pole_m + 3) // 2 + (
         lmax - near_pole_m
     )
     spec.fill(0)
     spec[near_pole_index] = -0.5 + 0.375j
-    values = spharm.specintrp_many(longitudes, spec, pbar)
+    values = spharm.specintrp(longitudes, spec, pbar)
     reduced_phase = np.remainder(longitudes, 360.0) * math.pi / 180.0
     coefficient = complex(spec[near_pole_index])
     expected = np.array(
@@ -608,8 +604,8 @@ def test_scalar_interpolation_reduces_large_finite_longitudes():
         (lambda: spharm.gaussian_lats_wts(0), "nlat"),
         (lambda: spharm.getspecindx(-1), "ntrunc"),
         (lambda: spharm.legendre(0, -1), "ntrunc"),
-        (lambda: spharm.legendre_many(np.array([0.0]), -1), "ntrunc"),
-        (lambda: spharm.legendre_many(np.array([np.inf]), 2), "latitudes"),
+        (lambda: spharm.legendre(np.array([0.0]), -1), "ntrunc"),
+        (lambda: spharm.legendre(np.array([np.inf]), 2), "latitudes"),
         (
             lambda: spharm.specintrp(
                 np.nan, np.ones(3, dtype=np.complex128), np.ones(3)
@@ -621,7 +617,7 @@ def test_scalar_interpolation_reduces_large_finite_longitudes():
             "empty",
         ),
         (
-            lambda: spharm.specintrp_many(
+            lambda: spharm.specintrp(
                 np.array([np.nan]),
                 np.ones(3, dtype=np.complex128),
                 np.ones((1, 3)),
@@ -629,7 +625,7 @@ def test_scalar_interpolation_reduces_large_finite_longitudes():
             "finite",
         ),
         (
-            lambda: spharm.specintrp_many(
+            lambda: spharm.specintrp(
                 np.array([0.0]),
                 np.empty(0, dtype=np.complex128),
                 np.empty((1, 0)),

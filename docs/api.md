@@ -25,11 +25,7 @@ accept NumPy arrays and use PySpharm's triangular coefficient ordering.
 ```{eval-rst}
 .. autofunction:: spharm_cpp.legendre
 
-.. autofunction:: spharm_cpp.legendre_many
-
 .. autofunction:: spharm_cpp.specintrp
-
-.. autofunction:: spharm_cpp.specintrp_many
 
 .. autofunction:: spharm_cpp.regrid
 ```

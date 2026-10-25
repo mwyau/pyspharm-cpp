@@ -89,7 +89,7 @@ def test_concurrent_public_operations_match_sequential_references():
     smoothing = np.linspace(0.4, 1.0, 9)
     latitudes = np.array([-71.0, -12.0, 35.0, 82.0])
     longitudes = np.array([-30.0, 0.0, 45.0, 120.0])
-    pbar = spharm.legendre_many(latitudes, 6)
+    pbar = spharm.legendre(latitudes, 6)
     coefficients = transform.grdtospec(field, 6)
 
     def operations():
@@ -121,7 +121,7 @@ def test_concurrent_public_operations_match_sequential_references():
             spharm.legendre(23.0, 6),
             pbar,
             spharm.specintrp(45.0, coefficients, pbar[2]),
-            spharm.specintrp_many(longitudes, coefficients, pbar),
+            spharm.specintrp(longitudes, coefficients, pbar),
             geodesic_lats,
             geodesic_lons,
             spharm.cpu_info(),
@@ -170,13 +170,13 @@ def test_threaded_numeric_kernels_and_transforms_match_serial(tmp_path):
             ("32", np.float32, np.complex64),
             ("64", np.float64, np.complex128),
         ):
-            legendre = spharm.legendre_many(latitudes, ntrunc, dtype=dtype)
+            legendre = spharm.legendre(latitudes, ntrunc, dtype=dtype)
             ncoeff = legendre.shape[1]
             spectrum = (
                 rng.standard_normal(ncoeff) + 1j * rng.standard_normal(ncoeff)
             ).astype(cdtype)
             output[f"legendre_{suffix}"] = legendre
-            output[f"interpolation_{suffix}"] = spharm.specintrp_many(
+            output[f"interpolation_{suffix}"] = spharm.specintrp(
                 longitudes, spectrum, legendre
             )
 

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Measure batched Legendre and spectral interpolation kernels."""
+"""Measure scalar-call and batched Legendre and interpolation kernels."""
 
 from __future__ import annotations
 
@@ -21,7 +21,12 @@ CASES = (
     ("large-medium", 128, 256),
     ("small-high", 16, 1024),
 )
-OPERATIONS = ("legendre_many", "specintrp_many")
+OPERATIONS = (
+    "legendre_scalar",
+    "legendre_batched",
+    "specintrp_scalar",
+    "specintrp_batched",
+)
 MAX_WORKING_SET = 256 * 1024**2
 
 
@@ -95,17 +100,25 @@ def main() -> None:
                     raise RuntimeError(
                         f"{case} {dtype.__name__} exceeds the working-set limit"
                     )
-                legendre = spharm_cpp.legendre_many(latitudes, lmax, dtype=dtype)
+                legendre = spharm_cpp.legendre(latitudes, lmax, dtype=dtype)
                 spectrum = (
                     np.random.default_rng(2468).standard_normal(ncoeff)
                     + 1j * np.random.default_rng(9753).standard_normal(ncoeff)
                 ).astype(cdtype)
                 spectrum[0] = spectrum[0].real
                 callbacks = {
-                    "legendre_many": lambda: spharm_cpp.legendre_many(
+                    "legendre_scalar": lambda: [
+                        spharm_cpp.legendre(float(latitude), lmax, dtype=dtype)
+                        for latitude in latitudes
+                    ],
+                    "legendre_batched": lambda: spharm_cpp.legendre(
                         latitudes, lmax, dtype=dtype
                     ),
-                    "specintrp_many": lambda: spharm_cpp.specintrp_many(
+                    "specintrp_scalar": lambda: [
+                        spharm_cpp.specintrp(float(longitude), spectrum, row)
+                        for longitude, row in zip(longitudes, legendre)
+                    ],
+                    "specintrp_batched": lambda: spharm_cpp.specintrp(
                         longitudes, spectrum, legendre
                     ),
                 }
