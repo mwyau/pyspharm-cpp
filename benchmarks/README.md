@@ -111,31 +111,46 @@ PySpharm and eight DUCC threads for the multithreaded cases.
 
 The auxiliary benchmark compares repeated scalar calls with one batched call
 for four cases: 8 points at `lmax` 16, 64 points at `lmax` 64, 128 points at
-`lmax` 256, and 16 points at `lmax` 1024. It used `float32` and `float64`, two
-warmups, seven repetitions, and separate processes at one, two, and four
-threads on the active `x86-64-v3` profile. Ratios are scalar-call median divided
-by batched-call median, summarized as ranges across the four cases. Ratios
-above one favor the batched call; ratios below one indicate a slowdown.
+`lmax` 256, and 16 points at `lmax` 1024. Measurements below used `float32`
+and `float64`, two warmups, seven repetitions, and separate processes at one,
+two, and four threads on an AMD Ryzen 9 5950X with the active `x86-64-v3`
+profile. Ratios are scalar-call median divided by batched-call median,
+summarized as ranges across the four cases. Ratios above one favor batching.
 
 | Threads | Operation | Float32 ratio range | Float64 ratio range |
 | ---: | --- | ---: | ---: |
-| 1 | Legendre | 1.45–5.14× | 0.84–3.54× |
-| 1 | Spectral interpolation | 2.41–3.94× | 1.92–2.73× |
-| 2 | Legendre | 1.37–6.26× | 1.36–3.62× |
-| 2 | Spectral interpolation | 2.43–4.39× | 1.52–3.47× |
-| 4 | Legendre | 1.25–8.15× | 2.19–4.96× |
-| 4 | Spectral interpolation | 1.89–5.70× | 1.42–5.32× |
+| 1 | Legendre | 2.26–4.92× | 1.09–4.37× |
+| 1 | Spectral interpolation | 1.88–2.80× | 1.68–2.29× |
+| 2 | Legendre | 2.24–6.24× | 1.74–4.64× |
+| 2 | Spectral interpolation | 1.91–3.63× | 1.56–3.28× |
+| 4 | Legendre | 2.23–7.84× | 2.96–6.29× |
+| 4 | Spectral interpolation | 1.90–3.90× | 2.19–5.66× |
 
-The `float64` Legendre ratio of 0.84 at one thread was a slowdown for the
-128-point, `lmax`-256 case. Other listed ratios exceeded one. At each thread
-count, scalar and batched outputs were compared using tolerances from the
-numerical tests. Legendre passed for both precisions and all four cases.
-Float64 interpolation passed all four cases. Float32 interpolation exceeded
-the existing `rtol=2e-5`, `atol=2e-6` tolerance at all three thread counts for
-two of 64 points at `lmax` 64 and one of 128 points at `lmax` 256; the maximum
-absolute differences were 4.29e-5 and 4.33e-4, respectively. The `float32`
-interpolation ratios are therefore recorded as timing observations, not as
-validated equivalent-output speedups.
+The current scalar and batched implementations are bitwise identical at each
+tested dtype and thread count. The ratios above therefore compare equivalent
+outputs. Independent accuracy checks remain separate from these timing tests.
+
+For the one-thread `small-high` case (16 points, `lmax` 1024), the measured
+before/after medians in milliseconds were:
+
+| dtype | Operation | Before | After |
+| --- | --- | ---: | ---: |
+| float32 | Legendre scalar | 50.471 | 82.739 |
+| float32 | Legendre batched | 35.936 | 36.659 |
+| float32 | Interpolation scalar | 7.392 | 5.668 |
+| float32 | Interpolation batched | 3.343 | 2.995 |
+| float64 | Legendre scalar | 67.118 | 67.379 |
+| float64 | Legendre batched | 53.540 | 52.269 |
+| float64 | Interpolation scalar | 7.742 | 5.908 |
+| float64 | Interpolation batched | 3.520 | 3.517 |
+
+The float32 scalar Legendre kernel now performs its recurrence in binary32;
+the previous scalar kernel performed that recurrence in binary64 and narrowed
+the result. Its 64% increase in this high-degree case is the cost of using the
+selected native precision. The batched float32 Legendre time changed by 2%;
+float64 Legendre times were within 4% of baseline. Interpolation ranged from
+36% faster to 4% slower in the measured cases. These results apply to this
+processor, profile, thread count, and input set.
 
 ## Run benchmarks
 

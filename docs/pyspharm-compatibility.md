@@ -8,16 +8,16 @@ The parity suite uses `pyspharm=1.0.9` from conda-forge on CPython 3.14 as its S
 
 The tests cover the following interfaces, including batched inputs where applicable.
 
-| Operation                                            | Comparison                                                                                   |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Spharmt`, attributes, `dtype`                       | Constructor, parameters, and output precision                                                |
-| `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees |
-| `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials          |
-| `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                    |
-| `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
-| `legendre`, `specintrp`                              | Normalization, phase, polar behavior, longitude, and batched results against scalar calls    |
+| Operation                                            | Comparison                                                                                                |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Spharmt`, attributes, `dtype`                       | Constructor, parameters, and output precision                                                             |
+| `grdtospec`, `spectogrd`                             | Scalar synthesis/analysis on regular and Gaussian grids; coefficient order; boundary degrees              |
+| `getvrtdivspec`, `getuv`, `getgrad`, `getpsichi`     | Eastward/northward signs, derivative scaling, vorticity, divergence, and potentials                       |
+| `specsmooth`, `regrid`                               | Smoothing and regridding at an explicit shared truncation                                                 |
+| `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                                |
+| `legendre`, `specintrp`                              | Normalization, phase, polar behavior, longitude, exact scalar/batch agreement, and independent references |
 
-Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dataspec, legfuncs)`. `spharm_cpp` accepts the same scalar signatures and adds array overloads: `legendre` takes one-dimensional latitudes and returns shape `(npoints, ncoeff)`; `specintrp` takes one-dimensional longitudes and Legendre values of shape `(npoints, ncoeff)`, returning shape `(npoints,)`. Scalar calls are compared with PySpharm, while array calls are compared with repeated scalar calls using precision-specific tolerances.
+Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dataspec, legfuncs)`. `spharm_cpp` accepts the same scalar signatures and adds array overloads: `legendre` takes one-dimensional latitudes and returns shape `(npoints, ncoeff)`; `specintrp` takes one-dimensional longitudes and Legendre values of shape `(npoints, ncoeff)`, returning shape `(npoints,)`. For a fixed dtype and build profile, scalar and batched outputs are bitwise identical. Separate tolerance-based tests compare numerical accuracy with PySpharm and independent scientific references.
 
 ## Differences
 
@@ -30,7 +30,7 @@ Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dat
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
-| Geodesic coordinates              | Calculated in float64; `dtype=np.float32` casts the output coordinates.                      |
+| Geodesic coordinates              | Geometry is computed in float64 by default or float32 when requested.                        |
 | Regridding                        | Supports conversion between the two native precision modes.                                  |
 | Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
 | `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
@@ -51,6 +51,6 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 
 ## Precision and validation evidence
 
-Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. The [auxiliary benchmark](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/README.md#legendre-and-interpolation-overloads) found float32 array interpolation differences above its scalar-call comparison tolerance at `lmax=64` and `256`; the timings for these cases are not validated equivalent-output speedups. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
+Bitwise comparisons use the output dtype's integer representation and include the scalar result converted back to its coefficient precision. They test scalar/batch consistency only; accuracy is tested separately against PySpharm, analytic results, and high-precision Legendre references. Geodesic comparisons account for the 0°/360° longitude seam and use tolerances appropriate to each output precision.
 
-The [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml) installs the conda-forge reference, builds the C++ extension, and runs the parity suite on pull requests, pushes to `main`, and manual dispatch. It uploads JSON, Markdown, and JUnit reports, and enforces the API contracts and approved numerical differences.
+The [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml) installs the conda-forge reference, builds the C++ extension, and runs the parity suite on pushes to `main` and manual dispatch. It uploads JSON, Markdown, and JUnit reports, and enforces the API contracts and approved numerical differences.
