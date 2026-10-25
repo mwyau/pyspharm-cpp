@@ -422,9 +422,10 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
 }
 
 template <typename T>
-std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& divspec,
-                                        std::size_t nlat, std::size_t nlon,
-                                        const std::string& gridtype, double rsphere)
+std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec,
+                                         const CNpArr& divspec, std::size_t nlat,
+                                         std::size_t nlon,
+                                         const std::string& gridtype, double rsphere)
 {
   const bool batched = vrtspec.ndim() == 2;
   const std::size_t nfield = batched ? vrtspec.shape(1) : 1;
@@ -437,9 +438,10 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
   const std::array<std::size_t, 3> output_shape{nlat, nlon, nfield};
   const std::array<std::int64_t, 3> output_strides{
       static_cast<std::int64_t>(nlon * nfield), static_cast<std::int64_t>(nfield), 1};
-  NpArr v = make_component_view(output_data, output_shape, output_strides, owner, batched);
-  NpArr u = make_component_view(output_data + output_plane, output_shape, output_strides,
-                                owner, batched);
+  NpArr v =
+      make_component_view(output_data, output_shape, output_strides, owner, batched);
+  NpArr u = make_component_view(output_data + output_plane, output_shape,
+                                output_strides, owner, batched);
 
   if (lmax == 0)
   {
