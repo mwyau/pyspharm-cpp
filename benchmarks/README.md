@@ -149,7 +149,7 @@ affinity and the cgroup CPU quota when that quota is exposed.
 Create the conda benchmark environment and install the checkout with the
 multiarch build profile:
 
-    conda env create -f .github/conda/pyspharm.yml
+    conda env create -f .github/conda/pyspharm-reference.yml
     conda run --no-capture-output -n pyspharm-reference python -m pip install \
       --no-build-isolation --no-deps -e . \
       --config-settings=cmake.define.SPHARM_CPP_BUILD_PROFILE=multiarch

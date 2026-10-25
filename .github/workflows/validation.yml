@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
+#
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: Parity
 
@@ -29,7 +30,7 @@ jobs:
           persist-credentials: false
       - uses: conda-incubator/setup-miniconda@v4.1.0
         with:
-          environment-file: .github/conda/pyspharm.yml
+          environment-file: .github/conda/pyspharm-reference.yml
           activate-environment: pyspharm-reference
           auto-activate: false
           channel-priority: strict
