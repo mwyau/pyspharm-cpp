@@ -78,16 +78,32 @@ guarantees, particularly for ARM64, where batch scheduling is unmeasured.
   in Markdown; keep published measurements and reproduction instructions
   in `benchmarks/README.md`.
 - Keep the parity manifest and its behavior tests synchronized with the
-  public API and documented differences. PySpharm validation runs on pushes
-  to `main` and can also be started manually.
+  public API and documented differences.
 - Update `src/spharm_cpp/_spharm_cpp.pyi` when nanobind signatures or
   docstrings change. CI regenerates the stub, formats it, and compares it
   with the checked-in file and `py.typed`.
 - Run `uv run --locked prek run --all-files` and
   `uv run --locked python -m pytest -q` before submitting changes.
 
-## Packaging and releases
+## CI and releases
 
+- `.github/workflows/ci.yml` runs on pull requests, pushes to `main`, and
+  manual dispatch. It tests supported Python versions, free-threaded and
+  ABI3 wheels, source builds, code quality, documentation, and C++ analysis.
+  Build and test Linux, macOS, and Windows distribution wheels only on
+  pushes to `main` or manual dispatch, not on pull requests.
+- `.github/workflows/coverage.yml` instruments a portable C++ build.
+  `.github/workflows/validation.yml` checks PySpharm parity on pushes
+  to `main` and manual dispatch.
+- `.github/workflows/python-publish.yml` builds release wheels and the
+  source distribution from a version tag after checking the package
+  version. `vX.Y.Z.devN` tags publish to TestPyPI; `vX.Y.Z` tags publish
+  to PyPI, followed by a GitHub Release. Publishing uses trusted publishers
+  and requires approval from the corresponding `testpypi` or `pypi`
+  environment. Configure required reviewers for both environments and
+  register each as a Trusted Publisher; do not store publishing credentials.
+  Protect `v*` tags against modification or deletion and enable release
+  immutability in repository settings.
 - Use uv and the committed `uv.lock` for development dependencies,
   tests, editable installations, and local builds.
 - Keep the source distribution self-contained, with ducc0 source and

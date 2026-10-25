@@ -17,9 +17,8 @@ The tests cover the following interfaces, including batched inputs where applica
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, and longitude                                          |
 | `legendre_many`, `specintrp_many`                    | Batched results against scalar operations using precision-specific tolerances                |
-| `cpu_info`                                           | CPU metadata keys and types                                                                  |
 
-Direct PySpharm comparisons cover the shared API. The additional `legendre_many` and `specintrp_many` functions are compared with scalar calls; `cpu_info` is checked for metadata keys and types.
+Direct PySpharm comparisons cover the shared API. The additional `legendre_many` and `specintrp_many` functions are compared with scalar calls.
 
 ## Differences
 
