@@ -78,7 +78,8 @@ guarantees, particularly for ARM64, where batch scheduling is unmeasured.
   in Markdown; keep published measurements and reproduction instructions
   in `benchmarks/README.md`.
 - Keep the parity manifest and its behavior tests synchronized with the
-  public API and documented differences. PySpharm validation runs manually.
+  public API and documented differences. PySpharm validation runs on pushes
+  to `main` and can also be started manually.
 - Update `src/spharm_cpp/_spharm_cpp.pyi` when nanobind signatures or
   docstrings change. CI regenerates the stub, formats it, and compares it
   with the checked-in file and `py.typed`.

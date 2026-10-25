@@ -6,7 +6,7 @@ The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a c
 
 ## Tested operations
 
-The comparison tests exercise the following interfaces, including scalar and batched shapes where applicable.
+The tests cover the following interfaces, including batched inputs where applicable.
 
 | Operation                                            | Comparison                                                                                   |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -19,7 +19,7 @@ The comparison tests exercise the following interfaces, including scalar and bat
 | `legendre_many`, `specintrp_many`                    | Batched results against scalar operations using precision-specific tolerances                |
 | `cpu_info`                                           | CPU metadata keys and types                                                                  |
 
-The reference tests cover the public functions and the differences listed below.
+Direct PySpharm comparisons cover the shared API. The additional `legendre_many` and `specintrp_many` functions are compared with scalar calls; `cpu_info` is checked for metadata keys and types.
 
 ## Differences
 
@@ -41,6 +41,8 @@ See [numerical conventions](conventions.md) for the supported grid and vector-an
 
 `spharm_cpp` limits Clenshaw–Curtis analysis to degree `nlat-2`, also subject to the longitude sampling limit. PySpharm accepts `nlat-1`. On the regular grid, not every coefficient at that highest degree can be recovered uniquely. Synthesis and analysis have separate degree limits.
 
+At `ntrunc=nlat-1`, the tested SPHEREPACK regular-grid synthesis path omits highest-degree coefficients at odd longitudinal orders; `spharm_cpp` evaluates these modes. This difference is tested separately from analysis recoverability.
+
 ## Longitude Nyquist
 
 For even `nlon`, the scalar order `m=nlon/2` samples {math}`e^{im\lambda_j}=(-1)^j`. Its imaginary coefficient component cannot be determined from the samples. The scalar analysis conversion applies a half-factor at this order, matching PySpharm's positive/negative-frequency convention in direct comparisons. Analytic basis tests separately check the sampled field.
@@ -51,4 +53,4 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 
 Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
 
-Run the PySpharm comparison with the manual [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. Missing contracts, blocked reference imports, and unapproved differences fail validation.
+Run the PySpharm comparison with the [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. The workflow runs on pushes to `main` and can also be started manually. Missing contracts, blocked reference imports, and unapproved differences fail validation.

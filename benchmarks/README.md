@@ -93,7 +93,8 @@ The same spectral truncation is used for all backends and operations:
 ## Reproduce
 
 The committed [measurements.csv](measurements.csv) contains 80 measurements:
-five cases × four operations × four backends. It records the thread count,
+five cases × four operations × four timing series (PySpharm float32, ducc0 float32,
+`pyspharm-cpp` float32 and float64). It records the thread count,
 truncation, median, and p90 for every measurement. The benchmark rejects a
 requested thread count above the CPUs available from process affinity and the
 cgroup CPU quota.
@@ -103,8 +104,10 @@ The manually dispatched GitHub Actions workflow requires an AVX-512-capable
 and cgroup quota instead of requiring eight CPUs. It runs the five cases
 separately under each `pyspharm-cpp` dispatch profile (`x86-64-v1`,
 `x86-64-v3`, and `x86-64-v4`) and uploads per-profile CSVs and figures.
+GitHub-hosted `ubuntu-24.04` runners do not guarantee AVX-512 support; the
+workflow exits before measuring when the required CPU features are absent.
 Those runner measurements are separate from the committed eight-thread,
-AVX2 measurements below.
+AVX2 measurements above.
 
 The `pyspharm==1.0.9` distribution is a source release. Its legacy
 Fortran build uses GNU Fortran, NumPy 1.26.4, patched setuptools 84.1.0, wheel

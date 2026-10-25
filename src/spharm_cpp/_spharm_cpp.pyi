@@ -10,7 +10,7 @@ class Spharmt:
     """
     Scalar and vector spherical harmonic transforms on latitude-longitude grids.
 
-    Grid maps are ordered north to south and eastward in longitude.
+    Latitude rows run north to south; longitude columns increase eastward.
     Input fields have shape (nlat, nlon) or (nlat, nlon, nfields).
     Spectral coefficients have shape (ncoeff,) or (ncoeff, nfields)
     and use triangular degree and order packing.
@@ -39,8 +39,8 @@ class Spharmt:
         nlat : int
             Number of latitude rings, at least 3.
         rsphere : float, default 6371200.0
-            Positive sphere radius. Derivatives and wind quantities use this
-            radius in the chosen length units.
+            Positive sphere radius (default 6,371,200 m). Derivatives and wind
+            quantities use the radius in the chosen length units.
         gridtype : {'regular', 'gaussian'}, default 'regular'
             Clenshaw-Curtis latitudes including both poles, or Gauss-Legendre
             latitudes excluding the poles.

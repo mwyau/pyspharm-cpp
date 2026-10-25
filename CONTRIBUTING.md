@@ -18,7 +18,7 @@ Before submitting a pull request, run the configured checks:
 uv run --locked prek run --all-files
 ```
 
-CI additionally tests supported Python versions and Linux build profiles, checks documentation, and measures native C++ coverage. After a push to `main`, or on manual dispatch, CI also builds and tests Linux, macOS, and Windows wheels. The release workflow independently builds distribution wheels from the version tag.
+CI additionally tests supported Python versions and Linux build profiles, checks documentation, and measures C++ coverage. After a push to `main`, or on manual dispatch, CI also builds and tests Linux, macOS, and Windows wheels. The release workflow independently builds distribution wheels from the version tag.
 
 ## Code and numerical conventions
 
