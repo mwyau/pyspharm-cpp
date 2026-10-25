@@ -39,10 +39,15 @@ Latitude rows run north to south; longitudes increase eastward without a duplica
 
 ## Legendre functions and spectral interpolation
 
-`legendre` and `specintrp` accept scalar coordinates or arrays of points.
-Array inputs use the batched numerical kernels:
+`legendre` and `specintrp` use the original scalar API and also accept arrays
+of points:
 
 ```python
+pnm_scalar = spharm.legendre(30.0, ntrunc=1)
+value = spharm.specintrp(90.0, spectrum, pnm_scalar)
+assert pnm_scalar.shape == (3,)
+assert isinstance(value, float)
+
 latitudes = np.array([-30.0, 0.0, 30.0])
 longitudes = np.array([0.0, 90.0, 180.0])
 pnm = spharm.legendre(latitudes, ntrunc=1)
@@ -51,10 +56,8 @@ assert pnm.shape == (3, 3)
 assert values.shape == (3,)
 ```
 
-With a scalar latitude, `legendre` returns a one-dimensional array. With a
-scalar longitude and one-dimensional Legendre array, `specintrp` returns a
-Python `float`. Batched interpolation returns a NumPy array with the
-precision of the input coefficients.
+Batched interpolation returns a NumPy array with the precision of the input
+coefficients (complex64/float32 or complex128/float64).
 
 ## Wind and derivative operations
 

@@ -17,7 +17,7 @@ The tests cover the following interfaces, including batched inputs where applica
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, longitude, and batched results against scalar calls    |
 
-Scalar `legendre` and `specintrp` calls are compared with PySpharm. Their batched inputs are compared with repeated scalar PySpharm calls using precision-specific tolerances.
+Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dataspec, legfuncs)`. `spharm_cpp` accepts the same scalar signatures and adds array overloads: `legendre` takes one-dimensional latitudes and returns shape `(npoints, ncoeff)`; `specintrp` takes one-dimensional longitudes and Legendre values of shape `(npoints, ncoeff)`, returning shape `(npoints,)`. Scalar calls are compared with PySpharm, while array calls are compared with repeated scalar calls using precision-specific tolerances.
 
 ## Differences
 
@@ -25,6 +25,8 @@ Scalar `legendre` and `specintrp` calls are compared with PySpharm. Their batche
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | Module and backend                | `spharm_cpp` uses ducc0 for spherical harmonic transforms.                                   |
 | Legendre evaluation               | Stored Legendre functions (`legfunc="stored"`) are not supported.                            |
+| Coordinate-array overloads        | `legendre` and `specintrp` accept batched points in addition to scalar inputs.                |
+| Instance representation           | `Spharmt.__repr__` includes additional diagnostic information.                               |
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
@@ -49,6 +51,6 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 
 ## Precision and validation evidence
 
-Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
+Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. The [auxiliary benchmark](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/README.md#legendre-and-interpolation-overloads) found float32 array interpolation differences above its scalar-call comparison tolerance at `lmax=64` and `256`; the timings for these cases are not validated equivalent-output speedups. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
 
 The [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml) installs the conda-forge reference, builds the C++ extension, and runs the parity suite on pull requests, pushes to `main`, and manual dispatch. It uploads JSON, Markdown, and JUnit reports, and enforces the API contracts and approved numerical differences.
