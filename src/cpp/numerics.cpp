@@ -250,7 +250,7 @@ NpArr scalar_legendre_binding(double latitude, std::int64_t ntrunc, py::object d
     throw py::value_error("ntrunc must be nonnegative");
   if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0)
     throw py::value_error("lat must be finite and between -90 and 90 degrees");
-  const auto name = legendre_dtype_name(dtype);
+  const auto name = legendre_dtype_name(std::move(dtype));
   if (name == "float32")
     return legendre_values<float>(latitude, static_cast<std::size_t>(ntrunc));
   return legendre_values<double>(latitude, static_cast<std::size_t>(ntrunc));
@@ -820,8 +820,8 @@ Returns
 
   m.def(
       "legendre", [](double latitude, std::int64_t ntrunc, py::object dtype)
-      { return scalar_legendre_binding(latitude, ntrunc, dtype); }, "lat"_a, "ntrunc"_a,
-      py::kw_only(), "dtype"_a = py::none(),
+      { return scalar_legendre_binding(latitude, ntrunc, std::move(dtype)); }, "lat"_a,
+      "ntrunc"_a, py::kw_only(), "dtype"_a = py::none(),
       py::sig(
           R"(def legendre(lat: float, ntrunc: int, *, dtype: object | None = None) -> numpy.typing.NDArray[numpy.float32] | numpy.typing.NDArray[numpy.float64])"),
       R"doc(Evaluate normalized associated Legendre functions at one latitude.
@@ -848,7 +848,7 @@ the degree-zero value is 1 / sqrt(2).)doc");
 
   m.def(
       "legendre",
-      [](const CNpArr& latitude_array, std::int64_t ntrunc, py::object dtype)
+      [](const CNpArr& latitude_array, std::int64_t ntrunc, const py::object& dtype)
       {
         if (latitude_array.ndim() == 0)
           return scalar_legendre_binding(
