@@ -12,8 +12,7 @@ CPUs. Process affinity exposed CPUs 0–31, and the cgroup CPU quota was unlimit
 so 32 CPUs were available. The OS was Linux 7.0.14-20-pve x86-64 with glibc
 2.43. The
 `pyspharm-cpp` active SIMD profile was `x86-64-v3` (AVX2); the build includes
-the x86-64, x86-64-v3, and x86-64-v4 profiles. The ducc0 wheel's active CPU
-dispatch profile was not inspected.
+the x86-64, x86-64-v3, and x86-64-v4 profiles.
 
 The software versions were CPython 3.11.15, NumPy 1.26.4, `pyspharm` 1.0.9,
 ducc0 0.42.0, `pyspharm-cpp` 0.1.0.dev0, uv 0.12.23, GNU Fortran 15.2.0,
@@ -90,7 +89,7 @@ The same spectral truncation is used for all backends and operations:
 | Wind analysis | 289.422 ms | 4.408 ms | 3.328 ms | 6.115 ms | 65.66× |
 | Wind synthesis | 64.565 ms | 4.923 ms | 4.281 ms | 9.045 ms | 13.12× |
 
-## Reproduce
+## Run benchmarks
 
 The committed [measurements.csv](measurements.csv) contains 80 measurements:
 five cases × four operations × four timing series (PySpharm float32, ducc0 float32,
@@ -99,49 +98,32 @@ truncation, median, and p90 for every measurement. The benchmark rejects a
 requested thread count above the CPUs available from process affinity and the
 cgroup CPU quota.
 
-The manually dispatched GitHub Actions workflow requires an AVX-512-capable
-`ubuntu-24.04` runner, but uses the maximum CPU count available through affinity
-and cgroup quota instead of requiring eight CPUs. It runs the five cases
-separately under each `pyspharm-cpp` dispatch profile (`x86-64-v1`,
-`x86-64-v3`, and `x86-64-v4`) and uploads per-profile CSVs and figures.
-GitHub-hosted `ubuntu-24.04` runners do not guarantee AVX-512 support; the
-workflow exits before measuring when the required CPU features are absent.
-Those runner measurements are separate from the committed eight-thread,
-AVX2 measurements above.
+The manual GitHub Actions workflow checks AVX-512 support and available CPU
+resources before measuring. It runs all five cases under each `pyspharm-cpp`
+dispatch profile (`x86-64-v1`, `x86-64-v3`, and `x86-64-v4`) and uploads
+measurements, figures, and environment metadata for each profile.
 
-The `pyspharm==1.0.9` distribution is a source release. Its legacy
-Fortran build uses GNU Fortran, NumPy 1.26.4, patched setuptools 84.1.0, wheel
-0.48.0, and `FFLAGS=-fallow-argument-mismatch` with current GNU Fortran. The
-setuptools update changes the build tool while retaining the reference source
-and compiler configuration; it does not replace or regenerate the committed
-measurements above. Set up the locked benchmark environment from the repository
-root:
+Create the conda benchmark environment:
 
 ```sh
-uv python install 3.11
-uv sync --locked --python 3.11 --group benchmark \
-  --no-install-project --no-install-package pyspharm
-FFLAGS="-fallow-argument-mismatch" uv pip install \
-  --python .venv/bin/python --no-build-isolation --no-deps \
-  --no-binary pyspharm "pyspharm==1.0.9"
-FFLAGS="-fallow-argument-mismatch" uv sync --locked --python 3.11 \
-  --group benchmark --no-build-isolation
+conda env create -f .github/conda/pyspharm.yml
+conda run -n pyspharm-reference python -m pip install \
+  --no-build-isolation --no-deps -e .
 ```
 
 Run the four eight-thread cases and the one-thread case in separate Python
 processes because DUCC's thread configuration is initialized once:
 
 ```sh
-uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
+conda run --no-capture-output -n pyspharm-reference python benchmarks/benchmark.py \
   --threads 8 --warmups 2 --repeats 7 \
   --output /tmp/sht-eight-thread.csv
-uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
+conda run --no-capture-output -n pyspharm-reference python benchmarks/benchmark.py \
   --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
   --output /tmp/sht-one-thread.csv
 ```
 
-Combine the files to replace the committed measurements, then regenerate all
-five figures:
+Combine the measurements and regenerate the five figures:
 
 ```sh
 {
@@ -149,7 +131,7 @@ five figures:
   tail -n +2 /tmp/sht-eight-thread.csv
   tail -n +2 /tmp/sht-one-thread.csv
 } > benchmarks/measurements.csv
-uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
+conda run --no-capture-output -n pyspharm-reference python benchmarks/plot.py \
   --csv benchmarks/measurements.csv --output-dir benchmarks
 ```
 
@@ -173,11 +155,11 @@ done
 The figures can also be regenerated directly from the committed CSV:
 
 ```sh
-uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
+conda run --no-capture-output -n pyspharm-reference python benchmarks/plot.py \
   --csv benchmarks/measurements.csv --output-dir benchmarks
 ```
 
-The plotter derives thread-count labels from the CSV and fails if any
-timing series is missing or the multithreaded cases disagree on thread count.
+The plotter derives thread-count labels from the CSV and checks timing-series
+completeness and consistent multithreaded thread counts.
 Independent numerical validation is
 in [`tests/parity/`](../tests/parity).

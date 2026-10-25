@@ -152,6 +152,11 @@ def main():
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=7)
     parser.add_argument(
+        "--expected-profile",
+        choices=("x86-64-v1", "x86-64-v3", "x86-64-v4"),
+        help="verify the requested SIMD profile before measurement",
+    )
+    parser.add_argument(
         "--print-samples",
         action="store_true",
         help="print individual timing samples for diagnosing variability",
@@ -180,6 +185,10 @@ def main():
     import ducc0
     import spharm as pyspharm
     import spharm_cpp
+
+    active_profile = spharm_cpp.cpu_info()["active_profile"]
+    if args.expected_profile and active_profile != args.expected_profile:
+        parser.error(f"expected SIMD {args.expected_profile}, got {active_profile}")
 
     metadata = {
         "threads": threads,

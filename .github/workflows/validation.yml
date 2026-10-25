@@ -5,6 +5,7 @@ name: Parity
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -26,25 +27,21 @@ jobs:
           ref: ${{ github.sha }}
           submodules: recursive
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
+      - uses: conda-incubator/setup-miniconda@v4
         with:
-          version: 0.13.5
-      - name: Install CPython 3.12
-        run: uv python install 3.12
-      - name: Prepare validation reports
-        run: |
-          echo "PYSPHARM_VALIDATION_DIR=$RUNNER_TEMP/pyspharm-validation" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/pyspharm-validation"
-      - name: Install validation dependencies and verify reference wheels
+          environment-file: .github/conda/pyspharm.yml
+          activate-environment: pyspharm-reference
+          auto-activate: false
+          channel-priority: strict
+      - name: Install C++ extension
+        run: conda run -n pyspharm-reference python -m pip install --no-build-isolation --no-deps -e .
+      - name: Run parity tests
+        env:
+          PYSPHARM_VALIDATION_DIR: ${{ runner.temp }}/pyspharm-validation
         run: >-
-          uv sync --locked --python 3.12 --group validation --no-build-package pyspharm-syl
-      - name: Run API and numerical parity tests
-        run: |
-          uv run --locked --no-sync python -m pytest -v -s \
-            -o addopts=-ra \
-            --junitxml="$PYSPHARM_VALIDATION_DIR/pytest-cases.xml" \
-            tests/parity
+          conda run --no-capture-output -n pyspharm-reference python -m pytest
+          -v -o addopts=-ra tests/parity
+          --junitxml=${{ runner.temp }}/pyspharm-validation/pytest-cases.xml
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@v7.1.1

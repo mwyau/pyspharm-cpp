@@ -108,7 +108,7 @@ def test_representation_is_diagnostic_and_class_names_remain_distinct():
     assert type(current).__name__ == type(reference).__name__ == "Spharmt"
     assert "Spharmt(18, 9" in repr(current)
     assert "dtype=float64" in repr(current)
-    # pyspharm-syl 1.2.1 has no Python __repr__; upstream commit a464ebf does.
+    # Representation checks allow implementation-specific diagnostic details.
     assert "Spharmt" in repr(reference)
     assert cpp is not parity.REFERENCE
     assert cpp.__name__ == "spharm_cpp"

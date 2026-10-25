@@ -77,7 +77,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 "platform": platform.platform(),
                 "architecture": platform.machine(),
                 "numpy_version": np.__version__,
-                "pyspharm_syl_distribution": _package_version("pyspharm-syl"),
+                "pyspharm_conda_distribution": _package_version("pyspharm"),
                 "pyspharm_cpp_distribution": _package_version("pyspharm-cpp"),
                 "git_commit": subprocess.check_output(
                     ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
@@ -85,8 +85,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 "git_worktree_clean": _git_worktree_clean(root),
             }
         )
-        if sys.version_info[:2] != (3, 12):
-            raise RuntimeError(f"validation requires CPython 3.12, got {sys.version}")
+        if sys.version_info[:2] != (3, 14):
+            raise RuntimeError(f"validation requires CPython 3.14, got {sys.version}")
         if platform.python_implementation() != "CPython":
             raise RuntimeError(
                 f"validation requires CPython, got {platform.python_implementation()}"
@@ -101,7 +101,6 @@ def pytest_sessionstart(session: pytest.Session) -> None:
             )
 
         import spharm
-        from spharm import _spherepack
 
         import spharm_cpp
         from spharm_cpp import _spharm_cpp
@@ -112,30 +111,19 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 f"unexpected spharm module version {getattr(spharm, '__version__', None)!r}"
             )
         reference_path = Path(spharm.__file__).resolve()
-        backend_path = Path(_spherepack.__file__).resolve()
         native_cpp_path = Path(_spharm_cpp.__file__).resolve()
         site_packages = Path(sysconfig.get_path("purelib")).resolve()
         if not reference_path.is_file():
             raise RuntimeError(f"spharm has no source file: {spharm.__file__!r}")
-        if (
-            site_packages not in reference_path.parents
-            or site_packages not in backend_path.parents
-        ):
+        if site_packages not in reference_path.parents:
             raise RuntimeError(
-                "reference import shadowing detected: spharm and _spherepack must "
-                "come from the active environment's site-packages; got "
-                f"{reference_path} and {backend_path}"
+                "reference import shadowing detected: spharm must come from "
+                f"the active environment's site-packages; got {reference_path}"
             )
-        if not backend_path.name.endswith((".so", ".pyd")):
-            raise RuntimeError(f"SPHEREPACK backend is not native: {backend_path}")
         if not native_cpp_path.name.endswith((".so", ".pyd")):
             raise RuntimeError(f"C++ backend is not native: {native_cpp_path}")
-        if importlib.metadata.version("pyspharm-syl") != "1.2.1":
-            raise RuntimeError("validation requires pyspharm-syl==1.2.1")
-        if np.__version__ != "1.26.4":
-            raise RuntimeError(
-                f"validation requires NumPy 1.26.4, got {np.__version__}"
-            )
+        if importlib.metadata.version("pyspharm") != "1.0.9":
+            raise RuntimeError("validation requires conda-forge pyspharm==1.0.9")
         if importlib.metadata.version("pyspharm-cpp") != spharm_cpp.__version__:
             raise RuntimeError(
                 "spharm_cpp.__version__ does not match distribution metadata"
@@ -157,7 +145,6 @@ def pytest_sessionstart(session: pytest.Session) -> None:
             {
                 "reference_module_version": spharm.__version__,
                 "reference_module_path": str(reference_path),
-                "spherepack_backend_path": str(backend_path),
                 "pyspharm_upstream_commit": "a464ebfed334188fc0ef275fad4aafd2d9fa716e",
                 "cpp_module_version": spharm_cpp.__version__,
                 "cpp_module_path": str(Path(spharm_cpp.__file__).resolve()),
@@ -173,9 +160,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
             f"  Python: {sys.version.split()[0]} ({platform.python_implementation()})"
         )
         print(f"  NumPy: {np.__version__}")
-        print(f"  pyspharm-syl: {importlib.metadata.version('pyspharm-syl')}")
+        print(f"  pyspharm: {importlib.metadata.version('pyspharm')}")
         print(f"  spharm: {spharm.__version__} at {reference_path}")
-        print(f"  SPHEREPACK: {backend_path}")
         print(
             f"  pyspharm-cpp: {spharm_cpp.__version__} at {Path(spharm_cpp.__file__).resolve()}"
         )
