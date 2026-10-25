@@ -59,14 +59,14 @@ See [numerical conventions](docs/conventions.md) for coefficient ordering and no
 
 ![Measured SHT latencies on a Gaussian 1280 × 640 grid](benchmarks/timings-gl-640.svg)
 
-Median timings in milliseconds on a Gaussian 1280 × 640 grid, with four ducc0 threads and serial PySpharm. All timings use float32 and the same truncation.
+Median timings in milliseconds on a Gaussian 1280 × 640 grid, with eight threads for ducc0 and `pyspharm-cpp` and serial `pyspharm`. All timings use float32 and the same truncation.
 
-| Operation        | PySpharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs PySpharm |
+| Operation        | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs pyspharm |
 | ---------------- | -----------: | ---------------: | --------: | ------------------: |
-| Scalar analysis  |   142.171 ms |         3.361 ms |  2.959 ms |              42.30× |
-| Scalar synthesis |    45.133 ms |         2.908 ms |  2.901 ms |              15.52× |
-| Wind analysis    |   349.341 ms |         7.901 ms |  6.260 ms |              44.21× |
-| Wind synthesis   |    74.312 ms |         7.571 ms |  6.445 ms |               9.81× |
+| Scalar analysis  |   299.388 ms |         1.690 ms |  1.793 ms |             177.15× |
+| Scalar synthesis |    31.642 ms |         1.977 ms |  1.916 ms |              16.01× |
+| Wind analysis    |   289.422 ms |         4.408 ms |  3.328 ms |              65.66× |
+| Wind synthesis   |    64.565 ms |         4.923 ms |  4.281 ms |              13.12× |
 
 See [benchmark results and reproduction instructions](benchmarks/README.md) for all five grid cases.
 

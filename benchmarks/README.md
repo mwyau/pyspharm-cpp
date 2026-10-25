@@ -1,22 +1,38 @@
 # Benchmarks
 
-These charts compare scalar and wind analysis and synthesis latencies for
-pyspharm float32, ducc0 float32, and `pyspharm-cpp` float32 and float64.
+These charts compare scalar and wind spherical harmonic transform (SHT)
+analysis and synthesis latencies for `pyspharm` float32, ducc0 float32, and
+`pyspharm-cpp` float32 and float64.
 Each operation has its own zero-based linear time scale; compare bar lengths
-within an operation, and use the printed values across operations.
-Smaller is better. Speedup is PySpharm time divided by `pyspharm-cpp` float32 time.
+within an operation and use the printed values across operations. Smaller is
+better. Speedup is `pyspharm` time divided by `pyspharm-cpp` float32 time.
 
-All five cases were measured on an AMD EPYC 9V45 runner with four allocated CPUs,
-the `pyspharm-cpp` AVX-512 (`x86-64-v4`) profile active, CPython 3.12.15, NumPy 1.26.4,
-pyspharm 1.0.9, and ducc0 0.42.0.
-The 2.5° one-thread case uses one DUCC thread; the other four cases use
-four DUCC threads. PySpharm is serial. DUCC spin-1 transforms form the wind baseline;
-`getvrtdivspec` and `getuv` additionally convert spectral coefficients to and
-from the vorticity/divergence convention. The active `pyspharm-cpp` CPU profile
-was checked separately; the `ducc0` wheel's CPU dispatch was not checked. Each median uses
-7 timed repetitions after 2 warmups without CPU pinning.
-Float64 runs use casts of the same float32 input fields, and synthesis inputs
-are computed before timing.
+The measurements ran on an AMD Ryzen 9 5950X 16-Core Processor with 32 logical
+CPUs. Process affinity exposed CPUs 0–31, and the cgroup CPU quota was unlimited,
+so 32 CPUs were available. The OS was Linux 7.0.14-20-pve x86-64 with glibc
+2.43. The
+`pyspharm-cpp` active SIMD profile was `x86-64-v3` (AVX2); the build includes
+the x86-64, x86-64-v3, and x86-64-v4 profiles. The ducc0 wheel's active CPU
+dispatch profile was not inspected.
+
+The software versions were CPython 3.11.15, NumPy 1.26.4, `pyspharm` 1.0.9,
+ducc0 0.42.0, `pyspharm-cpp` 0.1.0.dev0, uv 0.12.23, GNU Fortran 15.2.0,
+setuptools 59.8.0, and wheel 0.48.0. The `pyspharm` source distribution uses
+`numpy.distutils`; it was built on CPython 3.11 with
+`FFLAGS=-fallow-argument-mismatch`.
+
+The 2.5° one-thread case uses one DUCC thread; the other four cases use eight
+DUCC threads. `pyspharm` is serial. The DUCC spin-1 transforms form the wind
+baseline; `getvrtdivspec` and `getuv` also convert between wind fields and
+spectral coefficients for relative vorticity and divergence. Each median uses seven timed
+repetitions after two warmups without CPU pinning. The p90 is the nearest-rank
+90th percentile, which is the maximum of seven samples. Float64 runs use casts
+of the same float32 input fields, and synthesis inputs are computed before
+timing. Inputs use NumPy seed 20261024.
+
+The same spectral truncation is used for all backends and operations:
+`min(nlat - 2, (nlon - 1) // 2)` for Clenshaw–Curtis grids and
+`min(nlat - 1, (nlon - 1) // 2)` for Gaussian grids.
 
 ## Clenshaw–Curtis · 2.5° · 144 × 73 (one thread)
 
@@ -24,86 +40,115 @@ are computed before timing.
 
 | Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.068 ms | 0.217 ms | 0.215 ms | 0.221 ms | 0.32× |
-| Scalar synthesis | 0.029 ms | 0.061 ms | 0.054 ms | 0.061 ms | 0.48× |
-| Wind analysis | 0.255 ms | 0.435 ms | 0.428 ms | 0.581 ms | 0.59× |
-| Wind synthesis | 0.117 ms | 0.126 ms | 0.108 ms | 0.250 ms | 0.93× |
+| Scalar analysis | 0.071 ms | 0.252 ms | 0.252 ms | 0.239 ms | 0.28× |
+| Scalar synthesis | 0.041 ms | 0.084 ms | 0.086 ms | 0.098 ms | 0.48× |
+| Wind analysis | 0.186 ms | 0.519 ms | 0.520 ms | 0.501 ms | 0.36× |
+| Wind synthesis | 0.107 ms | 0.190 ms | 0.183 ms | 0.213 ms | 0.57× |
 
-## Clenshaw–Curtis · 2.5° · 144 × 73 (four threads)
+## Clenshaw–Curtis · 2.5° · 144 × 73 (eight threads)
 
-![Clenshaw–Curtis · 2.5° · 144 × 73 (four threads) SHT benchmark timings](timings-cc-2p5.svg)
-
-| Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 0.069 ms | 0.221 ms | 0.243 ms | 0.224 ms | 0.31× |
-| Scalar synthesis | 0.030 ms | 0.069 ms | 0.064 ms | 0.075 ms | 0.44× |
-| Wind analysis | 0.178 ms | 0.399 ms | 0.386 ms | 0.415 ms | 0.45× |
-| Wind synthesis | 0.083 ms | 0.114 ms | 0.101 ms | 0.114 ms | 0.72× |
-
-## Clenshaw–Curtis · 0.25° · 1440 × 721 (four threads)
-
-![Clenshaw–Curtis · 0.25° · 1440 × 721 (four threads) SHT benchmark timings](timings-cc-0p25.svg)
+![Clenshaw–Curtis · 2.5° · 144 × 73 (eight threads) SHT benchmark timings](timings-cc-2p5.svg)
 
 | Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 93.747 ms | 12.657 ms | 13.958 ms | 12.699 ms | 7.41× |
-| Scalar synthesis | 78.324 ms | 3.978 ms | 3.749 ms | 4.015 ms | 19.69× |
-| Wind analysis | 243.113 ms | 28.321 ms | 28.858 ms | 31.550 ms | 8.58× |
-| Wind synthesis | 108.406 ms | 10.806 ms | 9.274 ms | 14.694 ms | 10.03× |
+| Scalar analysis | 0.075 ms | 0.217 ms | 0.246 ms | 0.213 ms | 0.35× |
+| Scalar synthesis | 0.041 ms | 0.065 ms | 0.078 ms | 0.064 ms | 0.63× |
+| Wind analysis | 0.190 ms | 0.411 ms | 0.433 ms | 0.392 ms | 0.46× |
+| Wind synthesis | 0.107 ms | 0.094 ms | 0.094 ms | 0.109 ms | 1.13× |
 
-## Gaussian · 128 latitude rings · 256 × 128 (four threads)
+## Clenshaw–Curtis · 0.25° · 1440 × 721 (eight threads)
 
-![Gaussian · 128 latitude rings · 256 × 128 (four threads) SHT benchmark timings](timings-gl-128.svg)
-
-| Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 1.575 ms | 0.131 ms | 0.133 ms | 0.139 ms | 12.06× |
-| Scalar synthesis | 0.126 ms | 0.125 ms | 0.113 ms | 0.146 ms | 1.01× |
-| Wind analysis | 4.581 ms | 0.273 ms | 0.241 ms | 0.313 ms | 16.77× |
-| Wind synthesis | 0.300 ms | 0.249 ms | 0.222 ms | 0.285 ms | 1.21× |
-
-## Gaussian · 640 latitude rings · 1280 × 640 (four threads)
-
-![Gaussian · 640 latitude rings · 1280 × 640 (four threads) SHT benchmark timings](timings-gl-640.svg)
+![Clenshaw–Curtis · 0.25° · 1440 × 721 (eight threads) SHT benchmark timings](timings-cc-0p25.svg)
 
 | Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Scalar analysis | 142.171 ms | 3.361 ms | 2.959 ms | 3.574 ms | 42.30× |
-| Scalar synthesis | 45.133 ms | 2.908 ms | 2.901 ms | 3.004 ms | 15.52× |
-| Wind analysis | 349.341 ms | 7.901 ms | 6.260 ms | 8.908 ms | 44.21× |
-| Wind synthesis | 74.312 ms | 7.571 ms | 6.445 ms | 11.460 ms | 9.81× |
+| Scalar analysis | 62.899 ms | 5.996 ms | 6.677 ms | 6.336 ms | 10.49× |
+| Scalar synthesis | 57.463 ms | 2.774 ms | 2.772 ms | 3.228 ms | 20.71× |
+| Wind analysis | 168.856 ms | 13.711 ms | 13.455 ms | 25.338 ms | 12.32× |
+| Wind synthesis | 93.492 ms | 6.842 ms | 6.578 ms | 18.792 ms | 13.67× |
+
+## Gaussian · 128 latitude rings · 256 × 128 (eight threads)
+
+![Gaussian · 128 latitude rings · 256 × 128 (eight threads) SHT benchmark timings](timings-gl-128.svg)
+
+| Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 1.746 ms | 0.110 ms | 0.102 ms | 0.111 ms | 15.82× |
+| Scalar synthesis | 0.143 ms | 0.105 ms | 0.099 ms | 0.114 ms | 1.37× |
+| Wind analysis | 1.937 ms | 0.220 ms | 0.183 ms | 0.223 ms | 8.79× |
+| Wind synthesis | 0.410 ms | 0.211 ms | 0.175 ms | 0.224 ms | 1.94× |
+
+## Gaussian · 640 latitude rings · 1280 × 640 (eight threads)
+
+![Gaussian · 640 latitude rings · 1280 × 640 (eight threads) SHT benchmark timings](timings-gl-640.svg)
+
+| Operation | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | pyspharm-cpp f64 | Speedup vs pyspharm |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Scalar analysis | 299.388 ms | 1.690 ms | 1.793 ms | 2.313 ms | 177.15× |
+| Scalar synthesis | 31.642 ms | 1.977 ms | 1.916 ms | 2.250 ms | 16.01× |
+| Wind analysis | 289.422 ms | 4.408 ms | 3.328 ms | 6.115 ms | 65.66× |
+| Wind synthesis | 64.565 ms | 4.923 ms | 4.281 ms | 9.045 ms | 13.12× |
 
 ## Reproduce
 
-The benchmarks compare the same truncation on each backend. The committed
-[measurements.csv](measurements.csv) contains the 80 measurements used for the
-five figures, including thread count, truncation, median, and 90th-percentile
-timings. The regular-grid
-analysis limit is `nlat-2`, Gaussian is `nlat-1`, and even-longitude
-vector Nyquist modes are excluded. The benchmark uses seeded float32 inputs.
+The committed [measurements.csv](measurements.csv) contains 80 measurements:
+five cases × four operations × four backends. It records the thread count,
+truncation, median, and p90 for every measurement. The benchmark rejects a
+requested thread count above the CPUs available from process affinity and the
+cgroup CPU quota.
 
-Install the project and the optional `pyspharm-syl==1.2.1` and
-`ducc0==0.42.0` references into a CPython 3.12 environment with NumPy 1.26.4.
-From the repository root, run:
+The manually dispatched GitHub Actions workflow still targets the configured
+`ubuntu-24.04` runner, which has four CPUs. Its eight-CPU preflight stops before
+measurement on that allocation. Actions can reproduce this suite after an
+eight-CPU runner is configured; the workflow does not assume an unconfigured
+runner label.
+
+The `pyspharm==1.0.9` distribution is a source release. Its legacy
+Fortran build requires GNU Fortran, NumPy 1.26.4, setuptools 59.8.0, wheel
+0.48.0, and `FFLAGS=-fallow-argument-mismatch` with current GNU Fortran. Set
+up the locked benchmark environment from the repository root:
 
 ```sh
-python benchmarks/benchmark.py --threads 4 --warmups 2 --repeats 7 \
-  --output /path/to/measurements.csv
-# To reproduce the five charts, also run:
-python benchmarks/benchmark.py --cases cc-2p5-1t --threads 1 \
-  --warmups 2 --repeats 7 --output /path/to/one-thread.csv
-python benchmarks/plot.py \
-  --csv /path/to/measurements.csv /path/to/one-thread.csv \
-  --output-dir benchmarks
+uv python install 3.11
+uv sync --locked --python 3.11 --group benchmark \
+  --no-install-project --no-install-package pyspharm
+FFLAGS="-fallow-argument-mismatch" uv pip install \
+  --python .venv/bin/python --no-build-isolation --no-deps "pyspharm==1.0.9"
+FFLAGS="-fallow-argument-mismatch" uv sync --locked --python 3.11 \
+  --group benchmark --no-build-isolation
 ```
 
-The reproduced four-case series explicitly uses four threads. `--threads 0`
-selects up to eight available CPUs, respecting Linux affinity and cgroup
-quota; use an explicit thread count for controlled runs.
+Run the four eight-thread cases and the one-thread case in separate Python
+processes because DUCC's thread configuration is initialized once:
+
+```sh
+uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
+  --threads 8 --warmups 2 --repeats 7 \
+  --output /tmp/sht-eight-thread.csv
+uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
+  --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
+  --output /tmp/sht-one-thread.csv
+```
+
+Combine the files to replace the committed measurements, then regenerate all
+five figures:
+
+```sh
+{
+  head -n 1 /tmp/sht-eight-thread.csv
+  tail -n +2 /tmp/sht-eight-thread.csv
+  tail -n +2 /tmp/sht-one-thread.csv
+} > benchmarks/measurements.csv
+uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
+  --csv benchmarks/measurements.csv --output-dir benchmarks
+```
+
+Add `--print-samples` to a benchmark command to print the individual timing
+samples when checking measurement variability. For CPU dispatch and affinity
+information, the benchmark prints a `BENCHMARK_METADATA` record at startup.
 
 Measurements for `legendre_many`, `specintrp_many`, and batched transform
 threading are summarized in [SIMD and batched transform measurements](simd-batch-threading.md).
-
 To measure the auxiliary kernels at 1, 2, and 4 threads, run one process per
 thread count because the setting is read on the first numerical call:
 
@@ -115,10 +160,12 @@ for threads in 1 2 4; do
 done
 ```
 
-The plotting script also accepts the committed combined CSV:
+The figures can also be regenerated directly from the committed CSV:
 
 ```sh
-python benchmarks/plot.py --csv benchmarks/measurements.csv --output-dir benchmarks
+uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
+  --csv benchmarks/measurements.csv --output-dir benchmarks
 ```
 
-It fails if any timing series is missing. Independent numerical validation is in [`tests/parity/`](../tests/parity).
+It fails if any timing series is missing. Independent numerical validation is
+in [`tests/parity/`](../tests/parity).

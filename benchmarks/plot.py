@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Albert M. W. Yau
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Draw five SHT latency charts from the paired benchmark CSV files."""
+"""Draw five SHT latency charts from the benchmark CSV files."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ TITLES = {
     "wind_synthesis": "Wind synthesis",
 }
 BACKENDS = (
-    ("PySpharm", "pyspharm · f32", "#a25561"),
+    ("pyspharm", "pyspharm · f32", "#a25561"),
     ("pyspharm-cpp", "pyspharm-cpp · f32", "#286a9b"),
     ("ducc0", "ducc0 · f32", "#3d8462"),
     ("pyspharm-cpp-float64", "pyspharm-cpp · f64", "#7268a8"),
@@ -33,7 +33,7 @@ def load_measurements(paths: list[Path]):
         with path.open(newline="", encoding="utf-8") as stream:
             for row in csv.DictReader(stream):
                 key = (row["case"], row["operation"], row["backend"])
-                expected_threads = 1 if row["case"] == "cc-2p5-1t" else 4
+                expected_threads = 1 if row["case"] == "cc-2p5-1t" else 8
                 if int(row["threads"]) != expected_threads:
                     raise ValueError(
                         f"Incorrect thread count for {key}: "
@@ -62,7 +62,7 @@ def load_measurements(paths: list[Path]):
 
 def render(case, label, measurements):
     left, width = 227, 486
-    threads = 1 if case.endswith("-1t") else 4
+    threads = 1 if case.endswith("-1t") else 8
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="920" height="{HEIGHT}" '
         f'viewBox="0 0 920 {HEIGHT}" role="img" aria-labelledby="t d">',
