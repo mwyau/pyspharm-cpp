@@ -34,6 +34,17 @@ These rules apply to implementation, tests, and documentation.
   the only required Python runtime dependency. Isolated pip builds must not
   need uv, the ducc0 Python package, or network retrieval of the submodule.
 
+## Performance decisions
+
+- Keep wind synthesis sequential across fields, using DUCC's internal
+  threading. An outer field-workspace variant slowed 16-field float64
+  synthesis from 5.86 to 9.30 ms on a Gaussian 256 × 128 grid (1 thread);
+  see [batched measurements](benchmarks/simd-batch-threading.md).
+- Keep scheduling thresholds and the interpolation phase-reset interval as
+  local `constexpr` values, not centralized or exposed as tuning options.
+- Retain `native` as an optional developer build profile without native CI
+  tests. Linux x86-64 distribution wheels use `multiarch`; others use `portable`.
+
 ## Documentation and checks
 
 - Follow [write-like-a-scientist](https://github.com/mwyau/write-like-a-scientist/blob/main/skills/write-like-a-scientist/SKILL.md)

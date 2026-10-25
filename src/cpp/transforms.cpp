@@ -78,10 +78,11 @@ FieldExecutionPlan field_execution_plan(std::size_t nfield, std::size_t nlat,
                                         std::size_t nlon)
 {
   const auto capacity = configured_nthreads();
+  constexpr std::size_t min_parallel_fields = 4;
   constexpr std::size_t min_pixels = 32768;  // Medium Gaussian benchmark grid.
   const bool enough_pixels =
       nlon != 0 && nlat >= min_pixels / nlon + (min_pixels % nlon != 0);
-  if (nfield >= 4 && capacity > 1 && enough_pixels)
+  if (nfield >= min_parallel_fields && capacity > 1 && enough_pixels)
     return {std::min(nfield, capacity), 1};
   return {1, capacity};
 }
@@ -296,16 +297,8 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
   const std::array<std::ptrdiff_t, 3> map_stride{
       static_cast<std::ptrdiff_t>(output_plane),
       static_cast<std::ptrdiff_t>(nlon * nfield), static_cast<std::ptrdiff_t>(nfield)};
-  struct Workspace
-  {
-    std::vector<std::complex<T>> alms;
-
-    explicit Workspace(std::size_t nalm) : alms(nalm) {}
-  };
-  std::vector<Workspace> workspace;
-  workspace.reserve(plan.outer_threads);
-  for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
-    workspace.emplace_back(nalm);
+  std::vector<std::vector<std::complex<T>>> workspace(
+      plan.outer_threads, std::vector<std::complex<T>>(nalm));
   {
     py::gil_scoped_release release;
     for_each_field_range(
@@ -313,14 +306,14 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
         [&](std::size_t thread, std::size_t lo, std::size_t hi)
         {
           auto& scratch = workspace[thread];
-          DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alm(scratch.alms.data(), alm_shape);
+          DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alm(scratch.data(), alm_shape);
           for (std::size_t f = lo; f < hi; ++f)
           {
             for (std::size_t m = 0; m <= lmax; ++m)
               for (std::size_t l = m; l <= lmax; ++l)
               {
                 const auto idx = packed_coefficient_index(lmax, m, l);
-                scratch.alms[idx] =
+                scratch[idx] =
                     sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
               }
             DUCC0_NAMESPACE::vmav<T, 3> map(output_data + f, map_shape, map_stride);
@@ -389,16 +382,7 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
                                                  static_cast<std::ptrdiff_t>(nlon), 1};
-  struct Workspace
-  {
-    std::vector<T> maps;
-
-    explicit Workspace(std::size_t npix) : maps(2 * npix) {}
-  };
-  std::vector<Workspace> workspace;
-  workspace.reserve(plan.outer_threads);
-  for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
-    workspace.emplace_back(npix);
+  std::vector<std::vector<T>> workspace(plan.outer_threads, std::vector<T>(2 * npix));
   {
     py::gil_scoped_release release;
     for_each_field_range(
@@ -406,14 +390,14 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
         [&](std::size_t thread, std::size_t lo, std::size_t hi)
         {
           auto& scratch = workspace[thread];
-          DUCC0_NAMESPACE::cmav<T, 3> maps(scratch.maps.data(), map_shape, map_stride);
+          DUCC0_NAMESPACE::cmav<T, 3> maps(scratch.data(), map_shape, map_stride);
           for (std::size_t f = lo; f < hi; ++f)
           {
             for (std::size_t j = 0; j < nlat; ++j)
               for (std::size_t i = 0; i < nlon; ++i)
               {
-                scratch.maps[j * nlon + i] = -vmaps[f](0, j, i);
-                scratch.maps[npix + j * nlon + i] = umaps[f](0, j, i);
+                scratch[j * nlon + i] = -vmaps[f](0, j, i);
+                scratch[npix + j * nlon + i] = umaps[f](0, j, i);
               }
             DUCC0_NAMESPACE::vmav<std::complex<T>, 2> alms(output_data + f, alm_shape,
                                                            alm_stride);

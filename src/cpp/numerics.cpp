@@ -333,8 +333,9 @@ NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lma
     }
   };
   {
+    constexpr std::size_t min_parallel_simd_batches = 4;
     py::gil_scoped_release release;
-    if (vector_batches >= 4)
+    if (vector_batches >= min_parallel_simd_batches)
     {
       const auto nthreads = configured_nthreads();
       if (nthreads > 1)
@@ -545,6 +546,7 @@ void interpolate_spectral_block(const std::vector<double>& longitudes,
     sine_step[lane] = std::sin(lon[lane]);
   }
   std::array<T, vlen> cosine_values{}, sine_values{};
+  constexpr std::size_t phase_reset_interval = 32;
   Tv sum(T(0));
   for (std::size_t m = 0; m <= ntrunc; ++m)
   {
@@ -552,7 +554,7 @@ void interpolate_spectral_block(const std::vector<double>& longitudes,
     {
       for (std::size_t lane = 0; lane < vlen; ++lane)
       {
-        if (m % 32 == 0)
+        if (m % phase_reset_interval == 0)
         {
           const double phase = static_cast<double>(m) * lon[lane];
           cosine[lane] = std::cos(phase);
@@ -634,8 +636,9 @@ NpArr spectral_interpolate_many(const std::vector<double>& longitudes,
     }
   };
   {
+    constexpr std::size_t min_parallel_simd_batches = 4;
     py::gil_scoped_release release;
-    if (vector_batches >= 4)
+    if (vector_batches >= min_parallel_simd_batches)
     {
       const auto nthreads = configured_nthreads();
       if (nthreads > 1)

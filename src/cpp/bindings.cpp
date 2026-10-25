@@ -615,32 +615,17 @@ ndarray
         const auto lmax = checked_truncation(ntrunc, default_lmax,
                                              std::min(max_input, max_output), "ntrunc");
         NpArr spec = grdin.grdtospec(datagrid, py::int_(lmax));
-        if (smooth.is_none())
+        if (grdin.is_float32() != grdout.is_float32())
+          spec = grdin.is_float32()
+                     ? convert_spectral_precision_f64_from_f32(CNpArr(spec))
+                     : convert_spectral_precision_f32_from_f64(CNpArr(spec));
+        if (!smooth.is_none())
         {
-          if (grdin.is_float32() != grdout.is_float32())
-            spec = grdin.is_float32()
-                       ? convert_spectral_precision_f64_from_f32(CNpArr(spec))
-                       : convert_spectral_precision_f32_from_f64(CNpArr(spec));
-          return grdout.spectogrd(CNpArr(spec));
-        }
-        CNpArr factors = py::cast<CNpArr>(smooth);
-        if (factors.ndim() != 1 || factors.shape(0) != grdout.nlat())
-          throw py::value_error("smooth must be rank 1 with length grdout.nlat");
-        if (grdout.is_float32())
-        {
-          if (grdin.is_float32())
-            spec = apply_smoothing_f32(CNpArr(spec), factors);
-          else
-          {
-            spec = convert_spectral_precision_f32_from_f64(CNpArr(spec));
-            spec = apply_smoothing_f32(CNpArr(spec), factors);
-          }
-        }
-        else
-        {
-          if (grdin.is_float32())
-            spec = convert_spectral_precision_f64_from_f32(CNpArr(spec));
-          spec = apply_smoothing_f64(CNpArr(spec), factors);
+          CNpArr factors = py::cast<CNpArr>(smooth);
+          if (factors.ndim() != 1 || factors.shape(0) != grdout.nlat())
+            throw py::value_error("smooth must be rank 1 with length grdout.nlat");
+          spec = grdout.is_float32() ? apply_smoothing_f32(CNpArr(spec), factors)
+                                    : apply_smoothing_f64(CNpArr(spec), factors);
         }
         return grdout.spectogrd(CNpArr(spec));
       },
