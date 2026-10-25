@@ -59,14 +59,14 @@ See [numerical conventions](https://github.com/mwyau/pyspharm-cpp/blob/main/docs
 
 [![Measured SHT latencies on a Gaussian 1280 × 640 grid](https://raw.githubusercontent.com/mwyau/pyspharm-cpp/main/benchmarks/timings-gl-640.svg)](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/timings-gl-640.svg)
 
-Median timings in milliseconds on the Gaussian 1280 × 640 grid, which has the largest measured speedup among the five cases (177.15× for scalar analysis). ducc0 and `pyspharm-cpp` use eight threads; `pyspharm` is serial. All timings use float32 and the same truncation.
+Median timings in milliseconds on the Gaussian 1280 × 640 grid, which has the largest measured speedup among the five cases (69.42× for wind analysis). ducc0 and `pyspharm-cpp` use eight threads; `pyspharm` is serial. All timings use float32 and the same truncation.
 
 | Operation        | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs pyspharm |
 | ---------------- | -----------: | ---------------: | --------: | ------------------: |
-| Scalar analysis  |   299.388 ms |         1.690 ms |  1.793 ms |             177.15× |
-| Scalar synthesis |    31.642 ms |         1.977 ms |  1.916 ms |              16.01× |
-| Wind analysis    |   289.422 ms |         4.408 ms |  3.328 ms |              65.66× |
-| Wind synthesis   |    64.565 ms |         4.923 ms |  4.281 ms |              13.12× |
+| Scalar analysis  |   139.024 ms |         2.103 ms |  2.411 ms |              66.11× |
+| Scalar synthesis |    32.081 ms |         2.227 ms |  2.304 ms |              14.41× |
+| Wind analysis    |   339.515 ms |         4.890 ms |  3.389 ms |              69.42× |
+| Wind synthesis   |    67.204 ms |         5.432 ms |  4.558 ms |              12.37× |
 
 See [benchmark results and reproduction instructions](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/README.md) for all five grid cases.
 
