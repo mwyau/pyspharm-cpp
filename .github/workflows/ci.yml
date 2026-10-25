@@ -96,14 +96,14 @@ jobs:
       - name: Test free-threaded editable install
         run: |
           uv run --locked --python ${{ matrix.python-version }} python -c \
-            "import sys; assert not sys._is_gil_enabled()"
+            "import sys, spharm_cpp; assert not sys._is_gil_enabled(); assert spharm_cpp.cpu_info()['multiarch']"
           uv run --locked --python ${{ matrix.python-version }} python -m pytest -q \
             -o junit_family=legacy --junitxml=test-results-editable.xml
-      - name: Build portable free-threaded wheel
+      - name: Build Linux multiarch free-threaded wheel
         run: >-
           uv run --locked --no-sync --python ${{ matrix.python-version }}
           python -m build --wheel --no-isolation
-          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=portable
+          --config-setting cmake.define.SPHARM_CPP_BUILD_PROFILE=multiarch
           --outdir dist/free-threaded .
       - name: Install and test free-threaded wheel
         run: |
@@ -113,7 +113,7 @@ jobs:
             dist/free-threaded/*.whl "pytest>=8"
           cd /tmp
           "$wheel_venv/bin/python" -c \
-            "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); print(spharm_cpp.cpu_info())"
+            "import sys, sysconfig, spharm_cpp; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); info = spharm_cpp.cpu_info(); assert info['multiarch']; print(info)"
           "$wheel_venv/bin/python" -m pytest -q \
             --ignore="$GITHUB_WORKSPACE/tests/parity" "$GITHUB_WORKSPACE/tests" \
             -o junit_family=legacy --junitxml="$GITHUB_WORKSPACE/test-results-wheel.xml"
