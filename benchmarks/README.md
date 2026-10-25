@@ -154,10 +154,10 @@ Add `--print-samples` to a benchmark command to print the individual timing
 samples when checking measurement variability. For CPU dispatch and affinity
 information, the benchmark prints a `BENCHMARK_METADATA` record at startup.
 
-Measurements for `legendre_many`, `specintrp_many`, and batched transform
-threading are summarized in [SIMD and batched transform measurements](simd-batch-threading.md).
-To measure the auxiliary kernels at 1, 2, and 4 threads, run one process per
-thread count because the setting is read on the first numerical call:
+Implementation choices for SIMD and batched threading are recorded in
+[AGENTS.md](../AGENTS.md). To measure the auxiliary kernels at 1, 2, and 4 threads,
+run one process per thread count because the setting is read on the first
+numerical call:
 
 ```sh
 for threads in 1 2 4; do

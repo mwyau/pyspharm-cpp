@@ -624,8 +624,10 @@ ndarray
           CNpArr factors = py::cast<CNpArr>(smooth);
           if (factors.ndim() != 1 || factors.shape(0) != grdout.nlat())
             throw py::value_error("smooth must be rank 1 with length grdout.nlat");
-          spec = grdout.is_float32() ? apply_smoothing_f32(CNpArr(spec), factors)
-                                    : apply_smoothing_f64(CNpArr(spec), factors);
+          if (grdout.is_float32())
+            spec = apply_smoothing_f32(CNpArr(spec), factors);
+          else
+            spec = apply_smoothing_f64(CNpArr(spec), factors);
         }
         return grdout.spectogrd(CNpArr(spec));
       },
