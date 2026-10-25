@@ -533,22 +533,21 @@ double spectral_interpolate(double longitude, const CNpArr& spec,
   const auto* pbar = reinterpret_cast<const T*>(legfuncs.data());
   const double reduced_degrees = std::remainder(longitude, 360.0);
   const double lon = reduced_degrees * (pi / 180.0);
-  double result = 0;
+  T result = T(0);
   for (std::size_t m = 0; m <= ntrunc; ++m)
   {
-    const double c = std::cos(static_cast<double>(m) * lon);
-    const double s = std::sin(static_cast<double>(m) * lon);
+    const T c = static_cast<T>(std::cos(static_cast<double>(m) * lon));
+    const T s = static_cast<T>(std::sin(static_cast<double>(m) * lon));
     for (std::size_t l = m; l <= ntrunc; ++l)
     {
       const auto idx = packed_coefficient_index(ntrunc, m, l);
       const auto co = coeff[static_cast<std::ptrdiff_t>(idx) * ss[0]];
-      const double pl = pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]];
-      result += pl * (m == 0 ? static_cast<double>(co.real())
-                             : 2.0 * (static_cast<double>(co.real()) * c -
-                                      static_cast<double>(co.imag()) * s));
+      const T pl = pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]];
+      result += pl * (m == 0 ? co.real()
+                             : T(2) * (co.real() * c - co.imag() * s));
     }
   }
-  return result;
+  return static_cast<double>(result);
 }
 
 template <typename T, typename Tv, typename Coefficients, typename Legendre,

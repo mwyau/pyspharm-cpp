@@ -570,6 +570,23 @@ def test_batched_interpolation_high_order_phase_and_periodicity(dtype, cdtype, r
     np.testing.assert_allclose(values, expected, rtol=rtol, atol=1e-14)
 
 
+@pytest.mark.parametrize(
+    "dtype, cdtype, expected",
+    [
+        (np.float32, np.complex64, 0.0),
+        (np.float64, np.complex128, 1.0),
+    ],
+)
+def test_scalar_interpolation_accumulates_at_input_precision(dtype, cdtype, expected):
+    coefficients = np.zeros(6, dtype=cdtype)
+    coefficients[:3] = [2**24, 1, -(2**24)]
+    legendre = np.ones(6, dtype=dtype)
+
+    result = spharm.specintrp(0.0, coefficients, legendre)
+    assert isinstance(result, float)
+    assert result == expected
+
+
 def test_scalar_interpolation_reduces_large_finite_longitudes():
     lmax = 1
     latitude = 23.5
