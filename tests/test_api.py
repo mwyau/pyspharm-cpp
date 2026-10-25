@@ -118,3 +118,38 @@ def test_validation_readonly_and_shape_errors():
         spharm.getgeodesicpts(2, np.float32)
     with pytest.raises(TypeError, match="float32 or numpy.float64"):
         spharm.getgeodesicpts(2, dtype=np.int32)
+
+
+@pytest.mark.parametrize(
+    "kwargs, error, message",
+    [
+        ({"rsphere": 0.0}, ValueError, "rsphere"),
+        ({"rsphere": float("inf")}, ValueError, "rsphere"),
+        ({"gridtype": "invalid"}, ValueError, "gridtype"),
+        ({"dtype": np.int32}, TypeError, "dtype"),
+    ],
+)
+def test_constructor_rejects_invalid_options(kwargs, error, message):
+    with pytest.raises(error, match=message):
+        spharm.Spharmt(16, 9, **kwargs)
+
+
+def test_transform_rejects_invalid_array_shapes():
+    transform = spharm.Spharmt(16, 9)
+    field = np.zeros((9, 16))
+    spectrum = np.zeros(6, dtype=np.complex128)
+    empty_batch = np.empty((6, 0), dtype=np.complex128)
+    invalid_calls = [
+        (lambda: transform.grdtospec(np.empty((9, 16, 0))), "fields"),
+        (lambda: transform.spectogrd(empty_batch), "fields"),
+        (lambda: transform.getvrtdivspec(field, field[:, :, None]), "same shape"),
+        (lambda: transform.getvrtdivspec(field, field[:, :-1]), "same shape"),
+        (lambda: transform.getuv(spectrum, spectrum[:, None]), "matching shape"),
+        (lambda: transform.getuv(empty_batch, empty_batch), "fields"),
+        (lambda: transform.getgrad(empty_batch), "fields"),
+        (lambda: transform.specsmooth(field, np.ones(8)), "smooth"),
+        (lambda: transform.specsmooth(field, np.ones((9, 1))), "smooth"),
+    ]
+    for call, message in invalid_calls:
+        with pytest.raises(ValueError, match=message):
+            call()

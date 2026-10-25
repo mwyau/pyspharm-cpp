@@ -600,3 +600,46 @@ def test_scalar_interpolation_reduces_large_finite_longitudes():
         )
         actual = spharm.specintrp(longitude, spec, pbar)
         assert actual == pytest.approx(expected, rel=2e-14, abs=2e-14)
+
+
+@pytest.mark.parametrize(
+    "call, message",
+    [
+        (lambda: spharm.gaussian_lats_wts(0), "nlat"),
+        (lambda: spharm.getspecindx(-1), "ntrunc"),
+        (lambda: spharm.legendre(0, -1), "ntrunc"),
+        (lambda: spharm.legendre_many(np.array([0.0]), -1), "ntrunc"),
+        (lambda: spharm.legendre_many(np.array([np.inf]), 2), "latitudes"),
+        (
+            lambda: spharm.specintrp(
+                np.nan, np.ones(3, dtype=np.complex128), np.ones(3)
+            ),
+            "lon",
+        ),
+        (
+            lambda: spharm.specintrp(
+                0, np.empty(0, dtype=np.complex128), np.ones(3)
+            ),
+            "empty",
+        ),
+        (
+            lambda: spharm.specintrp_many(
+                np.array([np.nan]),
+                np.ones(3, dtype=np.complex128),
+                np.ones((1, 3)),
+            ),
+            "finite",
+        ),
+        (
+            lambda: spharm.specintrp_many(
+                np.array([0.0]),
+                np.empty(0, dtype=np.complex128),
+                np.empty((1, 0)),
+            ),
+            "empty",
+        ),
+    ],
+)
+def test_numerical_helpers_reject_invalid_inputs(call, message):
+    with pytest.raises(ValueError, match=message):
+        call()
