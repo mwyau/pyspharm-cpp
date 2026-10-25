@@ -543,8 +543,7 @@ double spectral_interpolate(double longitude, const CNpArr& spec,
       const auto idx = packed_coefficient_index(ntrunc, m, l);
       const auto co = coeff[static_cast<std::ptrdiff_t>(idx) * ss[0]];
       const T pl = pbar[static_cast<std::ptrdiff_t>(idx) * ps[0]];
-      result += pl * (m == 0 ? co.real()
-                             : T(2) * (co.real() * c - co.imag() * s));
+      result += pl * (m == 0 ? co.real() : T(2) * (co.real() * c - co.imag() * s));
     }
   }
   return static_cast<double>(result);
