@@ -51,13 +51,13 @@ np.testing.assert_allclose(reconstructed, field, atol=2e-12, rtol=2e-12)
 - **Precision:** float64/complex128 by default; float32/complex64 can be selected with `dtype=np.float32`.
 - **Legendre functions:** `legfunc="computed"` is the default. Stored Legendre functions (`legfunc="stored"`) are not supported.
 - **Truncation:** Clenshaw–Curtis analysis supports degrees through `min(nlat-2, nlon//2)`; Gaussian analysis through `min(nlat-1, nlon//2)`. Vector analysis excludes the even-longitude Nyquist order.
-- **Other differences:** zero truncation, geodesic coordinate precision, index dtype, and mixed-precision regridding are documented in the [PySpharm comparison](docs/pyspharm-compatibility.md).
+- **Other differences:** zero truncation, geodesic coordinate precision, index dtype, and mixed-precision regridding are documented in the [PySpharm comparison](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/pyspharm-compatibility.md).
 
-See [numerical conventions](docs/conventions.md) for coefficient ordering and normalization, and the [quickstart](docs/quickstart.md) and [API reference](docs/api.md) for usage.
+See [numerical conventions](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/conventions.md) for coefficient ordering and normalization, and the [quickstart](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/quickstart.md) and [API reference](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/api.md) for usage.
 
 ## Performance
 
-![Measured SHT latencies on a Gaussian 1280 × 640 grid](benchmarks/timings-gl-640.svg)
+![Measured SHT latencies on a Gaussian 1280 × 640 grid](https://raw.githubusercontent.com/mwyau/pyspharm-cpp/main/benchmarks/timings-gl-640.svg)
 
 Median timings in milliseconds on a Gaussian 1280 × 640 grid, with eight threads for ducc0 and `pyspharm-cpp` and serial `pyspharm`. All timings use float32 and the same truncation.
 
@@ -68,8 +68,8 @@ Median timings in milliseconds on a Gaussian 1280 × 640 grid, with eight thread
 | Wind analysis    |   289.422 ms |         4.408 ms |  3.328 ms |              65.66× |
 | Wind synthesis   |    64.565 ms |         4.923 ms |  4.281 ms |              13.12× |
 
-See [benchmark results and reproduction instructions](benchmarks/README.md) for all five grid cases.
+See [benchmark results and reproduction instructions](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/README.md) for all five grid cases.
 
 ## License
 
-GPL-2.0-or-later. ducc0 is included as an unmodified submodule; see [third-party notices](THIRD_PARTY_NOTICES.md). ducc0 is used under its respective license.
+GPL-2.0-or-later. ducc0 is included as an unmodified submodule; see [third-party notices](https://github.com/mwyau/pyspharm-cpp/blob/main/THIRD_PARTY_NOTICES.md). ducc0 is used under its respective license.

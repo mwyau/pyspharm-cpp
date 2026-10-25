@@ -56,6 +56,9 @@ guarantees, particularly for ARM64, where batch scheduling is unmeasured.
   threading. The outer field-workspace variant was slower: 16-field
   float64 synthesis increased from 5.86 to 9.30 ms (256 × 128 Gaussian)
   and from 38.5 to 53.3 ms (512 × 256 Gaussian) with one thread.
+- Write vector synthesis and gradient results directly into owner-backed
+  NumPy component arrays; do not restore intermediate-map copying or
+  separate small-batch fallback paths.
 - Preserve the interpolation phase-recurrence reset every 32 orders to
   control accumulated error; do not treat this as a purely performance
   parameter. Keep all scheduling and phase-reset thresholds as local
@@ -98,7 +101,8 @@ guarantees, particularly for ARM64, where batch scheduling is unmeasured.
 - `.github/workflows/python-publish.yml` builds release wheels and the
   source distribution from a version tag after checking the package
   version. `vX.Y.Z.devN` tags publish to TestPyPI; `vX.Y.Z` tags publish
-  to PyPI, followed by a GitHub Release. Publishing uses trusted publishers
+  to PyPI, followed by a GitHub Release containing only the source
+  distribution (no wheel assets). Publishing uses trusted publishers
   and requires approval from the corresponding `testpypi` or `pypi`
   environment. Configure required reviewers for both environments and
   register each as a Trusted Publisher; do not store publishing credentials.
