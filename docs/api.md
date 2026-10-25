@@ -22,6 +22,10 @@ accept NumPy arrays and use PySpharm's triangular coefficient ordering.
 
 ## Spectral interpolation and regridding
 
+`legendre` accepts one latitude or a one-dimensional latitude array. `specintrp`
+accepts one longitude with a rank-one Legendre array, or matching arrays of
+longitudes and Legendre values for pointwise interpolation.
+
 ```{eval-rst}
 .. autofunction:: spharm_cpp.legendre
 

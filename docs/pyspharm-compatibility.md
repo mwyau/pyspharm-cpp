@@ -17,7 +17,7 @@ The tests cover the following interfaces, including batched inputs where applica
 | `gaussian_lats_wts`, `getspecindx`, `getgeodesicpts` | Quadrature, index ordering, and geodesic point coordinates                                   |
 | `legendre`, `specintrp`                              | Normalization, phase, polar behavior, longitude, and batched results against scalar calls    |
 
-Direct PySpharm comparisons cover the scalar functions. Batched inputs are compared with repeated scalar calls using precision-specific tolerances.
+Scalar `legendre` and `specintrp` calls are compared with PySpharm. Their batched inputs are compared with repeated scalar PySpharm calls using precision-specific tolerances.
 
 ## Differences
 

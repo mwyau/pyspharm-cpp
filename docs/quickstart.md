@@ -37,6 +37,25 @@ np.testing.assert_allclose(reconstructed, field, rtol=2e-12, atol=2e-12)
 
 Latitude rows run north to south; longitudes increase eastward without a duplicate endpoint. `gridtype="regular"` selects a Clenshaw–Curtis grid including both poles; `"gaussian"` selects Gaussian latitudes.
 
+## Legendre functions and spectral interpolation
+
+`legendre` and `specintrp` accept scalar coordinates or arrays of points.
+Array inputs use the batched numerical kernels:
+
+```python
+latitudes = np.array([-30.0, 0.0, 30.0])
+longitudes = np.array([0.0, 90.0, 180.0])
+pnm = spharm.legendre(latitudes, ntrunc=1)
+values = spharm.specintrp(longitudes, spectrum, pnm)
+assert pnm.shape == (3, 3)
+assert values.shape == (3,)
+```
+
+With a scalar latitude, `legendre` returns a one-dimensional array. With a
+scalar longitude and one-dimensional Legendre array, `specintrp` returns a
+Python `float`. Batched interpolation returns a NumPy array with the
+precision of the input coefficients.
+
 ## Wind and derivative operations
 
 `getgrad` returns eastward and northward gradient components. `getvrtdivspec` analyzes wind components into relative vorticity and divergence spectra; `getuv` synthesizes wind from those spectra.

@@ -57,9 +57,9 @@ See [numerical conventions](https://github.com/mwyau/pyspharm-cpp/blob/main/docs
 
 ## Performance
 
-![Measured SHT latencies on a Gaussian 1280 × 640 grid](https://raw.githubusercontent.com/mwyau/pyspharm-cpp/main/benchmarks/timings-gl-640.svg)
+[![Measured SHT latencies on a Gaussian 1280 × 640 grid](https://raw.githubusercontent.com/mwyau/pyspharm-cpp/main/benchmarks/timings-gl-640.svg)](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/timings-gl-640.svg)
 
-Median timings in milliseconds on a Gaussian 1280 × 640 grid, with eight threads for ducc0 and `pyspharm-cpp` and serial `pyspharm`. All timings use float32 and the same truncation.
+Median timings in milliseconds on the Gaussian 1280 × 640 grid, which has the largest measured speedup among the five cases (177.15× for scalar analysis). ducc0 and `pyspharm-cpp` use eight threads; `pyspharm` is serial. All timings use float32 and the same truncation.
 
 | Operation        | pyspharm f32 | pyspharm-cpp f32 | ducc0 f32 | Speedup vs pyspharm |
 | ---------------- | -----------: | ---------------: | --------: | ------------------: |
