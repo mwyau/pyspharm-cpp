@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Albert M. W. Yau
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+name: pyspharm-reference
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - pyspharm=1.0.9
+  - ducc0
+  - numpy
+  - matplotlib
+  - pip
+  - pytest
+  - scikit-build-core
+  - nanobind
+  - cmake
+  - ninja

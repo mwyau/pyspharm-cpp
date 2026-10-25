@@ -32,11 +32,7 @@ ADDITIVE_CONTRACTS = {
 }
 
 APPROVED_DIFFERENCES = {
-    "backend": (
-        "The public import is spharm_cpp and the implementation uses the compiled "
-        "DUCC backend; SPHEREPACK and its private _spherepack workspace API are "
-        "not exposed."
-    ),
+    "backend": ("The public spharm_cpp interface uses the compiled DUCC backend."),
     "legendre_storage": (
         "The default is legfunc='computed'; legfunc='stored' raises ValueError."
     ),
@@ -49,8 +45,7 @@ APPROVED_DIFFERENCES = {
         "Clenshaw-Curtis limit."
     ),
     "shape_at_zero_truncation": (
-        "Rank-one outputs are retained at ntrunc=0 instead of reproducing "
-        "numpy.squeeze's incidental scalar result."
+        "Rank-one coefficient outputs retain a consistent shape at ntrunc=0."
     ),
     "geodesic_float64_default": (
         "getgeodesicpts defaults to double-precision geometry and float64 "
@@ -61,20 +56,18 @@ APPROVED_DIFFERENCES = {
         "precisions, converting coefficients in the extension."
     ),
     "instance_representation": (
-        "The C++ class has a richer diagnostic repr. pyspharm-syl 1.2.1 removes "
-        "the repr method present in the pinned upstream Python source."
+        "The C++ class has a richer diagnostic repr than original PySpharm."
     ),
     "safer_validation": (
-        "Invalid shapes, dtypes, counts, truncations, nonfinite inputs, and grid "
-        "configuration are rejected explicitly."
+        "Shape, dtype, count, truncation, finite-value, and grid configuration "
+        "constraints receive explicit validation."
     ),
     "regular_high_degree_spherepack_omission": (
-        "At regular-grid lmax=nlat-1, upstream SPHEREPACK synthesis omits every "
-        "odd-m coefficient. DUCC evaluates the analytical basis; this verified "
-        "legacy backend defect is accepted as a numerical behavior difference."
+        "At regular-grid lmax=nlat-1, SPHEREPACK synthesis omits odd-m "
+        "coefficients; DUCC evaluates the analytical basis."
     ),
     "getpsichi_zero_truncation": (
-        "At ntrunc=0, pyspharm-syl 1.2.1 raises IndexError while spharm_cpp "
+        "At ntrunc=0, the reference may raise IndexError while spharm_cpp "
         "returns zero streamfunction and velocity-potential maps, following the "
         "constant-scalar differential convention."
     ),

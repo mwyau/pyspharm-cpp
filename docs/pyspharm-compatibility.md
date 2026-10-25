@@ -2,7 +2,7 @@
 
 `spharm_cpp` provides a PySpharm-compatible Python API using ducc0 transforms. The implementations agree in the tested cases, with the differences described below.
 
-The PySpharm comparison uses `pyspharm-syl==1.2.1` (module version 1.0.9 and a compiled SPHEREPACK backend), NumPy 1.26.4, and CPython 3.12 on Linux x86-64. The original Python interface was compared with [`jswhit/pyspharm` at `a464ebf`](https://github.com/jswhit/pyspharm/tree/a464ebfed334188fc0ef275fad4aafd2d9fa716e).
+The parity suite uses `pyspharm=1.0.9` from conda-forge on CPython 3.14 as its SPHEREPACK reference. Its Python API comes from [`jswhit/pyspharm`](https://github.com/jswhit/pyspharm).
 
 ## Tested operations
 
@@ -52,4 +52,4 @@ Vector analysis excludes the even-longitude Nyquist order; `getvrtdivspec` and `
 
 Float32 numerical comparisons use operation-specific absolute and relative tolerances, rather than bitwise identity. Selected float64 Legendre functions are checked against an independent high-precision recurrence; basis synthesis uses Decimal reference samples with a `5e-14` tolerance. Geodesic float32 longitude comparisons account for the 0°/360° seam and test the rounded float64 result.
 
-Run the PySpharm comparison with the [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml). It installs the binary reference wheel only for testing and uploads JSON, Markdown, and JUnit results where available. The workflow runs on pushes to `main` and can also be started manually. Missing contracts, blocked reference imports, and unapproved differences fail validation.
+The [`validation.yml` workflow](https://github.com/mwyau/pyspharm-cpp/actions/workflows/validation.yml) installs the conda-forge reference, builds the C++ extension, and runs the parity suite on pull requests, pushes to `main`, and manual dispatch. It uploads JSON, Markdown, and JUnit reports, and enforces the API contracts and approved numerical differences.
