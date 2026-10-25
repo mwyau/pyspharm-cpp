@@ -42,9 +42,19 @@ jobs:
           uv python install 3.11
           uv sync --locked --python 3.11 --group benchmark \
             --no-install-project --no-install-package pyspharm
+          uv run --locked --no-sync --python 3.11 python - <<'PY'
+          from importlib.metadata import version
+
+          setuptools_version = version("setuptools")
+          if setuptools_version != "84.1.0":
+              raise SystemExit(
+                  f"Expected patched setuptools 84.1.0, found {setuptools_version}"
+              )
+          PY
           FFLAGS="-fallow-argument-mismatch" \
             uv pip install --python .venv/bin/python \
-              --no-build-isolation --no-deps "pyspharm==1.0.9"
+              --no-build-isolation --no-deps --no-binary pyspharm \
+              "pyspharm==1.0.9"
           FFLAGS="-fallow-argument-mismatch" \
             uv sync --locked --python 3.11 --group benchmark --no-build-isolation
       - name: Inspect CPU and SIMD features

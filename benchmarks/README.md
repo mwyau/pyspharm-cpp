@@ -19,7 +19,8 @@ The software versions were CPython 3.11.15, NumPy 1.26.4, `pyspharm` 1.0.9,
 ducc0 0.42.0, `pyspharm-cpp` 0.1.0.dev0, uv 0.12.23, GNU Fortran 15.2.0,
 setuptools 59.8.0, and wheel 0.48.0. The `pyspharm` source distribution uses
 `numpy.distutils`; it was built on CPython 3.11 with
-`FFLAGS=-fallow-argument-mismatch`.
+`FFLAGS=-fallow-argument-mismatch`. These versions record the environment that
+produced the committed measurements.
 
 The 2.5° one-thread case uses one DUCC thread; the other four cases use eight
 DUCC threads. `pyspharm` is serial. The DUCC spin-1 transforms form the wind
@@ -106,16 +107,20 @@ Those runner measurements are separate from the committed eight-thread,
 AVX2 measurements below.
 
 The `pyspharm==1.0.9` distribution is a source release. Its legacy
-Fortran build requires GNU Fortran, NumPy 1.26.4, setuptools 59.8.0, wheel
-0.48.0, and `FFLAGS=-fallow-argument-mismatch` with current GNU Fortran. Set
-up the locked benchmark environment from the repository root:
+Fortran build uses GNU Fortran, NumPy 1.26.4, patched setuptools 84.1.0, wheel
+0.48.0, and `FFLAGS=-fallow-argument-mismatch` with current GNU Fortran. The
+setuptools update changes the build tool while retaining the reference source
+and compiler configuration; it does not replace or regenerate the committed
+measurements above. Set up the locked benchmark environment from the repository
+root:
 
 ```sh
 uv python install 3.11
 uv sync --locked --python 3.11 --group benchmark \
   --no-install-project --no-install-package pyspharm
 FFLAGS="-fallow-argument-mismatch" uv pip install \
-  --python .venv/bin/python --no-build-isolation --no-deps "pyspharm==1.0.9"
+  --python .venv/bin/python --no-build-isolation --no-deps \
+  --no-binary pyspharm "pyspharm==1.0.9"
 FFLAGS="-fallow-argument-mismatch" uv sync --locked --python 3.11 \
   --group benchmark --no-build-isolation
 ```

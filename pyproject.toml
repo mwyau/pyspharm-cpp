@@ -67,7 +67,7 @@ benchmark = [
   "numpy==1.26.4; python_version == '3.11' and sys_platform == 'linux'",
   "pyspharm==1.0.9; python_version == '3.11' and sys_platform == 'linux'",
   "ducc0==0.42.0; python_version == '3.11' and sys_platform == 'linux'",
-  "setuptools==59.8.0; python_version == '3.11' and sys_platform == 'linux'",
+  "setuptools==84.1.0; python_version == '3.11' and sys_platform == 'linux'",
   "wheel==0.48.0; python_version == '3.11' and sys_platform == 'linux'",
 ]
 

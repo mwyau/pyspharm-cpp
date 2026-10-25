@@ -4,6 +4,8 @@ The [benchmark report](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmark
 
 The benchmark uses matching spectral truncation for each grid. Synthesis coefficients are prepared before timing, and timing values are medians from repeated measurements after warmup.
 
+The manual workflow builds `pyspharm==1.0.9` from its source distribution on Python 3.11 with NumPy 1.26.4, GNU Fortran, and patched `setuptools==84.1.0`. The setuptools update changes the build tool only; it keeps the reference implementation and Fortran build configuration used for the benchmark. The committed measurements remain the separately recorded results in [`benchmarks/README.md`](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/README.md) and [`measurements.csv`](https://github.com/mwyau/pyspharm-cpp/blob/main/benchmarks/measurements.csv).
+
 The ducc0 baseline measures spin-0 and spin-1 transforms. The `spharm_cpp` wind operations also convert between wind fields and spectral coefficients for relative vorticity and divergence.
 
 The four multithreaded cases use eight threads. The 2.5° grid has both a one-thread case and an eight-thread case. The benchmark script checks process affinity and cgroup quota before measuring.
