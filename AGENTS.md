@@ -19,6 +19,58 @@ These rules apply to implementation, tests, and documentation.
   Test changed numerical behavior against analytic results and, where useful,
   the identified PySpharm implementation.
 
+### Exact scalar/batch agreement for auxiliary numerical APIs
+
+This is a required numerical contract for `legendre` and `specintrp`,
+not an approximate-accuracy or performance target. It takes precedence over
+the batch optimizations documented below.
+
+- For the same finite coordinate values, coefficients, truncation, and chosen
+  computation dtype, every row/element of a batched call must be **bitwise
+  identical in that dtype** to the corresponding scalar call. This holds for
+  one-element batches, full SIMD batches, partial SIMD tails, varied batch
+  lengths and row positions, and supported input strides. Test under every
+  applicable portable/multiarch dispatch profile and supported threading
+  configuration. Different platforms or dispatch profiles need not produce
+  the same bits as each other, but scalar and batch must agree within each.
+- Test equality of the actual `float32`/`float64` output bit patterns,
+  including signed zeros; a tolerance-based comparison (`allclose`) is
+  insufficient. Scalar `specintrp` returns a Python `float`: convert it
+  back to the input coefficients' real dtype before comparing its bits with
+  the batched result, because Python represents that result as binary64.
+  Keep separate, tolerance-based tests against independent scientific
+  references and PySpharm; bitwise scalar/batch equality does not establish
+  numerical accuracy.
+- Preserve *native-precision recurrence and accumulation*: `float32` uses
+  binary32 and `float64` uses binary64 for these operations in **both**
+  overloads. Do not evaluate an entire `float32` result in binary64 merely
+  to narrow it on return. Shared binary64 angle reduction, trigonometry,
+  recurrence-constant preparation, or other explicitly justified setup is
+  permitted only when both overloads use the same conversions and numerical
+  sequence; it must not silently widen their recurrence/accumulation.
+- `legendre` scalar and batch must agree on coordinate preprocessing,
+  exact-pole handling, recurrence constants, multiply/add or FMA semantics,
+  scaling/exponent updates, and final rounding. `specintrp` scalar and batch
+  must agree on longitude reduction, phase evaluation and the 32-order
+  recurrence-reset rule, coefficient grouping, summation order, multiply/add
+  or FMA semantics, and final rounding. SIMD lanes, scalar tails, and thread
+  scheduling must not change the answer for a given point. Prefer sharing
+  per-point numerical logic over keeping independently evolving algorithms;
+  never assume mathematically equivalent SIMD and scalar expressions are
+  bitwise equivalent without testing.
+- `getgeodesicpts` has a scalar size argument and returns arrays; it has no
+  scalar-versus-batch overload. Its `dtype` still selects **native**
+  `float32` or `float64` geometric computation and output, rather than
+  always computing binary64 coordinates then casting. Validate geodesic
+  geometry and ordering against independent references at appropriate
+  dtype-specific tolerances; do not require its float32 values to equal
+  float64 values narrowed to float32. Keep its public signature and point
+  ordering unchanged.
+- Do not extend bitwise scalar/batch requirements to unrelated SHT analysis
+  or synthesis APIs without explicit approval. Preserve the existing public
+  signatures, default dtypes, validation, return shapes, and coefficient
+  conventions for these three auxiliary functions.
+
 ## ducc0 and native builds
 
 - Use the pinned, unmodified Git submodule at `third_party/ducc`.
@@ -40,11 +92,14 @@ These choices were measured on a Ryzen 9 5950X with the Linux x86-64-v3
 profile (2 warmups, 7 timing repetitions). They are not general speedup
 guarantees, particularly for ARM64, where batch scheduling is unmeasured.
 
-- Use point-lane SIMD for array inputs to `specintrp`. Coefficient-lane SIMD was
-  approximately 4.7× slower in float32 and 6.4× slower in float64.
+- Prefer point-lane SIMD for array inputs to `specintrp`. Coefficient-lane
+  SIMD was approximately 4.7× slower in float32 and 6.4× slower in float64.
   Point-lane SIMD improved selected float32 cases by about 1.6–1.7×;
-  float64 results were mixed. Keep native-width SIMD plus a scalar tail
-  for array inputs to `legendre`: a four-lane tail slowed small batches.
+  float64 results were mixed. Previously, native-width SIMD plus a scalar
+  tail outperformed a four-lane tail on small `legendre` batches. These
+  measurements do not override exact scalar/batch agreement: retain any
+  SIMD or scalar-tail optimization only if it satisfies the numerical
+  contract above.
 - Parallelize array inputs to `legendre` and `specintrp` only when there are at
   least four SIMD batches. Small inputs did not benefit from thread
   scheduling; larger cases improved by up to 3.39× with four threads.
@@ -85,6 +140,13 @@ guarantees, particularly for ARM64, where batch scheduling is unmeasured.
 - Update `src/spharm_cpp/_spharm_cpp.pyi` when nanobind signatures or
   docstrings change. CI regenerates the stub, formats it, and compares it
   with the checked-in file and `py.typed`.
+- For changes to `legendre`, `specintrp`, or `getgeodesicpts`,
+  add regression tests for the exact precision/bit-pattern contract above.
+  Include dtype and SIMD-boundary coverage, and update any tests, parity
+  manifest entries, or documentation that currently assert float32 results
+  are rounded copies of float64. Record performance regressions or wins
+  using the existing auxiliary benchmark; never loosen exact agreement
+  to recover a speedup.
 - Run `uv run --locked prek run --all-files` and
   `uv run --locked python -m pytest -q` before submitting changes.
 
