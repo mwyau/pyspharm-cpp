@@ -346,6 +346,119 @@ def test_batched_wind_synthesis_direct_outputs(
 @pytest.mark.parametrize(
     "dtype, cdtype, atol",
     [
+        (np.float32, np.complex64, 3e-5),
+        (np.float64, np.complex128, 2e-12),
+    ],
+)
+@pytest.mark.parametrize("gridtype", ["regular", "gaussian"])
+@pytest.mark.parametrize("nfield", [1, 3])
+def test_gradient_direct_outputs(dtype, cdtype, atol, gridtype, nfield):
+    nlat, nlon, lmax = 9, 18, 5
+    transform = spharm.Spharmt(nlon, nlat, gridtype=gridtype, dtype=dtype)
+    nalm = (lmax + 1) * (lmax + 2) // 2
+    rng = np.random.default_rng(918 + nfield)
+    storage = (
+        rng.standard_normal((nalm, 2 * nfield))
+        + 1j * rng.standard_normal((nalm, 2 * nfield))
+    ).astype(cdtype)
+    spectrum = storage[:, ::2]
+    spectrum[: lmax + 1] = spectrum[: lmax + 1].real
+    spectrum.setflags(write=False)
+
+    east, north = transform.getgrad(spectrum)
+    assert east.shape == north.shape == (nlat, nlon, nfield)
+    assert east.flags.c_contiguous and north.flags.c_contiguous
+    assert east.flags.writeable and north.flags.writeable
+    assert not np.shares_memory(east, north)
+    assert not np.shares_memory(east, spectrum)
+    for field in range(nfield):
+        expected_east, expected_north = transform.getgrad(spectrum[:, field])
+        np.testing.assert_allclose(
+            east[:, :, field], expected_east, rtol=atol, atol=atol
+        )
+        np.testing.assert_allclose(
+            north[:, :, field], expected_north, rtol=atol, atol=atol
+        )
+
+    single_east, single_north = transform.getgrad(spectrum[:, 0])
+    assert single_east.shape == single_north.shape == (nlat, nlon)
+    assert single_east.flags.c_contiguous and single_north.flags.c_contiguous
+    assert not np.shares_memory(single_east, single_north)
+    expected_north = north.copy()
+    del east
+    gc.collect()
+    np.testing.assert_array_equal(north, expected_north)
+
+    zero_spectrum = np.zeros((1, 1), dtype=cdtype)
+    zero_east, zero_north = transform.getgrad(zero_spectrum)
+    assert np.count_nonzero(zero_east) == np.count_nonzero(zero_north) == 0
+    zero_east, zero_north = transform.getgrad(zero_spectrum[:, 0])
+    assert zero_east.shape == zero_north.shape == (nlat, nlon)
+    assert np.count_nonzero(zero_east) == np.count_nonzero(zero_north) == 0
+
+
+@pytest.mark.parametrize(
+    "dtype, cdtype, atol",
+    [
+        (np.float32, np.complex64, 2e-4),
+        (np.float64, np.complex128, 2e-12),
+    ],
+)
+@pytest.mark.parametrize("gridtype", ["regular", "gaussian"])
+@pytest.mark.parametrize("nfield", [1, 3])
+def test_wind_analysis_direct_outputs(dtype, cdtype, atol, gridtype, nfield):
+    nlat, nlon, lmax = 9, 18, 5
+    transform = spharm.Spharmt(nlon, nlat, gridtype=gridtype, dtype=dtype)
+    rng = np.random.default_rng(9181 + nfield)
+    u_storage = rng.standard_normal((nlat, 2 * nlon, nfield)).astype(dtype)
+    v_storage = rng.standard_normal((nlat, 2 * nlon, nfield)).astype(dtype)
+    ugrid = u_storage[:, ::2, :]
+    vgrid = v_storage[:, ::2, :]
+    ugrid.setflags(write=False)
+    vgrid.setflags(write=False)
+
+    vorticity, divergence = transform.getvrtdivspec(ugrid, vgrid, lmax)
+    nalm = (lmax + 1) * (lmax + 2) // 2
+    assert vorticity.shape == divergence.shape == (nalm, nfield)
+    assert vorticity.flags.c_contiguous and divergence.flags.c_contiguous
+    assert vorticity.flags.writeable and divergence.flags.writeable
+    assert not np.shares_memory(vorticity, divergence)
+    assert not np.shares_memory(vorticity, ugrid)
+    for field in range(nfield):
+        expected_vorticity, expected_divergence = transform.getvrtdivspec(
+            ugrid[:, :, field], vgrid[:, :, field], lmax
+        )
+        np.testing.assert_allclose(
+            vorticity[:, field], expected_vorticity, rtol=atol, atol=atol
+        )
+        np.testing.assert_allclose(
+            divergence[:, field], expected_divergence, rtol=atol, atol=atol
+        )
+
+    single_vorticity, single_divergence = transform.getvrtdivspec(
+        ugrid[:, :, 0], vgrid[:, :, 0], lmax
+    )
+    assert single_vorticity.shape == single_divergence.shape == (nalm,)
+    assert single_vorticity.flags.c_contiguous and single_divergence.flags.c_contiguous
+    assert not np.shares_memory(single_vorticity, single_divergence)
+    expected_divergence = divergence.copy()
+    del vorticity
+    gc.collect()
+    np.testing.assert_array_equal(divergence, expected_divergence)
+
+    zero_vorticity, zero_divergence = transform.getvrtdivspec(ugrid, vgrid, 0)
+    assert zero_vorticity.shape == zero_divergence.shape == (1, nfield)
+    assert np.count_nonzero(zero_vorticity) == np.count_nonzero(zero_divergence) == 0
+    zero_vorticity, zero_divergence = transform.getvrtdivspec(
+        ugrid[:, :, 0], vgrid[:, :, 0], 0
+    )
+    assert zero_vorticity.shape == zero_divergence.shape == (1,)
+    assert np.count_nonzero(zero_vorticity) == np.count_nonzero(zero_divergence) == 0
+
+
+@pytest.mark.parametrize(
+    "dtype, cdtype, atol",
+    [
         (np.float32, np.complex64, 4e-5),
         (np.float64, np.complex128, 2e-12),
     ],
@@ -442,11 +555,11 @@ def test_batched_regrid_precision_and_smoothing(
     expected = np.stack(
         [
             spharm.regrid(source, target, fields[:, :, f], ntrunc=5, smooth=factors)
-            for f in range(fields.shape(2))
+            for f in range(fields.shape[2])
         ],
         axis=-1,
     )
-    assert actual.shape == (target.nlat, target.nlon, fields.shape(2))
+    assert actual.shape == (target.nlat, target.nlon, fields.shape[2])
     assert actual.dtype == np.dtype(target_dtype)
     atol = 3e-5 if target_dtype is np.float32 else 2e-12
     np.testing.assert_allclose(actual, expected, rtol=atol, atol=atol)

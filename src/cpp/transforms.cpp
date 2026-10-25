@@ -59,13 +59,13 @@ struct TransformSetup
   }
 };
 
-template <typename T>
-NpArr make_component_view(T* data, const std::array<std::size_t, 3>& shape,
-                          const std::array<std::int64_t, 3>& strides, py::handle owner,
-                          bool batched)
+template <typename T, std::size_t N>
+NpArr make_component_view(T* data, const std::array<std::size_t, N>& shape,
+                          const std::array<std::int64_t, N>& strides, py::handle owner,
+                          std::size_t ndim)
 {
-  return NpArr(DUCC0_NAMESPACE::detail_pybind::NpArrT<T>(
-      data, batched ? 3 : 2, shape.data(), owner, strides.data()));
+  return NpArr(DUCC0_NAMESPACE::detail_pybind::NpArrT<T>(data, ndim, shape.data(),
+                                                         owner, strides.data()));
 }
 
 struct FieldExecutionPlan
@@ -266,13 +266,23 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
   const std::size_t nfield = batched ? spec.shape(1) : 1;
   const std::size_t nalm = spec.shape(0);
   const std::size_t lmax = truncation_from_count(nalm);
-  NpArr east =
-      batched ? new_array<T>({nlat, nlon, nfield}) : new_array<T>({nlat, nlon});
-  NpArr north =
-      batched ? new_array<T>({nlat, nlon, nfield}) : new_array<T>({nlat, nlon});
-  auto eout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(east);
-  auto nout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(north);
   const std::size_t npix = nlat * nlon;
+  const std::size_t output_plane = npix * nfield;
+  NpArr output_storage = new_array<T>({2, nlat, nlon, nfield});
+  auto* output_data = reinterpret_cast<T*>(output_storage.data());
+  const auto owner = output_storage.cast();
+  const std::array<std::size_t, 3> output_shape{nlat, nlon, nfield};
+  const std::array<std::int64_t, 3> output_strides{
+      static_cast<std::int64_t>(nlon * nfield), static_cast<std::int64_t>(nfield), 1};
+  NpArr north = make_component_view(output_data, output_shape, output_strides, owner,
+                                    batched ? 3 : 2);
+  NpArr east = make_component_view(output_data + output_plane, output_shape,
+                                   output_strides, owner, batched ? 3 : 2);
+  if (lmax == 0)
+  {
+    std::fill_n(output_data, 2 * output_plane, T(0));
+    return {east, north};
+  }
   std::vector<DUCC0_NAMESPACE::cmav<std::complex<T>, 2>> sources;
   sources.reserve(nfield);
   for (std::size_t f = 0; f < nfield; ++f)
@@ -283,19 +293,19 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
   const auto plan = field_execution_plan(nfield, nlat, nlon);
   const std::array<std::size_t, 2> alm_shape{1, nalm};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
-  const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
-                                                 static_cast<std::ptrdiff_t>(nlon), 1};
+  const std::array<std::ptrdiff_t, 3> map_stride{
+      static_cast<std::ptrdiff_t>(output_plane),
+      static_cast<std::ptrdiff_t>(nlon * nfield), static_cast<std::ptrdiff_t>(nfield)};
   struct Workspace
   {
-    std::vector<T> maps;
     std::vector<std::complex<T>> alms;
 
-    Workspace(std::size_t npix, std::size_t nalm) : maps(2 * npix), alms(nalm) {}
+    explicit Workspace(std::size_t nalm) : alms(nalm) {}
   };
   std::vector<Workspace> workspace;
   workspace.reserve(plan.outer_threads);
   for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
-    workspace.emplace_back(npix, nalm);
+    workspace.emplace_back(nalm);
   {
     py::gil_scoped_release release;
     for_each_field_range(
@@ -304,7 +314,6 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
         {
           auto& scratch = workspace[thread];
           DUCC0_NAMESPACE::cmav<std::complex<T>, 2> alm(scratch.alms.data(), alm_shape);
-          DUCC0_NAMESPACE::vmav<T, 3> map(scratch.maps.data(), map_shape, map_stride);
           for (std::size_t f = lo; f < hi; ++f)
           {
             for (std::size_t m = 0; m <= lmax; ++m)
@@ -314,21 +323,20 @@ std::pair<NpArr, NpArr> spectral_gradient(const CNpArr& spec, std::size_t nlat,
                 scratch.alms[idx] =
                     sources[f](0, idx) * static_cast<T>(sqrt_2pi * coefficient_sign(m));
               }
-            std::fill(scratch.maps.begin(), scratch.maps.end(), T(0));
-            if (lmax > 0)
-              DUCC0_NAMESPACE::synthesis_2d(
-                  alm, map, 1, lmax, mstart, 1, gridtype == "regular" ? "CC" : "GL",
-                  0.0, rfactor, plan.inner_threads, DUCC0_NAMESPACE::DERIV1);
+            DUCC0_NAMESPACE::vmav<T, 3> map(output_data + f, map_shape, map_stride);
+            DUCC0_NAMESPACE::synthesis_2d(
+                alm, map, 1, lmax, mstart, 1, gridtype == "regular" ? "CC" : "GL", 0.0,
+                rfactor, plan.inner_threads, DUCC0_NAMESPACE::DERIV1);
             for (std::size_t j = 0; j < nlat; ++j)
               for (std::size_t i = 0; i < nlon; ++i)
               {
-                const auto pyidx =
+                const auto output_index =
                     batched ? j * nlon * nfield + i * nfield + f : j * nlon + i;
-                const auto pix = j * nlon + i;
-                eout.data()[pyidx] = static_cast<T>(
-                    static_cast<double>(scratch.maps[npix + pix]) / rsphere);
-                nout.data()[pyidx] =
-                    static_cast<T>(-static_cast<double>(scratch.maps[pix]) / rsphere);
+                output_data[output_plane + output_index] = static_cast<T>(
+                    static_cast<double>(output_data[output_plane + output_index]) /
+                    rsphere);
+                output_data[output_index] = static_cast<T>(
+                    -static_cast<double>(output_data[output_index]) / rsphere);
               }
           }
         });
@@ -345,12 +353,22 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
   const bool batched = ugrid.ndim() == 3;
   const std::size_t nfield = batched ? ugrid.shape(2) : 1;
   const std::size_t nalm = coefficient_count(lmax);
-  NpArr vort = batched ? new_array<std::complex<T>>({nalm, nfield})
-                       : new_array<std::complex<T>>({nalm});
-  NpArr div = batched ? new_array<std::complex<T>>({nalm, nfield})
-                      : new_array<std::complex<T>>({nalm});
-  auto vout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(vort);
-  auto dout = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(div);
+  const std::size_t output_plane = nalm * nfield;
+  NpArr output_storage = new_array<std::complex<T>>({2, nalm, nfield});
+  auto* output_data = reinterpret_cast<std::complex<T>*>(output_storage.data());
+  const auto owner = output_storage.cast();
+  const std::array<std::size_t, 2> output_shape{nalm, nfield};
+  const std::array<std::int64_t, 2> output_strides{static_cast<std::int64_t>(nfield),
+                                                   1};
+  NpArr div = make_component_view(output_data, output_shape, output_strides, owner,
+                                  batched ? 2 : 1);
+  NpArr vort = make_component_view(output_data + output_plane, output_shape,
+                                   output_strides, owner, batched ? 2 : 1);
+  if (lmax == 0)
+  {
+    std::fill_n(output_data, 2 * output_plane, std::complex<T>(0, 0));
+    return {vort, div};
+  }
   const std::size_t npix = nlat * nlon;
   std::vector<DUCC0_NAMESPACE::cmav<T, 3>> umaps;
   std::vector<DUCC0_NAMESPACE::cmav<T, 3>> vmaps;
@@ -366,20 +384,21 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
   const auto rfactor = setup.rfactor();
   const auto plan = field_execution_plan(nfield, nlat, nlon);
   const std::array<std::size_t, 2> alm_shape{2, nalm};
+  const std::array<std::ptrdiff_t, 2> alm_stride{
+      static_cast<std::ptrdiff_t>(output_plane), static_cast<std::ptrdiff_t>(nfield)};
   const std::array<std::size_t, 3> map_shape{2, nlat, nlon};
   const std::array<std::ptrdiff_t, 3> map_stride{static_cast<std::ptrdiff_t>(npix),
                                                  static_cast<std::ptrdiff_t>(nlon), 1};
   struct Workspace
   {
     std::vector<T> maps;
-    std::vector<std::complex<T>> alms;
 
-    Workspace(std::size_t npix, std::size_t nalm) : maps(2 * npix), alms(2 * nalm) {}
+    explicit Workspace(std::size_t npix) : maps(2 * npix) {}
   };
   std::vector<Workspace> workspace;
   workspace.reserve(plan.outer_threads);
   for (std::size_t thread = 0; thread < plan.outer_threads; ++thread)
-    workspace.emplace_back(npix, nalm);
+    workspace.emplace_back(npix);
   {
     py::gil_scoped_release release;
     for_each_field_range(
@@ -387,8 +406,6 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
         [&](std::size_t thread, std::size_t lo, std::size_t hi)
         {
           auto& scratch = workspace[thread];
-          DUCC0_NAMESPACE::vmav<std::complex<T>, 2> alms(scratch.alms.data(),
-                                                         alm_shape);
           DUCC0_NAMESPACE::cmav<T, 3> maps(scratch.maps.data(), map_shape, map_stride);
           for (std::size_t f = lo; f < hi; ++f)
           {
@@ -398,22 +415,27 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
                 scratch.maps[j * nlon + i] = -vmaps[f](0, j, i);
                 scratch.maps[npix + j * nlon + i] = umaps[f](0, j, i);
               }
-            if (lmax > 0)
-              DUCC0_NAMESPACE::analysis_2d(alms, maps, 1, lmax, mstart, 1,
-                                           gridtype == "regular" ? "CC" : "GL", 0.0,
-                                           rfactor, plan.inner_threads);
+            DUCC0_NAMESPACE::vmav<std::complex<T>, 2> alms(output_data + f, alm_shape,
+                                                           alm_stride);
+            DUCC0_NAMESPACE::analysis_2d(alms, maps, 1, lmax, mstart, 1,
+                                         gridtype == "regular" ? "CC" : "GL", 0.0,
+                                         rfactor, plan.inner_threads);
             for (std::size_t m = 0; m <= lmax; ++m)
               for (std::size_t l = m; l <= lmax; ++l)
               {
                 const auto idx = packed_coefficient_index(lmax, m, l);
+                if (l == 0)
+                {
+                  alms(1, idx) = std::complex<T>(0, 0);
+                  alms(0, idx) = std::complex<T>(0, 0);
+                  continue;
+                }
                 const double degree = static_cast<double>(l);
                 const double lambda = degree * (degree + 1.0);
-                const double coefficient_scale =
+                const double scale =
                     -std::sqrt(lambda) / (rsphere * sqrt_2pi) * coefficient_sign(m);
-                const double scale = l == 0 ? 0.0 : coefficient_scale;
-                const auto outidx = batched ? idx * nfield + f : idx;
-                vout.data()[outidx] = scale_coefficient(alms(1, idx), scale);
-                dout.data()[outidx] = scale_coefficient(alms(0, idx), scale);
+                alms(1, idx) = scale_coefficient(alms(1, idx), scale);
+                alms(0, idx) = scale_coefficient(alms(0, idx), scale);
               }
           }
         });
@@ -422,9 +444,8 @@ std::pair<NpArr, NpArr> analyze_winds(const CNpArr& ugrid, const CNpArr& vgrid,
 }
 
 template <typename T>
-std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec,
-                                         const CNpArr& divspec, std::size_t nlat,
-                                         std::size_t nlon,
+std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& divspec,
+                                         std::size_t nlat, std::size_t nlon,
                                          const std::string& gridtype, double rsphere)
 {
   const bool batched = vrtspec.ndim() == 2;
@@ -438,10 +459,10 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec,
   const std::array<std::size_t, 3> output_shape{nlat, nlon, nfield};
   const std::array<std::int64_t, 3> output_strides{
       static_cast<std::int64_t>(nlon * nfield), static_cast<std::int64_t>(nfield), 1};
-  NpArr v =
-      make_component_view(output_data, output_shape, output_strides, owner, batched);
+  NpArr v = make_component_view(output_data, output_shape, output_strides, owner,
+                                batched ? 3 : 2);
   NpArr u = make_component_view(output_data + output_plane, output_shape,
-                                output_strides, owner, batched);
+                                output_strides, owner, batched ? 3 : 2);
 
   if (lmax == 0)
   {
