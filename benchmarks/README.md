@@ -97,11 +97,13 @@ truncation, median, and p90 for every measurement. The benchmark rejects a
 requested thread count above the CPUs available from process affinity and the
 cgroup CPU quota.
 
-The manually dispatched GitHub Actions workflow still targets the configured
-`ubuntu-24.04` runner, which has four CPUs. Its eight-CPU preflight stops before
-measurement on that allocation. Actions can reproduce this suite after an
-eight-CPU runner is configured; the workflow does not assume an unconfigured
-runner label.
+The manually dispatched GitHub Actions workflow requires an AVX-512-capable
+`ubuntu-24.04` runner, but uses the maximum CPU count available through affinity
+and cgroup quota instead of requiring eight CPUs. It runs the five cases
+separately under each `pyspharm-cpp` dispatch profile (`x86-64-v1`,
+`x86-64-v3`, and `x86-64-v4`) and uploads per-profile CSVs and figures.
+Those runner measurements are separate from the committed eight-thread,
+AVX2 measurements below.
 
 The `pyspharm==1.0.9` distribution is a source release. Its legacy
 Fortran build requires GNU Fortran, NumPy 1.26.4, setuptools 59.8.0, wheel
@@ -167,5 +169,7 @@ uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
   --csv benchmarks/measurements.csv --output-dir benchmarks
 ```
 
-It fails if any timing series is missing. Independent numerical validation is
+The plotter derives thread-count labels from the CSV and fails if any
+timing series is missing or the multithreaded cases disagree on thread count.
+Independent numerical validation is
 in [`tests/parity/`](../tests/parity).

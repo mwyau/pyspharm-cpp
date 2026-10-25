@@ -8,6 +8,6 @@ The ducc0 baseline measures spin-0 and spin-1 transforms. The `spharm_cpp` wind 
 
 The four multithreaded cases use eight threads. The 2.5° grid has both a one-thread case and an eight-thread case. The benchmark script checks process affinity and cgroup quota before measuring.
 
-The manual GitHub Actions workflow currently targets a four-CPU `ubuntu-24.04` runner, so its preflight stops before measurement. Configure an eight-CPU runner before using the workflow to reproduce the suite.
+The manual GitHub Actions workflow requires an AVX-512-capable `ubuntu-24.04` runner and uses the maximum CPUs available to its process, typically four. It benchmarks `x86-64-v1`, `x86-64-v3`, and `x86-64-v4` separately, uploading five figures and CSVs for each profile. These workflow artifacts are distinct from the committed eight-thread results.
 
 Performance depends on grid resolution, thread count, processor, and precision. The figures show individual measurements rather than performance guarantees.

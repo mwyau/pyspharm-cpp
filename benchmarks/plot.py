@@ -29,16 +29,20 @@ HEIGHT = 136 + 202 * len(OPERATIONS)
 
 def load_measurements(paths: list[Path]):
     results = {}
+    thread_counts = {}
     for path in paths:
         with path.open(newline="", encoding="utf-8") as stream:
             for row in csv.DictReader(stream):
                 key = (row["case"], row["operation"], row["backend"])
-                expected_threads = 1 if row["case"] == "cc-2p5-1t" else 8
-                if int(row["threads"]) != expected_threads:
-                    raise ValueError(
-                        f"Incorrect thread count for {key}: "
-                        f"expected {expected_threads}, got {row['threads']}"
-                    )
+                threads = int(row["threads"])
+                if threads < 1 or (row["case"] == "cc-2p5-1t" and threads != 1):
+                    raise ValueError(f"Invalid thread count for {key}: {threads}")
+                if (
+                    row["case"] in thread_counts
+                    and thread_counts[row["case"]] != threads
+                ):
+                    raise ValueError(f"Inconsistent thread count for {row['case']}")
+                thread_counts[row["case"]] = threads
                 if key in results:
                     raise ValueError(f"Duplicate measurement {key}")
                 median = float(row["median_ms"])
@@ -57,12 +61,16 @@ def load_measurements(paths: list[Path]):
             f"Missing measurements: {sorted(expected - results.keys())}; "
             f"unexpected measurements: {sorted(results.keys() - expected)}"
         )
-    return results
+    multi_threads = {
+        threads for case, threads in thread_counts.items() if case != "cc-2p5-1t"
+    }
+    if len(multi_threads) != 1:
+        raise ValueError("Multithreaded cases must use the same thread count")
+    return results, thread_counts
 
 
-def render(case, label, measurements):
+def render(case, label, measurements, threads):
     left, width = 227, 486
-    threads = 1 if case.endswith("-1t") else 8
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="920" height="{HEIGHT}" '
         f'viewBox="0 0 920 {HEIGHT}" role="img" aria-labelledby="t d">',
@@ -131,11 +139,13 @@ def main():
     parser.add_argument("--csv", type=Path, nargs="+", required=True)
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).parent)
     args = parser.parse_args()
-    measurements = load_measurements(args.csv)
+    measurements, thread_counts = load_measurements(args.csv)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for case, _, _, _, label in CASES:
         output = args.output_dir / f"timings-{case}.svg"
-        output.write_text(render(case, label, measurements), encoding="utf-8")
+        output.write_text(
+            render(case, label, measurements, thread_counts[case]), encoding="utf-8"
+        )
         print(output)
 
 

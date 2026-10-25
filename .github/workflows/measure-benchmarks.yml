@@ -23,41 +23,6 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           version: 0.13.5
-      - name: Verify eight CPUs are available
-        run: |
-          python3 - <<'PY'
-          import math
-          import os
-          from pathlib import Path
-
-          affinity = len(os.sched_getaffinity(0))
-          quota = None
-          try:
-              value, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
-              if value != "max":
-                  quota = int(value) / int(period)
-          except (OSError, ValueError):
-              try:
-                  value = int(Path(
-                      "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"
-                  ).read_text())
-                  period = int(Path(
-                      "/sys/fs/cgroup/cpu/cpu.cfs_period_us"
-                  ).read_text())
-                  if value > 0:
-                      quota = value / period
-              except (OSError, ValueError):
-                  pass
-
-          available = min(affinity, math.floor(quota) if quota is not None else affinity)
-          print(f"CPU allocation: affinity={affinity}, quota={quota}, available={available}")
-          if available < 8:
-              raise SystemExit(
-                  "This configured ubuntu-24.04 runner provides fewer than eight CPUs. "
-                  "Configure an eight-CPU runner before measuring; no runner label is "
-                  "assumed here."
-              )
-          PY
       - name: Check AVX-512 hardware support
         run: |
           python3 - <<'PY'
@@ -95,25 +60,29 @@ jobs:
           print("CPU_DISPATCH=", info, flush=True)
           if info.get("active_profile") != "x86-64-v4":
               raise SystemExit("AVX-512 v4 unavailable on this runner; rerun the job")
+          if set(info.get("compiled_profiles", [])) != {
+              "x86-64-v1", "x86-64-v3", "x86-64-v4"
+          }:
+              raise SystemExit("Expected multiarch v1/v3/v4 build")
           PY
-      - name: Measure four grids (8 threads)
+      - name: Benchmark v1, v3, and v4
         run: |
-          mkdir -p "$RUNNER_TEMP/sht-bench"
-          uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
-            --threads 8 --warmups 2 --repeats 7 \
-            --output "$RUNNER_TEMP/sht-bench/eight-thread.csv"
-      - name: Measure 2.5-degree regular grid (1 thread)
-        run: |
-          uv run --locked --no-sync --python 3.11 python benchmarks/benchmark.py \
-            --cases cc-2p5-1t --threads 1 --warmups 2 --repeats 7 \
-            --output "$RUNNER_TEMP/sht-bench/one-thread.csv"
-      - name: Plot benchmark comparisons
-        run: |
-          uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
-            --csv "$RUNNER_TEMP/sht-bench/eight-thread.csv" \
-                  "$RUNNER_TEMP/sht-bench/one-thread.csv" \
-            --output-dir "$RUNNER_TEMP/sht-bench/figures"
-          test "$(find "$RUNNER_TEMP/sht-bench/figures" -name 'timings-*.svg' | wc -l)" -eq 5
+          for cap in 1 3 4; do
+            output="$RUNNER_TEMP/sht-bench/v$cap"
+            mkdir -p "$output"
+            DUCC0_MAX_PSABI_LEVEL="$cap" uv run --locked --no-sync --python 3.11 \
+              python -c "import spharm_cpp; assert spharm_cpp.cpu_info()['active_profile'] == 'x86-64-v$cap'"
+            DUCC0_MAX_PSABI_LEVEL="$cap" uv run --locked --no-sync --python 3.11 \
+              python benchmarks/benchmark.py --threads 0 --warmups 2 --repeats 7 \
+              --output "$output/multi-thread.csv"
+            DUCC0_MAX_PSABI_LEVEL="$cap" uv run --locked --no-sync --python 3.11 \
+              python benchmarks/benchmark.py --cases cc-2p5-1t --threads 1 \
+              --warmups 2 --repeats 7 --output "$output/one-thread.csv"
+            uv run --locked --no-sync --python 3.11 python benchmarks/plot.py \
+              --csv "$output/multi-thread.csv" "$output/one-thread.csv" \
+              --output-dir "$output/figures"
+            test "$(find "$output/figures" -name 'timings-*.svg' | wc -l)" -eq 5
+          done
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7.0.2
         if: always()

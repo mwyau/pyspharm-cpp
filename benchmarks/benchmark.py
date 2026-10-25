@@ -160,7 +160,7 @@ def main():
     if args.threads < 0 or args.warmups < 1 or args.repeats < 3:
         parser.error("threads >= 0; warmups >= 1; repeats >= 3")
     resources = cpu_resources()
-    threads = args.threads or min(8, resources["available_cpus"])
+    threads = args.threads or resources["available_cpus"]
     if threads < 1:
         parser.error("no CPUs are available to run the benchmark")
     if threads > resources["available_cpus"]:
