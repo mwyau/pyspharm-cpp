@@ -487,63 +487,54 @@ std::pair<NpArr, NpArr> synthesize_winds(const CNpArr& vrtspec, const CNpArr& di
 template <typename T>
 NpArr apply_inverse_laplacian(const CNpArr& spec, double rsphere)
 {
-  const auto nalm = spec.shape(0);
-  const auto lmax = truncation_from_count(nalm);
-  NpArr result = spec.ndim() == 1 ? new_array<std::complex<T>>({nalm})
-                                  : new_array<std::complex<T>>({nalm, spec.shape(1)});
-  auto input = DUCC0_NAMESPACE::detail_pybind::to_cfmav<std::complex<T>>(spec);
-  auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(result);
-  const auto nfield = spec.ndim() == 1 ? 1 : spec.shape(1);
+  const std::size_t nalm = spec.shape(0);
+  const std::size_t lmax = truncation_from_count(nalm);
+  const bool batched = spec.ndim() == 2;
+  const std::size_t nfield = batched ? spec.shape(1) : 1;
+  NpArr result = batched ? new_array<std::complex<T>>({nalm, nfield})
+                         : new_array<std::complex<T>>({nalm});
   for (std::size_t f = 0; f < nfield; ++f)
+  {
+    auto source = as_ducc_alms<T>(spec, nalm, f);
+    auto dest = as_ducc_alms<T>(result, nalm, f, batched);
     for (std::size_t m = 0; m <= lmax; ++m)
       for (std::size_t l = m; l <= lmax; ++l)
       {
         const auto idx = packed_coefficient_index(lmax, m, l);
-        const auto from = spec.ndim() == 1
-                              ? static_cast<std::ptrdiff_t>(idx)
-                              : static_cast<std::ptrdiff_t>(idx) * input.stride(0) +
-                                    static_cast<std::ptrdiff_t>(f) * input.stride(1);
-        const auto to = spec.ndim() == 1
-                            ? static_cast<std::ptrdiff_t>(idx)
-                            : static_cast<std::ptrdiff_t>(idx) * output.stride(0) +
-                                  static_cast<std::ptrdiff_t>(f) * output.stride(1);
         const double degree = static_cast<double>(l);
         const double factor =
             l == 0 ? 0.0 : -rsphere * rsphere / (degree * (degree + 1.0));
-        output.data()[to] = scale_coefficient(input.data()[from], factor);
+        dest(0, idx) = scale_coefficient(source(0, idx), factor);
       }
+  }
   return result;
 }
 
 template <typename T>
 NpArr apply_smoothing(const CNpArr& spec, const CNpArr& smooth)
 {
-  const auto nalm = spec.shape(0);
-  const auto lmax = truncation_from_count(nalm);
+  const std::size_t nalm = spec.shape(0);
+  const std::size_t lmax = truncation_from_count(nalm);
   if (smooth.ndim() != 1 || smooth.shape(0) < lmax + 1)
     throw py::value_error("smooth must be rank one and cover every coefficient degree");
   validate_array_dtype<T>(smooth,
                           std::is_same_v<T, float> ? "numpy.float32" : "numpy.float64");
   const bool batched = spec.ndim() == 2;
-  const auto nfield = batched ? spec.shape(1) : 1;
+  const std::size_t nfield = batched ? spec.shape(1) : 1;
   NpArr result = batched ? new_array<std::complex<T>>({nalm, nfield})
                          : new_array<std::complex<T>>({nalm});
-  auto input = DUCC0_NAMESPACE::detail_pybind::to_cfmav<std::complex<T>>(spec);
-  auto factors = DUCC0_NAMESPACE::detail_pybind::to_cfmav<T>(smooth);
-  auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<T>>(result);
+  const auto factors = DUCC0_NAMESPACE::detail_pybind::to_cfmav<T>(smooth);
   for (std::size_t f = 0; f < nfield; ++f)
+  {
+    auto source = as_ducc_alms<T>(spec, nalm, f);
+    auto dest = as_ducc_alms<T>(result, nalm, f, batched);
     for (std::size_t m = 0; m <= lmax; ++m)
       for (std::size_t l = m; l <= lmax; ++l)
       {
         const auto idx = packed_coefficient_index(lmax, m, l);
-        const auto from = batched ? static_cast<std::ptrdiff_t>(idx) * input.stride(0) +
-                                        static_cast<std::ptrdiff_t>(f) * input.stride(1)
-                                  : static_cast<std::ptrdiff_t>(idx);
-        const auto to = batched ? static_cast<std::ptrdiff_t>(idx) * output.stride(0) +
-                                      static_cast<std::ptrdiff_t>(f) * output.stride(1)
-                                : static_cast<std::ptrdiff_t>(idx);
-        output.data()[to] = input.data()[from] * factors(l);
+        dest(0, idx) = source(0, idx) * factors(l);
       }
+  }
   return result;
 }
 
@@ -555,21 +546,13 @@ NpArr convert_spectral_precision(const CNpArr& input)
   const std::size_t nfield = batched ? input.shape(1) : 1;
   NpArr result = batched ? new_array<std::complex<To>>({nalm, nfield})
                          : new_array<std::complex<To>>({nalm});
-  const auto in_stride =
-      DUCC0_NAMESPACE::detail_pybind::copy_strides<std::complex<From>, false>(input);
-  auto output = DUCC0_NAMESPACE::detail_pybind::to_vfmav<std::complex<To>>(result);
-  const auto* source = reinterpret_cast<const std::complex<From>*>(input.data());
-  for (std::size_t l = 0; l < nalm; ++l)
-    for (std::size_t f = 0; f < nfield; ++f)
-    {
-      const auto from = batched ? static_cast<std::ptrdiff_t>(l) * in_stride[0] +
-                                      static_cast<std::ptrdiff_t>(f) * in_stride[1]
-                                : static_cast<std::ptrdiff_t>(l) * in_stride[0];
-      const auto to = batched ? static_cast<std::ptrdiff_t>(l) * output.stride(0) +
-                                    static_cast<std::ptrdiff_t>(f) * output.stride(1)
-                              : static_cast<std::ptrdiff_t>(l);
-      output.data()[to] = static_cast<std::complex<To>>(source[from]);
-    }
+  for (std::size_t f = 0; f < nfield; ++f)
+  {
+    auto source = as_ducc_alms<From>(input, nalm, f);
+    auto dest = as_ducc_alms<To>(result, nalm, f, batched);
+    for (std::size_t l = 0; l < nalm; ++l)
+      dest(0, l) = static_cast<std::complex<To>>(source(0, l));
+  }
   return result;
 }
 

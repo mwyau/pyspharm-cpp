@@ -421,6 +421,37 @@ def test_geodesic_points_and_regrid_precision_conversion():
     np.testing.assert_allclose(smoothed, 1, rtol=2e-7, atol=2e-7)
 
 
+@pytest.mark.parametrize(
+    "source_dtype, target_dtype",
+    [(np.float32, np.float64), (np.float64, np.float32)],
+)
+@pytest.mark.parametrize("with_smoothing", [False, True])
+def test_batched_regrid_precision_and_smoothing(
+    source_dtype, target_dtype, with_smoothing
+):
+    source = spharm.Spharmt(18, 9, gridtype="gaussian", dtype=source_dtype)
+    target = spharm.Spharmt(16, 8, gridtype="gaussian", dtype=target_dtype)
+    rng = np.random.default_rng(105)
+    fields = rng.normal(size=(9, 18, 4)).astype(source_dtype)
+    factors = (
+        np.linspace(0.5, 1.0, target.nlat, dtype=target_dtype)
+        if with_smoothing
+        else None
+    )
+    actual = spharm.regrid(source, target, fields, ntrunc=5, smooth=factors)
+    expected = np.stack(
+        [
+            spharm.regrid(source, target, fields[:, :, f], ntrunc=5, smooth=factors)
+            for f in range(fields.shape(2))
+        ],
+        axis=-1,
+    )
+    assert actual.shape == (target.nlat, target.nlon, fields.shape(2))
+    assert actual.dtype == np.dtype(target_dtype)
+    atol = 3e-5 if target_dtype is np.float32 else 2e-12
+    np.testing.assert_allclose(actual, expected, rtol=atol, atol=atol)
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_strided_readonly_smoothing_factors(dtype):
     transform = spharm.Spharmt(18, 9, gridtype="gaussian", dtype=dtype)
