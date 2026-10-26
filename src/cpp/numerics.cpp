@@ -450,25 +450,32 @@ Vec3<T> spherical_roundtrip(Vec3<T> p)
 }
 
 template <typename T>
-std::pair<std::vector<T>, std::vector<T>> geodesic_points(std::size_t edge_points)
+std::pair<NpArr, NpArr> geodesic_points(std::size_t edge_points)
 {
-  // Construct all points in one native call. Preserve the ordered scalar
-  // arithmetic of each selected precision; vectorizing these conversions
-  // would add lane fallbacks without useful speed.
+  // Write coordinates directly into NumPy-owned storage. Preserve the
+  // ordered scalar arithmetic and the geometry workspace in native precision.
   if (edge_points == 0)
     throw py::value_error("m must be at least 1");
-  if (edge_points == 1)
-    return {{T(90), T(-90)}, {T(0), T(0)}};
   if (edge_points > (std::numeric_limits<std::size_t>::max() - 1) / 2)
     throw py::value_error("m is too large");
   const std::size_t n = edge_points - 1;
   if (n > 0 && n > (std::numeric_limits<std::size_t>::max() - 2) / 10 / n)
     throw py::value_error("m is too large");
   const std::size_t expected = 10 * n * n + 2;
-  std::vector<T> latitudes(expected), longitudes(expected);
   const std::size_t idp = 2 * edge_points - 1, jdp = edge_points;
   if (idp > std::numeric_limits<std::size_t>::max() / jdp / 5)
     throw py::value_error("m is too large");
+  NpArr latitudes = new_array<T>({expected});
+  NpArr longitudes = new_array<T>({expected});
+  auto lat = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(latitudes);
+  auto lon = DUCC0_NAMESPACE::detail_pybind::to_vfmav<T>(longitudes);
+  if (edge_points == 1)
+  {
+    lat.data()[0] = T(90);
+    lat.data()[1] = T(-90);
+    lon.data()[0] = lon.data()[1] = T(0);
+    return {latitudes, longitudes};
+  }
   std::vector<Vec3<T>> xyz(idp * jdp * 5);
   auto at = [&](std::size_t i, std::size_t j, std::size_t k) -> Vec3<T>&
   { return xyz[(i * jdp + j) * 5 + k]; };
@@ -536,14 +543,14 @@ std::pair<std::vector<T>, std::vector<T>> geodesic_points(std::size_t edge_point
         const T radial = std::sqrt(p.x * p.x + p.y * p.y);
         const T rad2dg = T(180) / pif;
         const T xtmp = (p.x != T(0) || p.y != T(0)) ? p.x : T(1);
-        latitudes[out] = std::atan2(radial, p.z) * rad2dg - T(90);
-        longitudes[out] = std::atan2(p.y, xtmp) * rad2dg + T(180);
+        lat.data()[out] = std::atan2(radial, p.z) * rad2dg - T(90);
+        lon.data()[out] = std::atan2(p.y, xtmp) * rad2dg + T(180);
         ++out;
       }
-  latitudes[0] = T(90);
-  latitudes[1] = T(-90);
-  longitudes[0] = T(0);
-  longitudes[1] = T(0);
+  lat.data()[0] = T(90);
+  lat.data()[1] = T(-90);
+  lon.data()[0] = T(0);
+  lon.data()[1] = T(0);
   if (out != expected)
     throw std::runtime_error("icosahedral subdivision produced an invalid point count");
   return {latitudes, longitudes};
@@ -961,24 +968,14 @@ ndarray
             py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
         if (name == "float32")
         {
-          auto result = geodesic_points<float>(static_cast<std::size_t>(m));
-          NpArr latitudes = new_array<float>({result.first.size()});
-          NpArr longitudes = new_array<float>({result.second.size()});
-          auto lat = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(latitudes);
-          auto lon = DUCC0_NAMESPACE::detail_pybind::to_vfmav<float>(longitudes);
-          std::copy(result.first.begin(), result.first.end(), lat.data());
-          std::copy(result.second.begin(), result.second.end(), lon.data());
+          auto [latitudes, longitudes] =
+              geodesic_points<float>(static_cast<std::size_t>(m));
           return py::make_tuple(latitudes, longitudes);
         }
         if (name == "float64")
         {
-          auto result = geodesic_points<double>(static_cast<std::size_t>(m));
-          NpArr latitudes = new_array<double>({result.first.size()});
-          NpArr longitudes = new_array<double>({result.second.size()});
-          auto lat = DUCC0_NAMESPACE::detail_pybind::to_vfmav<double>(latitudes);
-          auto lon = DUCC0_NAMESPACE::detail_pybind::to_vfmav<double>(longitudes);
-          std::copy(result.first.begin(), result.first.end(), lat.data());
-          std::copy(result.second.begin(), result.second.end(), lon.data());
+          auto [latitudes, longitudes] =
+              geodesic_points<double>(static_cast<std::size_t>(m));
           return py::make_tuple(latitudes, longitudes);
         }
         throw py::type_error("dtype must be numpy.float32 or numpy.float64");
