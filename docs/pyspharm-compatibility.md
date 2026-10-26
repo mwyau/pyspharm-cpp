@@ -30,7 +30,7 @@ Original PySpharm defines scalar `legendre(lat, ntrunc)` and `specintrp(lon, dat
 | Precision                         | float64/complex128 by default, float32/complex64 when requested.                             |
 | Regular-grid analysis             | Maximum degree `nlat-2`, also bounded by longitude sampling; PySpharm accepts `nlat-1`.      |
 | Scalar outputs at truncation zero | Coefficient and index arrays keep an explicit length-one axis instead of becoming scalars.   |
-| Geodesic coordinates              | Geometry is computed in float64 by default or float32 when requested.                        |
+| Geodesic coordinates              | PySpharm-compatible float32 default, with optional native float64 geometry and coordinates. |
 | Regridding                        | Supports conversion between the two native precision modes.                                  |
 | Input validation                  | Invalid shapes, dtypes, parameter values, and unsupported truncations raise explicit errors. |
 | `getpsichi` at `ntrunc=0`         | Returns two zero maps; the reference raises `IndexError`.                                    |
