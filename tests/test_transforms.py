@@ -507,8 +507,8 @@ def test_gradient_vorticity_potential_and_smoothing(dtype, cdtype, atol):
 
 def test_geodesic_points_and_regrid_precision_conversion():
     for m in range(1, 20):
-        lat, lon = spharm.getgeodesicpts(m)
-        lat32, lon32 = spharm.getgeodesicpts(m, dtype=np.float32)
+        lat, lon = spharm.getgeodesicpts(m, dtype=np.float64)
+        lat32, lon32 = spharm.getgeodesicpts(m)
         assert lat.dtype == lon.dtype == np.float64
         assert lat32.dtype == lon32.dtype == np.float32
         assert lat.shape == lon.shape == (10 * (m - 1) ** 2 + 2,)
@@ -516,7 +516,7 @@ def test_geodesic_points_and_regrid_precision_conversion():
         assert np.all(np.isfinite(lat)) and np.all(np.isfinite(lon))
         assert np.all((-90 <= lat) & (lat <= 90))
         assert np.all((0 <= lon) & (lon <= 360))
-        np.testing.assert_array_equal(lat, spharm.getgeodesicpts(m)[0])
+        np.testing.assert_array_equal(lat, spharm.getgeodesicpts(m, dtype=np.float64)[0])
         np.testing.assert_array_equal(
             lat32, spharm.getgeodesicpts(m, dtype=np.float32)[0]
         )
