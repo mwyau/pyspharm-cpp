@@ -60,7 +60,7 @@ For even `nlon`, the scalar Nyquist order `m=nlon/2` samples `(-1)^j` in longitu
 
 ## Precision, units, and component order
 
-`Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` computes its geometry and returns coordinates in the selected precision, float64 by default.
+`Spharmt` uses float64 maps and complex128 coefficients by default; `dtype=np.float32` selects float32/complex64. Inputs must match the selected precision. `getspecindx` returns NumPy `intp` indices. `getgeodesicpts` computes its geometry and returns coordinates in the selected precision, float32 by default (matching PySpharm), or float64 with `dtype=np.float64`.
 
 `legendre` accepts one latitude or a one-dimensional latitude array and returns packed associated Legendre values. Latitude conversion and trigonometric setup use binary64 before converting once to the selected recurrence type. The recurrence itself uses binary32 for `dtype=np.float32` and binary64 for `dtype=np.float64`. For identical finite latitudes and truncation, each batched row is bitwise identical to the scalar result at the same dtype and build profile.
 
