@@ -23,24 +23,6 @@ namespace SPHARM_CPP_NAMESPACE
 {
 using namespace nanobind::literals;
 
-#if defined(__clang__)
-#define SPHARM_FP_CONTRACT_OFF _Pragma("clang fp contract(off)")
-#define SPHARM_FP_CONTRACT_ON _Pragma("clang fp contract(on)")
-#define SPHARM_FP_CONTRACT_ATTR
-#elif defined(__GNUC__)
-#define SPHARM_FP_CONTRACT_OFF
-#define SPHARM_FP_CONTRACT_ON
-#define SPHARM_FP_CONTRACT_ATTR __attribute__((optimize("fp-contract=off")))
-#elif defined(_MSC_VER)
-#define SPHARM_FP_CONTRACT_OFF __pragma(fp_contract(off))
-#define SPHARM_FP_CONTRACT_ON __pragma(fp_contract(on))
-#define SPHARM_FP_CONTRACT_ATTR
-#else
-#define SPHARM_FP_CONTRACT_OFF
-#define SPHARM_FP_CONTRACT_ON
-#define SPHARM_FP_CONTRACT_ATTR
-#endif
-
 namespace
 {
 
@@ -198,10 +180,8 @@ std::pair<double, double> legendre_recurrence_coefficients(std::size_t l, std::s
   return {a, b};
 }
 
-SPHARM_FP_CONTRACT_OFF
 template <typename T, typename Store>
-SPHARM_FP_CONTRACT_ATTR void legendre_scalar_kernel(T x, T s, T x_delta,
-                                                    std::size_t lmax, Store&& store)
+void legendre_scalar_kernel(T x, T s, T x_delta, std::size_t lmax, Store&& store)
 {
   T diagonal = static_cast<T>(1.0 / std::sqrt(2.0));
   int diagonal_exponent = 0;
@@ -238,7 +218,6 @@ SPHARM_FP_CONTRACT_ATTR void legendre_scalar_kernel(T x, T s, T x_delta,
     for (std::size_t l = 0; l <= lmax; ++l)
       store(l, legendre_m0_near_pole_value(l, x, x_delta));
 }
-SPHARM_FP_CONTRACT_ON
 
 template <typename T>
 NpArr legendre_values(double latitude, std::size_t lmax)
@@ -308,11 +287,11 @@ void legendre_many_scalar_row(T x, T s, T x_delta, std::size_t lmax, std::size_t
   legendre_scalar_kernel(x, s, x_delta, lmax, store);
 }
 
-SPHARM_FP_CONTRACT_OFF
 template <typename T, typename Tv, typename Output>
-SPHARM_FP_CONTRACT_ATTR void legendre_many_vector_block(
-    const std::vector<T>& x, const std::vector<T>& s, const std::vector<T>& x_delta,
-    std::size_t lmax, std::size_t start, std::size_t active_lanes, Output& output)
+void legendre_many_vector_block(const std::vector<T>& x, const std::vector<T>& s,
+                                const std::vector<T>& x_delta, std::size_t lmax,
+                                std::size_t start, std::size_t active_lanes,
+                                Output& output)
 {
   constexpr std::size_t vlen = Tv::size();
   const Tv xv = DUCC0_NAMESPACE::loadu<Tv>(x.data() + start);
@@ -365,7 +344,6 @@ SPHARM_FP_CONTRACT_ATTR void legendre_many_vector_block(
         output.data()[(start + lane) * output.stride(0) + l * output.stride(1)] =
             legendre_m0_near_pole_value(l, x[start + lane], x_delta[start + lane]);
 }
-SPHARM_FP_CONTRACT_ON
 
 template <typename T>
 NpArr legendre_many_values(const std::vector<double>& latitudes, std::size_t lmax)
@@ -588,12 +566,12 @@ Value spectral_value_from_lanes(const std::array<T, N>& values)
 // The scalar API and the point-lane SIMD path share this order and rounding
 // sequence. Angle reduction, phase recurrence, and trigonometry use binary64;
 // coefficient recurrence and accumulation stay in the selected native type.
-SPHARM_FP_CONTRACT_OFF
 template <typename T, typename Value, std::size_t N, typename LongitudeAt,
           typename CoefficientAt, typename LegendreAt, typename Store>
-SPHARM_FP_CONTRACT_ATTR void interpolate_spectral_lanes(
-    std::size_t ntrunc, std::size_t point, const LongitudeAt& longitude_at,
-    const CoefficientAt& coefficient_at, const LegendreAt& legendre_at, Store&& store)
+void interpolate_spectral_lanes(std::size_t ntrunc, std::size_t point,
+                                const LongitudeAt& longitude_at,
+                                const CoefficientAt& coefficient_at,
+                                const LegendreAt& legendre_at, Store&& store)
 {
   std::array<double, N> lon{}, cosine{}, sine{}, cosine_step{}, sine_step{};
   for (std::size_t lane = 0; lane < N; ++lane)
@@ -654,7 +632,6 @@ SPHARM_FP_CONTRACT_ATTR void interpolate_spectral_lanes(
   }
   store(sum);
 }
-SPHARM_FP_CONTRACT_ON
 
 template <typename T, typename CoefficientAt, typename LegendreAt>
 T interpolate_spectral_point(double longitude, std::size_t ntrunc,

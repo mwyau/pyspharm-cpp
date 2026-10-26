@@ -136,6 +136,13 @@ if(SPHARM_CPP_ENABLE_COVERAGE)
     PROPERTIES COMPILE_OPTIONS
       "-O0;-g;--coverage;-fprofile-arcs;-ftest-coverage;-fprofile-abs-path;-fprofile-update=atomic")
 endif()
+# Keep auxiliary scalar and SIMD arithmetic on the same rounding sequence.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  set_property(
+    SOURCE src/cpp/numerics.cpp
+    APPEND PROPERTY COMPILE_OPTIONS
+    "-ffp-contract=off")
+endif()
 
 # These DUCC translation units contain dynamic initialization that can run
 # before CPU dispatch (the thread pool and gridding-kernel database). Keep
