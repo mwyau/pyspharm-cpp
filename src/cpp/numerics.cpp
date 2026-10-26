@@ -31,6 +31,10 @@ using namespace nanobind::literals;
 #define SPHARM_FP_CONTRACT_OFF
 #define SPHARM_FP_CONTRACT_ON
 #define SPHARM_FP_CONTRACT_ATTR __attribute__((optimize("fp-contract=off")))
+#elif defined(_MSC_VER)
+#define SPHARM_FP_CONTRACT_OFF __pragma(fp_contract(off))
+#define SPHARM_FP_CONTRACT_ON __pragma(fp_contract(on))
+#define SPHARM_FP_CONTRACT_ATTR
 #else
 #define SPHARM_FP_CONTRACT_OFF
 #define SPHARM_FP_CONTRACT_ON
@@ -104,7 +108,17 @@ void normalize_legendre_scale(T& previous, T& current, int& exponent)
 template <typename T>
 T restore_legendre_scale(T value, int exponent)
 {
-  return exponent == 0 ? value : std::scalbn(value, exponent);
+  if (exponent == 0)
+    return value;
+  if constexpr (std::is_same_v<T, float>)
+  {
+    // Normalized float values are bounded by 2^120. Scaling those values by
+    // at most 2^-270 cannot reach the least binary32 subnormal; round-to-even
+    // therefore produces a signed zero without calling scalbnf.
+    if (exponent <= -270)
+      return std::copysign(T(0), value);
+  }
+  return std::scalbn(value, exponent);
 }
 
 template <typename T>
