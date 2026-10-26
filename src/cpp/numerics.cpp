@@ -142,8 +142,8 @@ void normalize_legendre_scale(Tv& value, std::array<int, Tv::size()>& exponent)
   {
     T lane_value = value[lane];
     const T lane_magnitude = std::abs(lane_value);
-    if (lane_magnitude <= legendre_scale_high<T>() &&
-        (lane_magnitude == T(0) || lane_magnitude >= legendre_scale_low<T>()))
+    if (!(lane_magnitude > legendre_scale_high<T>() ||
+          (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())))
       continue;
     normalize_legendre_scale(lane_value, exponent[lane]);
     value[lane] = lane_value;
@@ -165,8 +165,8 @@ void normalize_legendre_scale(Tv& previous, Tv& current,
   {
     T lane_previous = previous[lane], lane_current = current[lane];
     const T lane_magnitude = std::max(std::abs(lane_previous), std::abs(lane_current));
-    if (lane_magnitude <= legendre_scale_high<T>() &&
-        (lane_magnitude == T(0) || lane_magnitude >= legendre_scale_low<T>()))
+    if (!(lane_magnitude > legendre_scale_high<T>() ||
+          (lane_magnitude != T(0) && lane_magnitude < legendre_scale_low<T>())))
       continue;
     normalize_legendre_scale(lane_previous, lane_current, exponent[lane]);
     previous[lane] = lane_previous;
