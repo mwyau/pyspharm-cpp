@@ -383,14 +383,14 @@ def getgeodesicpts(
         Number of points per icosahedral edge, including endpoints;
         must be at least 1.
     dtype : numpy dtype, optional
-        float64 (default) or float32 output coordinates.
+        float32 (default, matching PySpharm) or float64 output coordinates.
 
     Returns
     -------
     (latitudes, longitudes) : tuple of ndarray
         Coordinate arrays in degrees with 10 * (m - 1)**2 + 2 points.
-        Geometry is computed in the selected precision: float64 by default
-        or float32 when requested.
+        Geometry is computed in the selected precision: float32 by default
+        or float64 when requested.
     """
 
 @overload
