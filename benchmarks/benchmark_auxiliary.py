@@ -7,11 +7,13 @@ from __future__ import annotations
 import argparse
 import csv
 import gc
+import hashlib
 import json
 import math
 import os
 import platform
 import statistics
+import subprocess
 import time
 from pathlib import Path
 
@@ -28,6 +30,66 @@ OPERATIONS = (
     "specintrp_batched",
 )
 MAX_WORKING_SET = 256 * 1024**2
+
+
+def source_sha() -> str:
+    configured = os.environ.get("SPHARM_CPP_BENCHMARK_SOURCE_SHA")
+    if configured:
+        return configured
+    repository = Path(__file__).resolve().parents[1]
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        diff = subprocess.check_output(
+            ["git", "diff", "--binary", "HEAD"],
+            cwd=repository,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    if diff:
+        return f"{revision}+dirty:{hashlib.sha256(diff).hexdigest()[:12]}"
+    return revision
+
+
+def cpu_model() -> str:
+    cpuinfo = Path("/proc/cpuinfo")
+    if cpuinfo.is_file():
+        for line in cpuinfo.read_text(encoding="utf-8").splitlines():
+            if line.lower().startswith("model name"):
+                return line.split(":", 1)[1].strip()
+    return platform.processor() or "unknown"
+
+
+def cpu_quota_cores() -> float | None:
+    cpu_max = Path("/sys/fs/cgroup/cpu.max")
+    if not cpu_max.is_file():
+        return None
+    quota, period = cpu_max.read_text(encoding="utf-8").split()
+    if quota == "max":
+        return None
+    return int(quota) / int(period)
+
+
+def cpu_affinity() -> list[int] | None:
+    if not hasattr(os, "sched_getaffinity"):
+        return None
+    return sorted(os.sched_getaffinity(0))
+
+
+def compiler_version() -> str:
+    compiler = os.environ.get("CXX", "c++")
+    try:
+        result = subprocess.run(
+            [compiler, "--version"], capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unavailable"
+    return result.stdout.splitlines()[0] if result.stdout else "unknown"
 
 
 def measure(callback, warmups: int, repeats: int) -> tuple[float, float]:
@@ -49,6 +111,8 @@ def main() -> None:
     parser.add_argument("--threads", type=int, required=True, choices=(1, 2, 4))
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=7)
+    parser.add_argument("--case", choices=tuple(case[0] for case in CASES))
+    parser.add_argument("--operation", choices=OPERATIONS)
     args = parser.parse_args()
     if args.warmups < 1 or args.repeats < 3:
         parser.error("warmups >= 1; repeats >= 3")
@@ -58,7 +122,15 @@ def main() -> None:
     import spharm_cpp
 
     metadata = {
+        "source_sha": source_sha(),
+        "compiler": os.environ.get("CXX", "c++"),
+        "compiler_version": compiler_version(),
+        "cpu_model": cpu_model(),
+        "cpu_affinity": cpu_affinity(),
+        "cpu_quota_cores": cpu_quota_cores(),
         "threads": args.threads,
+        "case": args.case or "all",
+        "operation": args.operation or "all",
         "platform": platform.platform(),
         "python": platform.python_version(),
         "cpu_info": spharm_cpp.cpu_info(),
@@ -85,6 +157,8 @@ def main() -> None:
         writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
         for case, points, lmax in CASES:
+            if args.case is not None and case != args.case:
+                continue
             latitudes = np.linspace(-90.0, 90.0, points, dtype=np.float64)
             longitudes = np.linspace(-720.0, 720.0, points, dtype=np.float64)
             ncoeff = (lmax + 1) * (lmax + 2) // 2
@@ -123,6 +197,8 @@ def main() -> None:
                     ),
                 }
                 for operation in OPERATIONS:
+                    if args.operation is not None and operation != args.operation:
+                        continue
                     median, p90 = measure(
                         callbacks[operation], args.warmups, args.repeats
                     )

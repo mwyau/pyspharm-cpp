@@ -130,8 +130,8 @@ The current scalar and batched implementations are bitwise identical at each
 tested dtype and thread count. The ratios above therefore compare equivalent
 outputs. Independent accuracy checks remain separate from these timing tests.
 
-For the one-thread `small-high` case (16 points, `lmax` 1024), the measured
-before/after medians in milliseconds were:
+The previously recorded full-harness `small-high` measurements (16 points,
+`lmax` 1024) were:
 
 | dtype | Operation | Before | After |
 | --- | --- | ---: | ---: |
@@ -144,13 +144,81 @@ before/after medians in milliseconds were:
 | float64 | Interpolation scalar | 7.742 | 5.908 |
 | float64 | Interpolation batched | 3.520 | 3.517 |
 
-The float32 scalar Legendre kernel now performs its recurrence in binary32;
-the previous scalar kernel performed that recurrence in binary64 and narrowed
-the result. Its 64% increase in this high-degree case is the cost of using the
-selected native precision. The batched float32 Legendre time changed by 2%;
-float64 Legendre times were within 4% of baseline. Interpolation ranged from
-36% faster to 4% slower in the measured cases. These results apply to this
-processor, profile, thread count, and input set.
+The float32 scalar Legendre kernel now performs its recurrence in binary32.
+Before the precision correction, `legendre_values<float>` called the templated
+kernel with `std::sin(phi)` and `std::cos(phi)`, both `double`, so template
+deduction selected a binary64 recurrence and storage narrowed its results. The
+current code explicitly converts the shared binary64 angle setup to `T` and
+calls `legendre_scalar_kernel<T>`. The historical before/after comparison
+therefore measures different arithmetic and does not establish equivalent
+float32 outputs. The independent accuracy tests validate the native-precision
+result separately.
+
+### Native float32 Legendre scaling cost
+
+Profiling of one scalar `legendre(78°, 1024, dtype=float32)` call found
+481,663 `scalbnf` calls in the unoptimized native-float implementation. Of
+those, 286,367 had a scale exponent at or below -270 and returned signed zero.
+The recurrence normalization keeps each restored value at or below 2^120, so
+these results are at most 2^-150 in magnitude and round to signed zero under
+the default round-to-nearest mode. `restore_legendre_scale` now returns that
+signed zero directly. This changes neither the recurrence nor its precision;
+values above the cutoff still use `scalbnf`.
+
+The focused stage benchmark used the existing `small-high` workload and timed
+only its scalar Legendre operation. Each process used two warmups and nine
+samples; three independent processes per implementation ran pinned to CPUs
+0–3 in alternating order. Values report the median of the three process
+medians; brackets give their range:
+
+| Implementation | float32 median | vs. legacy | float64 median |
+| --- | ---: | ---: | ---: |
+| Legacy scalar recurrence (`dc11c38`) | 65.445 ms [64.880, 68.591] | — | 73.001 ms [71.622, 79.868] |
+| Native float32 before cutoff (`fd32e26`) | 103.455 ms [97.929, 104.062] | +58.1% | 77.134 ms [72.291, 79.381] |
+| Native float32 with cutoff | 72.279 ms [72.153, 77.088] | +10.4% | 75.886 ms [73.135, 78.200] |
+
+The cutoff reduced the native-float scalar time by 30.1% versus its parent.
+It recovered most, but not all, of the difference from the former binary64
+recurrence. The float64 differences are within the observed process spread;
+this change does not alter the float64 kernel. The per-process measurements
+and metadata are in
+[`auxiliary-legendre-stage-comparison.csv`](auxiliary-legendre-stage-comparison.csv).
+
+The high-degree result comes from the same native-float source except for the
+zero shortcut. A separate Callgrind run, started after Python imports, counted
+61.6 million instructions for the unoptimized native-float scalar call and
+43.9 million with the shortcut; the old binary64 implementation counted
+44.0 million. The unoptimized profile attributed 26.1 million instructions
+(42.4%) to `scalbnf`; the optimized profile attributed 9.8 million (22.4%).
+This supports repeated float32 scale restoration as the main avoidable cost.
+The complete benchmark harness showed large shifts in operations unchanged by
+this source edit, so its before/after timings are too noisy to support a
+whole-harness speedup claim. The
+[`auxiliary-precision-comparison.csv`](auxiliary-precision-comparison.csv)
+retains those measurements for transparency: three processes at one, two, and
+four threads across the four existing workloads, both dtypes, and all four
+operations. It includes source revision, compiler, active dispatch, CPU
+affinity, cgroup quota, warmups, repetitions, median, and p90. The focused
+scalar stage benchmark is the performance evidence for this optimization.
+
+The measurements used GCC 15.2.0, the `multiarch` build with active
+`x86-64-v3`, an AMD Ryzen 9 5950X, and four pinned CPUs (0–3), with no cgroup
+CPU quota. They used CPython 3.11.15, NumPy 1.26.4, and one thread for the
+focused stage benchmark. Its source identifiers are `dc11c38` (the previous
+binary64 scalar recurrence), `fd32e26` (native float32 before the cutoff), and
+`fd32e26` plus `src/cpp/numerics.cpp` blob
+`cbddac632cc12df7a273a38cb089a347b188546e` (native float32 with the cutoff).
+The full-harness comparison CSV preserves its earlier candidate snapshot,
+`ece8cd6505799a07f82ebc61be2b2c82a8cf521f`. x86-64-v4 was compiled but
+unavailable on this host. Benchmark runs record source revision, compiler,
+CPU, affinity, dispatch profile, thread count, warmups, and repetitions in
+`BENCHMARK_METADATA`.
+
+The focused exact-bit and accuracy tests passed for portable, x86-64, and
+x86-64-v3 builds with one, two, and four DUCC threads. The full test suite
+passed 161 tests, and the PySpharm parity suite passed 39 tests with 18 passes,
+11 accepted differences, and no failures or blocked cases. Windows, macOS, and
+x86-64-v4 execution were unavailable locally.
 
 ## Run benchmarks
 
@@ -201,6 +269,17 @@ Measure the auxiliary kernels in one, two, and four-thread processes:
         benchmarks/benchmark_auxiliary.py --threads "$threads" \
         --warmups 2 --repeats 7 --output "/tmp/auxiliary-$threads.csv"
     done
+
+Select the existing high-truncation scalar Legendre workload to measure that
+stage without timing the other operations:
+
+    conda run --no-capture-output -n pyspharm-reference python \
+      benchmarks/benchmark_auxiliary.py --threads 1 --warmups 2 --repeats 9 \
+      --case small-high --operation legendre_scalar \
+      --output /tmp/auxiliary-legendre-stage.csv
+
+The optional `--case` and `--operation` filters select existing workloads;
+without them the benchmark still runs every case and operation.
 
 The figures can also be regenerated directly from the committed CSV:
 
