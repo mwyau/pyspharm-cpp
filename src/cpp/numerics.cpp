@@ -687,7 +687,9 @@ void interpolate_spectral_block(const std::vector<double>& longitudes,
   const auto coefficient_at = [&](std::size_t idx) { return coefficients(idx); };
   const auto legendre_at = [&](std::size_t row, std::size_t idx)
   {
-    std::array<T, vlen> values{};
+    // Use the SIMD type's constant lane count directly: MSVC does not treat
+    // the enclosing function's local constexpr as constant within this lambda.
+    std::array<T, Tv::size()> values{};
     for (std::size_t lane = 0; lane < vlen; ++lane)
       values[lane] = legendre(row + lane, idx);
     return DUCC0_NAMESPACE::loadu<Tv>(values.data());
