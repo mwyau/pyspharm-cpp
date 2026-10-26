@@ -963,7 +963,7 @@ ndarray
         if (m < 1)
           throw py::value_error("m must be at least 1");
         if (dtype.is_none())
-          dtype = py::module_::import_("numpy").attr("float64");
+          dtype = py::module_::import_("numpy").attr("float32");
         const auto name = py::cast<std::string>(
             py::module_::import_("numpy").attr("dtype")(dtype).attr("name"));
         if (name == "float32")
@@ -991,14 +991,14 @@ m : int
     Number of points per icosahedral edge, including endpoints;
     must be at least 1.
 dtype : numpy dtype, optional
-    float64 (default) or float32 output coordinates.
+    float32 by default, matching PySpharm, or float64 when requested.
 
 Returns
 -------
 (latitudes, longitudes) : tuple of ndarray
     Coordinate arrays in degrees with 10 * (m - 1)**2 + 2 points.
-    Geometry is computed in the selected precision: float64 by default
-    or float32 when requested.)doc");
+    Geometry is computed in the selected precision: float32 by default
+    or float64 when requested.)doc");
 
   m.def(
       "specintrp",
