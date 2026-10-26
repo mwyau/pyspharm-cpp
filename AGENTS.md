@@ -61,7 +61,8 @@ the batch optimizations documented below.
 - `getgeodesicpts` has a scalar size argument and returns arrays; it has no
   scalar-versus-batch overload. Its `dtype` still selects **native**
   `float32` or `float64` geometric computation and output, rather than
-  always computing binary64 coordinates then casting. Validate geodesic
+  always computing binary64 coordinates then casting. Match PySpharm's float32
+  default; keep explicit `dtype=np.float64` as an extension. Validate geodesic
   geometry and ordering against independent references at appropriate
   dtype-specific tolerances; do not require its float32 values to equal
   float64 values narrowed to float32. Keep its public signature and point
