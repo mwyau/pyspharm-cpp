@@ -57,6 +57,26 @@ def test_geodesic_precision_and_ordering(m):
         np.testing.assert_allclose(xyz_norm, 1.0, rtol=0, atol=tolerance)
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("m", [1, 2, 32, 128])
+def test_geodesic_output_buffers_are_independent(dtype, m):
+    latitudes, longitudes = spharm.getgeodesicpts(m, dtype=dtype)
+    assert latitudes.flags.c_contiguous and longitudes.flags.c_contiguous
+    assert latitudes.flags.writeable and longitudes.flags.writeable
+    assert not np.shares_memory(latitudes, longitudes)
+
+    # Ensure all entries were written deterministically, including poles.
+    latitudes_again, longitudes_again = spharm.getgeodesicpts(m, dtype=dtype)
+    bits = np.uint32 if dtype == np.float32 else np.uint64
+    np.testing.assert_array_equal(latitudes.view(bits), latitudes_again.view(bits))
+    np.testing.assert_array_equal(longitudes.view(bits), longitudes_again.view(bits))
+
+    # Modifying one returned array must not affect the other.
+    expected_longitudes = longitudes.copy()
+    latitudes[:] = 0
+    np.testing.assert_array_equal(longitudes, expected_longitudes)
+
+
 def test_constructor_and_regular_analysis_limit():
     t = spharm.Spharmt(16, 9, 2.0, "regular", "computed")
     assert t.dtype == "float64"
