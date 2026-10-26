@@ -30,8 +30,11 @@ def test_auxiliary_overloads_replace_many_exports():
 
 @pytest.mark.parametrize("m", [1, 2, 4, 10, 20])
 def test_geodesic_precision_and_ordering(m):
-    latitude64, longitude64 = spharm.getgeodesicpts(m)
-    latitude32, longitude32 = spharm.getgeodesicpts(m, dtype=np.float32)
+    latitude64, longitude64 = spharm.getgeodesicpts(m, dtype=np.float64)
+    latitude32, longitude32 = spharm.getgeodesicpts(m)
+    explicit32, explicit_lon32 = spharm.getgeodesicpts(m, dtype=np.float32)
+    np.testing.assert_array_equal(latitude32.view(np.uint32), explicit32.view(np.uint32))
+    np.testing.assert_array_equal(longitude32.view(np.uint32), explicit_lon32.view(np.uint32))
     expected_count = 10 * (m - 1) ** 2 + 2
     assert latitude64.shape == longitude64.shape == (expected_count,)
     assert latitude32.shape == longitude32.shape == (expected_count,)
