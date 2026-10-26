@@ -614,11 +614,10 @@ def test_spectral_indices_match_numpy_native_reference_order():
 
 
 @pytest.mark.contract("getgeodesicpts")
-@pytest.mark.approved_difference("geodesic_float64_default")
 def test_geodesic_float32_native_geometry_and_order():
     for m in (1, 2, 3, 4, 6, 10, 20):
         expected_lat, expected_lon = parity.REFERENCE.getgeodesicpts(m)
-        actual_lat, actual_lon = cpp.getgeodesicpts(m, dtype=np.float32)
+        actual_lat, actual_lon = cpp.getgeodesicpts(m)
         assert actual_lat.shape == actual_lon.shape == (10 * (m - 1) ** 2 + 2,)
         assert actual_lat.dtype == actual_lon.dtype == np.float32
         assert expected_lat.shape == expected_lon.shape == actual_lat.shape
@@ -657,7 +656,7 @@ def test_geodesic_float32_native_geometry_and_order():
         )
 
     for m in (2, 3, 10, 20):
-        lat64, lon64 = cpp.getgeodesicpts(m)
+        lat64, lon64 = cpp.getgeodesicpts(m, dtype=np.float64)
         assert lat64.shape == lon64.shape == (10 * (m - 1) ** 2 + 2,)
         assert lat64.dtype == lon64.dtype == np.float64
         assert (lat64[0], lat64[1], lon64[0], lon64[1]) == (90.0, -90.0, 0.0, 0.0)
@@ -670,7 +669,7 @@ def test_geodesic_float32_native_geometry_and_order():
         )
         np.testing.assert_allclose(norms, 1.0, rtol=0, atol=4e-16)
 
-    lat64, lon64 = cpp.getgeodesicpts(2)
+    lat64, lon64 = cpp.getgeodesicpts(2, dtype=np.float64)
     expected_vertex_latitude = math.degrees(math.asin(1 / math.sqrt(5)))
     np.testing.assert_allclose(
         np.abs(lat64[2:]), expected_vertex_latitude, rtol=0, atol=5e-13
