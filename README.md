@@ -52,7 +52,7 @@ np.testing.assert_allclose(reconstructed, field, atol=2e-12, rtol=2e-12)
 - **Legendre functions:** `legfunc="computed"` is the default. Stored Legendre functions (`legfunc="stored"`) are not supported.
 - **Batched interpolation:** `legendre` and `specintrp` also accept one-dimensional coordinate arrays, using overloads of the original scalar functions.
 - **Truncation:** Clenshaw–Curtis analysis supports degrees through `min(nlat-2, nlon//2)`; Gaussian analysis through `min(nlat-1, nlon//2)`. Vector analysis excludes the even-longitude Nyquist order.
-- **Other differences:** zero truncation, geodesic coordinate precision, index dtype, and mixed-precision regridding are documented in the [PySpharm comparison](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/pyspharm-compatibility.md).
+- **Other differences:** zero truncation, optional float64 geodesic coordinates, index dtype, and mixed-precision regridding are documented in the [PySpharm comparison](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/pyspharm-compatibility.md).
 
 See [numerical conventions](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/conventions.md) for coefficient ordering and normalization, and the [quickstart](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/quickstart.md) and [API reference](https://github.com/mwyau/pyspharm-cpp/blob/main/docs/api.md) for usage.
 
